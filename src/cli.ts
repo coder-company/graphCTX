@@ -353,6 +353,29 @@ program
   });
 
 program
+  .command("tui")
+  .description("interactive terminal UI: dashboard, control panel, live monitor")
+  .option("-C, --cwd <dir>", "workspace directory", process.cwd())
+  .option("--tab <tab>", "initial tab: dashboard | control | monitor", "dashboard")
+  .action(async (opts) => {
+    const { TuiApp } = await import("./tui/app.js");
+    const tab = ["dashboard", "control", "monitor"].includes(opts.tab) ? opts.tab : "dashboard";
+    const app = new TuiApp(opts.cwd, tab);
+    await app.run();
+  });
+
+program
+  .command("compare")
+  .description("benchmark graphCTX vs Supermemory (multi-axis; --live for API bake-off)")
+  .option("--live", "run the live API bake-off (requires SUPERMEMORY_API_KEY)", false)
+  .action(async (opts) => {
+    const { runBenchmark, formatReport } = await import("./bench/compare.js");
+    if (opts.live) process.stdout.write("running live bake-off (ingest + index wait ~12s)…\n");
+    const report = await runBenchmark({ live: opts.live });
+    process.stdout.write(`${formatReport(report)}\n`);
+  });
+
+program
   .command("bench")
   .description("measure hook hot-path latency (SPEC §24: < 150ms p95)")
   .option("--repo <dir>", "fixture repo to bench", "fixtures/repo-pnpm-web")
