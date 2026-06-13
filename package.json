@@ -7,10 +7,19 @@
   "bin": {
     "graphctx": "dist/cli.js"
   },
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "scripts": {
-    "build": "echo \"TODO: build\" && exit 0",
-    "dev": "echo \"TODO: dev\" && exit 0",
-    "test": "echo \"TODO: tests\" && exit 0"
+    "build": "tsc -p tsconfig.json && node -e \"require('fs').cpSync('src/store/migrations','dist/store/migrations',{recursive:true})\"",
+    "dev": "tsx src/cli.ts",
+    "graphctx": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src test",
+    "lint:fix": "biome check --write src test",
+    "format": "biome format --write src test"
   },
   "keywords": [
     "mcp",
@@ -25,5 +34,27 @@
   "author": "coder-company",
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "commander": "^13.1.0",
+    "gpt-tokenizer": "^2.8.1",
+    "simple-git": "^3.27.0",
+    "ulid": "^2.3.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "allowScripts": {
+    "@biomejs/biome@1.9.4": true,
+    "better-sqlite3@11.10.0": true,
+    "esbuild@0.28.1": true,
+    "esbuild@0.21.5": true
   }
 }
