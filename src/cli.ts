@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Command } from "commander";
 import { handleHook } from "./adapters/claude-code/hooks.js";
@@ -193,10 +194,65 @@ program
     const isRepo = await rt.git.isRepo();
     const factCount = rt.facts.all({ user_id: rt.userId, workspace_id: rt.workspaceId }).length;
     const hooks = existsSync(join(rt.workspaceDir, ".claude", "settings.json"));
+    const ready = hooks && factCount > 0;
+    const verdict = ready
+      ? "READY ✅ — hooks installed and memory populated; push is live."
+      : !hooks
+        ? "NOT READY ❌ — run `graphctx install` to wire the hooks."
+        : "NOT READY ❌ — no facts yet; run `graphctx extract`.";
     process.stdout.write(
-      `graphctx doctor\n  workspace: ${rt.workspaceDir}\n  db: ${rt.loaded.paths.workspaceDb} (ok)\n  git repo: ${isRepo ? "yes" : "no"}\n  facts stored: ${factCount}\n  claude hooks: ${hooks ? "installed" : "not installed"}\n`,
+      `graphctx doctor\n  workspace: ${rt.workspaceDir}\n  db: ${rt.loaded.paths.workspaceDb} (ok)\n  git repo: ${isRepo ? "yes" : "no (anchors degrade gracefully)"}\n  facts stored: ${factCount}\n  claude hooks: ${hooks ? "installed" : "not installed"}\n\n  ${verdict}\n`,
     );
     rt.close();
+  });
+
+program
+  .command("demo")
+  .description("one-command, offline demo setup (push beats pull, live)")
+  .option("--dir <dir>", "scratch demo directory", join(tmpdir(), "graphctx-demo"))
+  .action(async (opts) => {
+    const { setupDemo, DEMO_DEPLOY_CMD } = await import("./adapters/claude-code/demo.js");
+    const r = await setupDemo(opts.dir);
+    const ask =
+      "What is the exact deploy command for this project? Output it verbatim on one line. Do not read files or run tools.";
+    process.stdout.write(
+      [
+        "",
+        "graphctx demo — ready ✅  (offline, no network)",
+        "=".repeat(70),
+        `  demo repo:        ${r.demoDir}`,
+        `  hook invocation:  ${r.binInvocation}`,
+        `  facts in memory:  ${r.factCount}  (incl. an unfindable deploy command)`,
+        "",
+        "The deploy command lives ONLY in graphCTX's store — it is in NO repo file.",
+        "AGENTS.md was removed, so the SessionStart hook is the ONLY way an agent",
+        "can learn it. That isolates the push channel.",
+        "",
+        "STEP 1 — WITHOUT graphCTX (negative control): the agent cannot know it",
+        "-".repeat(70),
+        `  cd ${r.demoDir}-bare 2>/dev/null || (cp -r ${r.demoDir} ${r.demoDir}-bare && rm -rf ${r.demoDir}-bare/.graphctx ${r.demoDir}-bare/.claude)`,
+        `  cd ${r.demoDir}-bare`,
+        `  echo ${JSON.stringify(ask)} | claude -p --permission-mode bypassPermissions`,
+        "  → expect: \"I don't know it / it's fresh to me\"",
+        "",
+        "STEP 2 — WITH graphCTX (push): the SessionStart hook supplies it",
+        "-".repeat(70),
+        `  cd ${r.demoDir}`,
+        `  echo ${JSON.stringify(ask)} | claude -p --permission-mode bypassPermissions`,
+        `  → expect: ${DEMO_DEPLOY_CMD}`,
+        "",
+        "Same agent, same prompt — only difference is the graphCTX hook push.",
+        "",
+        "Inspect the exact capsule the hook emits:",
+        `  echo '{"session_id":"s","cwd":"${r.demoDir}"}' | graphctx hook PostCompact -C ${r.demoDir}`,
+        "",
+        "Capsule preview (what the agent receives):",
+        ...r.capsulePreview.split("\n").map((l) => `  | ${l}`),
+        "",
+        "Backup evidence (numbers): graphctx eval run --arms A,B,C,N,S",
+        "",
+      ].join("\n"),
+    );
   });
 
 program
