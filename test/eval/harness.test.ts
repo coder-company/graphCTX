@@ -12,4 +12,19 @@ describe("compaction-recovery eval (M0 gate)", () => {
     expect(c.postCompactSolveRate).toBeGreaterThan(b.postCompactSolveRate);
     expect(c.repeatedFailedCommands).toBeLessThan(b.repeatedFailedCommands);
   }, 30000);
+
+  it("N (negative-control): push delivers a fact present in NO repo file", async () => {
+    const report = await runEval({ suite: "compaction-recovery", arms: ["N"] });
+    const n = report.controls.find((c) => c.arm === "N")!;
+    expect(n.repos).toBeGreaterThan(0);
+    // every repo must deliver the memory-only fact AND have it absent from files
+    expect(n.passed).toBe(n.repos);
+  }, 30000);
+
+  it("S (stale-fact): graphCTX suppresses an invalidated fact (I4)", async () => {
+    const report = await runEval({ suite: "compaction-recovery", arms: ["S"] });
+    const s = report.controls.find((c) => c.arm === "S")!;
+    expect(s.repos).toBeGreaterThan(0);
+    expect(s.passed).toBe(s.repos); // never inject the stale fact
+  }, 30000);
 });

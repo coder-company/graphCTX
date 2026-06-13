@@ -204,7 +204,11 @@ program
   .argument("<sub>", "subcommand: run")
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
-  .option("--arms <arms>", "comma-separated arms", "A,B,C")
+  .option(
+    "--arms <arms>",
+    "comma-separated arms (A,B,C solve; N,S integrity controls)",
+    "A,B,C,N,S",
+  )
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
   .action(async (sub, opts) => {
     if (sub !== "run") fail(`unknown eval subcommand "${sub}"`);

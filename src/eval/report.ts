@@ -44,6 +44,24 @@ export function formatReport(report: EvalReport): string {
   }
   lines.push("");
 
+  // Integrity controls (N / S) — the defensible-evidence section.
+  if (report.controls.length > 0) {
+    lines.push("Integrity controls (guard against a tautological eval):");
+    lines.push("-".repeat(72));
+    for (const ctrl of report.controls) {
+      const label =
+        ctrl.arm === "N"
+          ? "N · negative-control (push delivers an unfindable fact)"
+          : "S · stale-fact (graphCTX suppresses an invalid fact)";
+      const ok = ctrl.passed === ctrl.repos;
+      lines.push(`  ${label}`);
+      lines.push(
+        `      ${ctrl.passed}/${ctrl.repos} repos  → ${ok ? "PASS" : "FAIL"}   (${ctrl.detail})`,
+      );
+    }
+    lines.push("");
+  }
+
   // M0 gate verdict.
   const b = find(report.arms, "B");
   const c = find(report.arms, "C");
@@ -64,6 +82,10 @@ export function formatReport(report: EvalReport): string {
         ? "  VERDICT: ✅ PUSH BEATS PULL — M0 thesis validated."
         : "  VERDICT: ❌ gate not met — rethink the thesis.",
     );
+    lines.push("");
+    lines.push("  NOTE: the A/B/C solve gap shows push reliably DELIVERS what pull leaves to");
+    lines.push("  chance. The N control is the honest headline: push supplies a fact the agent");
+    lines.push("  provably cannot read from files. The S control shows we don't blindly recall.");
   }
   lines.push("");
   return `${lines.join("\n")}\n`;
