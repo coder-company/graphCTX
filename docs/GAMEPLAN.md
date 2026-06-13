@@ -9,7 +9,7 @@
 | **Status** | Living document |
 | **Last updated** | 2026-06-13 |
 | **Owner** | coder-company |
-| **Companion docs** | [PRD.md](PRD.md) |
+| **Companion docs** | [PRD.md](PRD.md) · [SPEC.md](SPEC.md) · [INFRASTRUCTURE.md](INFRASTRUCTURE.md) |
 
 ---
 
@@ -555,6 +555,11 @@ Hosted/cloud sync · team graphs · multi-tenancy · full graph DB / multi-hop t
 | D14 | **Repo prose ranks BELOW user profile in precedence** | Only structured repo evidence is high-trust |
 | D15 | **Added third tier: global User graph (static+dynamic)** | Cross-project preferences need their own scope |
 | D16 | **Name: graphCTX; org: coder-company; private repo** | — |
+| D17 | **Local-first default; cloud opt-in via `StorageBackend` interface** | Preserve M0 simplicity + adoption; extend, don't pivot (see INFRASTRUCTURE.md) |
+| D18 | **Cloudflare = edge serving + coordination** (D1, Durable Objects, Vectorize, Queues, Workers, R2/KV, Workers AI) | DO-per-workspace solves parallel-session conflict; remote MCP removes install friction |
+| D19 | **Supabase = durable team data + identity** (Postgres/pgvector, Auth, RLS, Realtime) | Auth → stable `user_id` (cross-session identity); RLS isolation; Realtime team sync |
+| D20 | **Per-workspace Durable Object = single-writer authority** in synced tiers | Clean ordering + optimistic concurrency without distributed locks |
+| D21 | **Cloud work begins only after M0 gate passes** | Don't build infra for an unvalidated thesis |
 
 ---
 
