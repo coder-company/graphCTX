@@ -44,6 +44,12 @@ export function containsSecret(text: string): boolean {
   return scanSecrets(text).length > 0;
 }
 
+// Classify a fact's text content; returns "secret" when any pattern matches so
+// the caller can stamp sensitivity at write time (I3, M1 §6).
+export function sensitivityForText(text: string): "secret" | "unknown" {
+  return containsSecret(text) ? "secret" : "unknown";
+}
+
 function shannonEntropy(s: string): number {
   const freq = new Map<string, number>();
   for (const ch of s) freq.set(ch, (freq.get(ch) ?? 0) + 1);

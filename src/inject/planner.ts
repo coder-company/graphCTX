@@ -1,9 +1,11 @@
 import type { Capsule, ConflictNote, InjectionContext, ScoredFact } from "../core/types.js";
+import type { Fact } from "../core/types.js";
 import type { Git } from "../git/git.js";
 import { EMPTY_CAPSULE, renderCapsule } from "../render/capsule.js";
 import { renderCard } from "../render/cards.js";
 import { Retriever } from "../retrieve/retriever.js";
 import type { VectorIndex } from "../retrieve/vectors.js";
+import { containsSecret } from "../security/secrets.js";
 import type { FactsRepo } from "../store/facts.repo.js";
 import type { InjectionsRepo } from "../store/injections.repo.js";
 import { type BudgetConfig, resolveBudget, selectByBudget } from "./budget.js";
@@ -45,8 +47,12 @@ export class InjectionPlanner {
     // I4: verify perishable facts synchronously; drop those whose target is gone.
     const verified = scored.filter((s) => verifyBeforeInject(s.fact, this.deps.workspaceDir));
 
+    // I3: secret guard — never inject a fact classified as secret/credential or
+    // whose rendered content trips the secret scanner (defense in depth pre-send).
+    const safe = verified.filter((s) => !isSecretBearing(s.fact));
+
     // anti-repetition (cross-channel idempotency within a session)
-    const deduped = this.ledger.removeRecentlyInjected(verified, ctx.scope.session_id);
+    const deduped = this.ledger.removeRecentlyInjected(safe, ctx.scope.session_id);
 
     const { selected, omitted } = selectByBudget(
       deduped,
@@ -79,6 +85,14 @@ export class InjectionPlanner {
 
     return capsule;
   }
+}
+
+// I3 secret guard. A fact is secret-bearing if it is classified secret/credential
+// or its rendered content trips the scanner (defense in depth at the send edge).
+function isSecretBearing(fact: Fact): boolean {
+  if (fact.sensitivity === "secret" || fact.sensitivity === "credential") return true;
+  const obj = typeof fact.object === "string" ? fact.object : JSON.stringify(fact.object);
+  return containsSecret(`${fact.subject} ${fact.predicate} ${obj} ${fact.source.raw_quote ?? ""}`);
 }
 
 // Minimal conflict detection (M0): contradictory objects for the same

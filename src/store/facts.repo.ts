@@ -9,6 +9,7 @@ import type {
   ScopeFilter,
   ScoredFact,
 } from "../core/types.js";
+import { sensitivityForText } from "../security/secrets.js";
 import type { DB } from "./db.js";
 
 interface FactRow {
@@ -156,6 +157,15 @@ export class FactsRepo {
     const promotion_state = input.promotion_state ?? "session_only";
     const ftsText = `${input.subject} ${input.predicate} ${stringifyObject(input.object)} ${input.source.raw_quote ?? ""}`;
     const tags = input.tags ?? [];
+    // I3 defense-in-depth: stamp sensitivity=secret at write time if the content
+    // looks like a secret, unless the caller already classified it. Secrets are
+    // then excluded from promotion (gates) and injection (capsule guard).
+    const sensitivity =
+      input.sensitivity && input.sensitivity !== "unknown"
+        ? input.sensitivity
+        : sensitivityForText(ftsText) === "secret"
+          ? "secret"
+          : (input.sensitivity ?? "unknown");
 
     this.db
       .prepare(
@@ -184,7 +194,7 @@ export class FactsRepo {
         status,
         promotion_state,
         trust_tier: input.trust_tier,
-        sensitivity: input.sensitivity ?? "unknown",
+        sensitivity,
         confidence: input.confidence ?? 0.5,
         evidence_count: input.evidence_count ?? 1,
         t_created: now,
