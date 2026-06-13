@@ -1,0 +1,29 @@
+{
+  "name": "graphctx",
+  "version": "0.0.0",
+  "description": "A local-first memory control plane for coding agents — pushes commit-valid, scope-aware context into AI coding agents at the moments they drift.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "graphctx": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "echo \"TODO: build\" && exit 0",
+    "dev": "echo \"TODO: dev\" && exit 0",
+    "test": "echo \"TODO: tests\" && exit 0"
+  },
+  "keywords": [
+    "mcp",
+    "ai-agents",
+    "memory",
+    "knowledge-graph",
+    "temporal",
+    "coding-agents",
+    "claude-code",
+    "context"
+  ],
+  "author": "coder-company",
+  "engines": {
+    "node": ">=20"
+  }
+}
