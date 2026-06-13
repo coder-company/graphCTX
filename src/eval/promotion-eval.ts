@@ -29,7 +29,7 @@ const PRECISION_GATE = 0.9;
 
 // M1 exit gate: workspace-promotion precision >= 90% with zero secret/task_state
 // leakage. Inserts a labeled fact set, runs the real probation sweep, and scores.
-export function runPromotionEval(): PromotionEvalReport {
+export async function runPromotionEval(): Promise<PromotionEvalReport> {
   const dir = mkdtempSync(join(tmpdir(), "graphctx-promo-"));
   try {
     const rt = new Runtime({ workspaceDir: dir, userId: "eval-user" });
@@ -45,7 +45,7 @@ export function runPromotionEval(): PromotionEvalReport {
       return { c, factId: fact.fact_id };
     });
 
-    const sweep = rt.runPromotionSweep();
+    const sweep = await rt.runPromotionSweep();
     const decisionByFact = new Map(sweep.decisions.map((d) => [d.fact_id, d.decision]));
 
     const rows: PromotionEvalReport["rows"] = [];

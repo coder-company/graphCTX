@@ -285,7 +285,7 @@ program
   .action(async (sub, opts) => {
     if (sub === "promote") {
       const { runPromotionEval, formatPromotionReport } = await import("./eval/promotion-eval.js");
-      const report = runPromotionEval();
+      const report = await runPromotionEval();
       process.stdout.write(formatPromotionReport(report));
       if (!report.pass) process.exitCode = 1;
       return;

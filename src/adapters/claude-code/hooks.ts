@@ -81,7 +81,7 @@ export async function handleHook(
   // 2b. On SessionEnd, run the promotion sweep (session → workspace, hard gates).
   if (event === "SessionEnd") {
     try {
-      rt.runPromotionSweep(sessionId);
+      await rt.runPromotionSweep(sessionId);
     } catch {
       // I9 — promotion must never break the agent
     }

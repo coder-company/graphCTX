@@ -134,7 +134,7 @@ export class Runtime {
   }
 
   // Promotion engine (M1 §3). Hard-gated session→workspace probation sweep.
-  probation(): Probation {
+  probation(git?: { repoId: string; head: string; branch: string }): Probation {
     const c = this.loaded.config.promote;
     return new Probation({
       facts: this.facts,
@@ -144,12 +144,27 @@ export class Runtime {
       minProcedureSuccesses: c.min_procedure_successes,
       minFailureRepeats: c.min_failure_repeats,
       procSuccesses: (factId) => this.procedureSuccesses(factId),
+      git,
     });
   }
 
   // Run the promotion sweep for a session (called on SessionEnd + by the worker).
-  runPromotionSweep(sessionId?: string): ReturnType<Probation["sweepSessionToWorkspace"]> {
-    return this.probation().sweepSessionToWorkspace({
+  async runPromotionSweep(
+    sessionId?: string,
+  ): Promise<ReturnType<Probation["sweepSessionToWorkspace"]>> {
+    let git: { repoId: string; head: string; branch: string } | undefined;
+    if (await this.git.isRepo()) {
+      try {
+        git = {
+          repoId: await this.git.repoId(),
+          head: await this.git.head(),
+          branch: await this.git.branch(),
+        };
+      } catch {
+        // degrade: promote without anchors
+      }
+    }
+    return this.probation(git).sweepSessionToWorkspace({
       user_id: this.userId,
       workspace_id: this.workspaceId,
       session_id: sessionId,

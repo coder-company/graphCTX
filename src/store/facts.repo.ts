@@ -208,6 +208,12 @@ export class FactsRepo {
     return this.get(id)!;
   }
 
+  // Public anchor stamping (M1 §4): used by the promotion engine to make every
+  // promoted fact commit-valid. Re-hydrates the fact afterward.
+  setAnchor(fid: string, g: GitAnchor): void {
+    this.upsertAnchor(fid, g);
+  }
+
   private upsertAnchor(fid: string, g: GitAnchor): void {
     this.db
       .prepare(
@@ -218,9 +224,12 @@ export class FactsRepo {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(fact_id) DO UPDATE SET
           repo_id=excluded.repo_id, branch=excluded.branch,
+          base_head=excluded.base_head,
+          introduced_by_commit=excluded.introduced_by_commit,
           valid_from_commit=excluded.valid_from_commit,
           valid_until_commit=excluded.valid_until_commit,
-          invalidated_by_commit=excluded.invalidated_by_commit`,
+          invalidated_by_commit=excluded.invalidated_by_commit,
+          path_globs_json=excluded.path_globs_json`,
       )
       .run(
         fid,

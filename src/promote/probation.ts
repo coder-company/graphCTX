@@ -1,4 +1,5 @@
 import type { Fact, PromotionState } from "../core/types.js";
+import { anchorAtHead } from "../git/anchors.js";
 import { verifyBeforeInject } from "../inject/staleness.js";
 import type { EdgesRepo } from "../store/edges.repo.js";
 import type { FactsRepo } from "../store/facts.repo.js";
@@ -14,6 +15,8 @@ export interface ProbationDeps {
   minFailureRepeats: number;
   // Optional lookup for procedure success counts (procedures table).
   procSuccesses?: (factId: string) => number;
+  // Optional current git context to commit-anchor promoted facts (M1 §4).
+  git?: { repoId: string; head: string; branch: string };
 }
 
 export interface SweepResult {
@@ -108,6 +111,10 @@ export class Probation {
         status: "active",
         last_verified_at: new Date().toISOString(),
       });
+      // Commit-anchor every promoted fact so it is commit-valid (M1 §4, I5).
+      if (this.deps.git) {
+        this.deps.facts.setAnchor(f.fact_id, anchorAtHead(f.git, this.deps.git));
+      }
     } else if (decision.kind === "candidate") {
       to = "workspace_candidate";
       // hold as candidate (do not activate); only move state if advancing.
