@@ -11,6 +11,7 @@ export const entityId = (): string => newId("ent");
 export const edgeId = (): string => newId("edge");
 export const injectionId = (): string => newId("inj");
 export const procedureId = (): string => newId("proc");
+export const promotionId = (): string => newId("promo");
 
 // Deterministic id for a workspace from its absolute path.
 export function workspaceIdFromPath(absPath: string): string {

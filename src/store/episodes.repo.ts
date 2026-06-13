@@ -67,6 +67,13 @@ export class EpisodesRepo {
     };
   }
 
+  byId(eventId: string): Episode | null {
+    const row = this.db.prepare("SELECT * FROM episodes WHERE event_id = ?").get(eventId) as
+      | EpisodeRow
+      | undefined;
+    return row ? rowToEpisode(row) : null;
+  }
+
   bySession(sessionId: string): Episode[] {
     const rows = this.db
       .prepare("SELECT * FROM episodes WHERE session_id = ? ORDER BY created_at ASC")

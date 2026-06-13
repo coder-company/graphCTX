@@ -9,8 +9,10 @@ import type { BudgetConfig } from "./inject/budget.js";
 import type { GateConfig } from "./inject/gate.js";
 import { Ledger } from "./inject/ledger.js";
 import { InjectionPlanner } from "./inject/planner.js";
+import { Invalidator } from "./invalidate/invalidator.js";
 import { VectorIndex } from "./retrieve/vectors.js";
 import { type DB, openDb } from "./store/db.js";
+import { EdgesRepo } from "./store/edges.repo.js";
 import { EpisodesRepo } from "./store/episodes.repo.js";
 import { FactsRepo } from "./store/facts.repo.js";
 import { InjectionsRepo } from "./store/injections.repo.js";
@@ -32,6 +34,7 @@ export class Runtime {
   readonly facts: FactsRepo;
   readonly episodes: EpisodesRepo;
   readonly injections: InjectionsRepo;
+  readonly edges: EdgesRepo;
   readonly episodeLog: EpisodeLog;
   readonly git: Git;
   readonly ledger: Ledger;
@@ -50,6 +53,7 @@ export class Runtime {
     this.facts.attachVectorIndex(this.vectors);
     this.episodes = new EpisodesRepo(this.db, this.clock);
     this.injections = new InjectionsRepo(this.db, this.clock);
+    this.edges = new EdgesRepo(this.db, this.clock);
     this.episodeLog = new EpisodeLog(this.episodes, this.loaded.paths.episodes, this.clock);
     this.git = new Git(this.workspaceDir);
     this.ledger = new Ledger();
@@ -87,6 +91,42 @@ export class Runtime {
       ledger: this.ledger,
       vectors: this.vectors,
     });
+  }
+
+  // Invalidation engine (M1 §2). Resolves git context lazily where supplied.
+  async invalidator(): Promise<Invalidator> {
+    let branch: string | undefined;
+    let head: string | undefined;
+    if (await this.git.isRepo()) {
+      try {
+        branch = await this.git.branch();
+        head = await this.git.head();
+      } catch {
+        // degrade
+      }
+    }
+    return new Invalidator({
+      facts: this.facts,
+      edges: this.edges,
+      episodes: this.episodes,
+      workspaceDir: this.workspaceDir,
+      currentBranch: branch,
+      currentHead: head,
+    });
+  }
+
+  // Insert a fact AND run invalidation against existing memory (M1). Returns the
+  // inserted fact; invalidation effects (supersede/expire/dispute) are applied
+  // as a side effect and never throw out to the caller (I9).
+  async learn(input: Parameters<FactsRepo["insert"]>[0]): Promise<ReturnType<FactsRepo["insert"]>> {
+    const fact = this.facts.insert(input);
+    try {
+      const inv = await this.invalidator();
+      await inv.processIncomingFact(fact);
+    } catch {
+      // invalidation must never break a write (I9)
+    }
+    return this.facts.get(fact.fact_id) ?? fact;
   }
 
   // Run the six deterministic extractors against the current workspace state.

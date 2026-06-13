@@ -8,7 +8,10 @@ export type FactKind =
   | "decision"
   | "constraint"
   | "failure"
-  | "task_state";
+  | "task_state"
+  // M1 (steal S1): a durable, resurfacing unfinished thread — distinct from the
+  // ephemeral `task_state`. Persists until explicitly resolved (SUPERSEDED_BY).
+  | "open_loop";
 
 export type TemporalKind = "atemporal" | "static" | "dynamic";
 export type TrustTier = "high" | "low";
