@@ -52,6 +52,15 @@ an invalidation engine that keeps memory coherent, and a promotion engine with
 - Secret/entropy scan on **every extracted fact and every capsule pre-send** (I3); matches → `sensitivity=secret`, excluded from promotion + injection.
 - **Exit check:** seeded secrets are never promoted and never appear in a capsule (extends the M0 secrets tests to the promotion path).
 
+### 7. Open loops — `open_loop` fact kind ⭐ (steal S1 from MEMORY-ARCH-NOTES)
+The piece that turns "remembers the repo" into "remembers what it was *doing*" — a near-free, high-value win for compaction recovery (see `docs/notes/MEMORY-ARCH-NOTES.md` §S1).
+- Add `open_loop` to `FactKind`: a **durable, resurfacing** unfinished thread (distinct from ephemeral `task_state`): half-done task, pending TODO, still-failing test, deferred refactor, "agreed to revisit X".
+- **Lifecycle:** an open loop stays active until a later event resolves it → invalidated via `SUPERSEDED_BY` the resolving fact/outcome (rides the §2 invalidation engine).
+- **Retrieval:** active open loops are **always** included in the **PostCompact** and **SessionStart** capsules via a dedicated capsule section "Open loops / unfinished work" (own renderer card; respects budget + provenance I7).
+- **Promotion:** open loops live at session scope by default; promote to workspace only on explicit user intent or clear cross-session recurrence (reuse §3 gates; never auto-promote to user scope).
+- **Exit check:** after a forced compaction in the eval, the agent is re-handed its active open loops; a resolved loop is invalidated and stops appearing.
+- **Size:** small — one enum value, one capsule section/card, one retrieval query, one resolution rule.
+
 ---
 
 ## Out of scope for M1 (deferred)
@@ -69,6 +78,7 @@ an invalidation engine that keeps memory coherent, and a promotion engine with
 4. Extend `git/anchors.ts` to full commit anchoring + branch filtering; wire into retrieval candidate filter.
 5. `why` provenance reader.
 6. Full `security/` enforcement across the promotion path.
+7. `open_loop` fact kind: enum + capsule section/card + retrieval query + resolution-invalidation rule (steal S1).
 
 ## Test / eval plan (gate evidence)
 - **Promotion precision harness** (new eval suite): labeled fact set → run gates → measure precision/recall of workspace promotions; **must report ≥ 90% precision** to pass the M1 gate.
