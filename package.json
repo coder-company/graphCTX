@@ -43,6 +43,7 @@
     "commander": "^13.1.0",
     "gpt-tokenizer": "^2.8.1",
     "simple-git": "^3.27.0",
+    "sqlite-vec": "^0.1.9",
     "ulid": "^2.3.0",
     "zod": "^3.24.1"
   },

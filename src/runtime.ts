@@ -9,6 +9,7 @@ import type { BudgetConfig } from "./inject/budget.js";
 import type { GateConfig } from "./inject/gate.js";
 import { Ledger } from "./inject/ledger.js";
 import { InjectionPlanner } from "./inject/planner.js";
+import { VectorIndex } from "./retrieve/vectors.js";
 import { type DB, openDb } from "./store/db.js";
 import { EpisodesRepo } from "./store/episodes.repo.js";
 import { FactsRepo } from "./store/facts.repo.js";
@@ -34,6 +35,7 @@ export class Runtime {
   readonly episodeLog: EpisodeLog;
   readonly git: Git;
   readonly ledger: Ledger;
+  readonly vectors: VectorIndex;
   private readonly clock: Clock;
 
   constructor(opts: RuntimeOptions = {}) {
@@ -44,6 +46,8 @@ export class Runtime {
     this.workspaceId = workspaceIdFromPath(this.workspaceDir);
     this.db = openDb(this.loaded.paths.workspaceDb);
     this.facts = new FactsRepo(this.db, this.clock);
+    this.vectors = new VectorIndex(this.db);
+    this.facts.attachVectorIndex(this.vectors);
     this.episodes = new EpisodesRepo(this.db, this.clock);
     this.injections = new InjectionsRepo(this.db, this.clock);
     this.episodeLog = new EpisodeLog(this.episodes, this.loaded.paths.episodes, this.clock);
@@ -81,6 +85,7 @@ export class Runtime {
       gateConfig: this.gateConfig(),
       budgetConfig: this.budgetConfig(),
       ledger: this.ledger,
+      vectors: this.vectors,
     });
   }
 

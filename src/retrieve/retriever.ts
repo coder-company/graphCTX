@@ -4,6 +4,7 @@ import type { Git } from "../git/git.js";
 import type { FactsRepo } from "../store/facts.repo.js";
 import { fuse } from "./rank.js";
 import { entityScore, scopeWeight } from "./signals.js";
+import { type VectorIndex, distanceToScore } from "./vectors.js";
 
 export interface RetrieveOptions {
   // For SessionStart/PostCompact we also want a broad "all active workspace facts"
@@ -12,15 +13,18 @@ export interface RetrieveOptions {
   k?: number;
 }
 
-// Multi-signal retrieval (M0 = BM25 + entity + scope) composed across scopes,
-// then commit-anchored + active filtering (SPEC §13).
+// Multi-signal retrieval (M1 = vector ∪ BM25 + entity + scope) composed across
+// scopes, then commit-anchored + active filtering (SPEC §13). The vector signal
+// degrades to BM25-only when the index is disabled.
 export class Retriever {
   private readonly repo: FactsRepo;
   private readonly git: Git | null;
+  private readonly vectors: VectorIndex | null;
 
-  constructor(repo: FactsRepo, git: Git | null) {
+  constructor(repo: FactsRepo, git: Git | null, vectors: VectorIndex | null = null) {
     this.repo = repo;
     this.git = git;
+    this.vectors = vectors;
   }
 
   async retrieve(ctx: InjectionContext, opts: RetrieveOptions = {}): Promise<ScoredFact[]> {
@@ -74,6 +78,35 @@ export class Retriever {
       }
     }
 
+    // Semantic (vector) signal — hybrid with BM25 (SPEC §13, §624-625). Applied
+    // as an ADDITIVE boost layered on the existing pool: it improves recall and
+    // re-ranking for semantically-relevant facts without displacing what BM25 /
+    // the broad pass already surfaced (so hybrid recall >= BM25-only). Disabled
+    // index → no-op → pure BM25 fallback.
+    if (query && this.vectors?.enabled) {
+      const hits = this.vectors.search(query, k);
+      const ranks = new Map<string, number>();
+      hits.forEach((h, i) => ranks.set(h.fact_id, i));
+      for (const hit of hits) {
+        const existing = pool.get(hit.fact_id);
+        const semBoost = distanceToScore(hit.distance) * 0.35;
+        if (existing) {
+          existing.score += semBoost;
+          existing.signals = { ...existing.signals, semantic: hit.distance };
+        } else {
+          const f = this.repo.get(hit.fact_id);
+          if (!f || f.status !== "active") continue;
+          if (!inScope(f, wsScope.user_id, wsScope.workspace_id, ctx.scope.session_id)) continue;
+          const w = scopeWeight(f, ctx.scope.session_id);
+          pool.set(f.fact_id, {
+            fact: f,
+            score: semBoost * w,
+            signals: { semantic: hit.distance, scope: w },
+          });
+        }
+      }
+    }
+
     // Commit-anchored filtering (SPEC §8, §13).
     const all = [...pool.values()];
     const valid: ScoredFact[] = [];
@@ -112,4 +145,19 @@ function collectEntities(ctx: InjectionContext): string[] {
   for (const f of ctx.current_files ?? []) e.add(f);
   for (const s of ctx.mentioned_symbols ?? []) e.add(s);
   return [...e];
+}
+
+// A vector hit is valid only within the active retrieval scopes (workspace or
+// the current session) — vectors span the whole DB, so we must scope-filter.
+function inScope(
+  f: Fact,
+  userId: string,
+  workspaceId: string | undefined,
+  sessionId: string | undefined,
+): boolean {
+  if (f.scope.user_id !== userId) return false;
+  if (f.scope.workspace_id && workspaceId && f.scope.workspace_id === workspaceId) return true;
+  if (f.scope.session_id && sessionId && f.scope.session_id === sessionId) return true;
+  // user-scoped facts (no workspace/session) are also eligible
+  return !f.scope.workspace_id && !f.scope.session_id;
 }

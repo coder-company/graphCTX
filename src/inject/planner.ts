@@ -3,6 +3,7 @@ import type { Git } from "../git/git.js";
 import { EMPTY_CAPSULE, renderCapsule } from "../render/capsule.js";
 import { renderCard } from "../render/cards.js";
 import { Retriever } from "../retrieve/retriever.js";
+import type { VectorIndex } from "../retrieve/vectors.js";
 import type { FactsRepo } from "../store/facts.repo.js";
 import type { InjectionsRepo } from "../store/injections.repo.js";
 import { type BudgetConfig, resolveBudget, selectByBudget } from "./budget.js";
@@ -18,6 +19,7 @@ export interface PlannerDeps {
   gateConfig: GateConfig;
   budgetConfig: BudgetConfig;
   ledger?: Ledger;
+  vectors?: VectorIndex | null;
 }
 
 // The core orchestration (SPEC §15). gate → retrieve → verify (I4) → dedupe →
@@ -29,7 +31,7 @@ export class InjectionPlanner {
 
   constructor(deps: PlannerDeps) {
     this.deps = deps;
-    this.retriever = new Retriever(deps.facts, deps.git);
+    this.retriever = new Retriever(deps.facts, deps.git, deps.vectors ?? null);
     this.ledger = deps.ledger ?? new Ledger();
   }
 

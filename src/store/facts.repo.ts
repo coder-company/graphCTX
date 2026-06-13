@@ -126,13 +126,26 @@ function anchorRowToGit(a: AnchorRow): GitAnchor {
   };
 }
 
+// Minimal interface the repo needs from a vector index (avoids a hard import
+// cycle and keeps the index optional / swappable).
+export interface FactVectorSink {
+  upsert(factId: string, text: string): void;
+  remove(factId: string): void;
+}
+
 export class FactsRepo {
   private readonly db: DB;
   private readonly clock: Clock;
+  private vectors: FactVectorSink | null = null;
 
   constructor(db: DB, clock: Clock = systemClock) {
     this.db = db;
     this.clock = clock;
+  }
+
+  // Attach a vector index so writes keep the semantic index in sync (M1).
+  attachVectorIndex(sink: FactVectorSink): void {
+    this.vectors = sink;
   }
 
   // I1: defaults to candidate / session_only unless explicitly overridden.
@@ -188,6 +201,9 @@ export class FactsRepo {
       .run(id, ftsText, tags.join(" "));
 
     if (input.git) this.upsertAnchor(id, input.git);
+
+    // Keep the semantic index in sync (no-op if no index attached).
+    this.vectors?.upsert(id, `${ftsText} ${tags.join(" ")}`);
 
     return this.get(id)!;
   }
