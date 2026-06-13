@@ -186,6 +186,32 @@ program
   });
 
 program
+  .command("why")
+  .description("show the full provenance chain for a fact (events, anchor, gate, edges)")
+  .argument("<fact_id>", "fact id (full or last-8 suffix)")
+  .option("-C, --cwd <dir>", "workspace directory", process.cwd())
+  .action(async (factArg, opts) => {
+    const { formatWhy } = await import("./provenance/why.js");
+    const rt = new Runtime({ workspaceDir: opts.cwd });
+    // Accept a last-8 suffix as a convenience (matches the [mem:id] tag).
+    let id = factArg as string;
+    if (!rt.facts.get(id)) {
+      const match = rt.facts
+        .all({ user_id: rt.userId, workspace_id: rt.workspaceId })
+        .find((f) => f.fact_id.endsWith(factArg));
+      if (match) id = match.fact_id;
+    }
+    const report = rt.why(id);
+    if (!report) {
+      process.stdout.write(`no fact found for "${factArg}"\n`);
+      process.exitCode = 1;
+    } else {
+      process.stdout.write(formatWhy(report));
+    }
+    rt.close();
+  });
+
+program
   .command("doctor")
   .description("health check: db, git, hooks, config")
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())

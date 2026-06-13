@@ -11,6 +11,7 @@ import { Ledger } from "./inject/ledger.js";
 import { InjectionPlanner } from "./inject/planner.js";
 import { Invalidator } from "./invalidate/invalidator.js";
 import { Probation } from "./promote/probation.js";
+import { type WhyReport, why } from "./provenance/why.js";
 import { VectorIndex } from "./retrieve/vectors.js";
 import { type DB, openDb } from "./store/db.js";
 import { EdgesRepo } from "./store/edges.repo.js";
@@ -168,6 +169,16 @@ export class Runtime {
       user_id: this.userId,
       workspace_id: this.workspaceId,
       session_id: sessionId,
+    });
+  }
+
+  // Provenance reader (M1 §5): full evidence chain for a fact.
+  why(factId: string): WhyReport | null {
+    return why(factId, {
+      facts: this.facts,
+      episodes: this.episodes,
+      edges: this.edges,
+      promotions: this.promotions,
     });
   }
 
