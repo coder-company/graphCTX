@@ -47,8 +47,18 @@ export function selectByBudget(
     return { scored: s, tokens: card.tokens, markdown: card.markdown };
   });
 
-  // utility/token ordering
-  rendered.sort((a, b) => b.scored.score / b.tokens - a.scored.score / a.tokens);
+  // Rank by the deterministic raw score (NOT score/tokens): the rendered token
+  // count includes a random ULID provenance suffix, so a density ranking would
+  // flip near-tied facts run-to-run. Tokens are used only for the knapsack fit
+  // below. Content-key breaks exact ties (fact_id is a random ULID).
+  const keyOf = (f: { subject: string; predicate: string; object: unknown }) =>
+    `${f.subject}::${f.predicate}::${typeof f.object === "string" ? f.object : JSON.stringify(f.object)}`;
+  rendered.sort((a, b) => {
+    if (b.scored.score !== a.scored.score) return b.scored.score - a.scored.score;
+    const ka = keyOf(a.scored.fact);
+    const kb = keyOf(b.scored.fact);
+    return ka < kb ? -1 : ka > kb ? 1 : 0;
+  });
 
   const selected: SelectResult["selected"] = [];
   const omitted: SelectResult["omitted"] = [];

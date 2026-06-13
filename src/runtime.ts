@@ -172,6 +172,30 @@ export class Runtime {
     });
   }
 
+  // Record a durable open loop (M1 §7) — an unfinished thread to resurface at
+  // PostCompact/SessionStart. Session-scoped by default.
+  noteOpenLoop(description: string, sessionId?: string): ReturnType<FactsRepo["insert"]> {
+    return this.facts.insert({
+      subject: "session",
+      predicate: "open_loop",
+      object: description,
+      fact_kind: "open_loop",
+      temporal_kind: "dynamic",
+      scope: { user_id: this.userId, workspace_id: this.workspaceId, session_id: sessionId },
+      trust_tier: "high",
+      status: "active",
+      promotion_state: "session_only",
+      source: { asserted_by: "user", event_ids: [], raw_quote: description },
+      tags: ["open_loop"],
+    });
+  }
+
+  // Resolve an open loop so it stops resurfacing (links SUPERSEDED_BY, M1 §7).
+  async resolveOpenLoop(loopFactId: string, byFactId?: string): Promise<void> {
+    const inv = await this.invalidator();
+    inv.resolve(loopFactId, byFactId ?? loopFactId);
+  }
+
   // Provenance reader (M1 §5): full evidence chain for a fact.
   why(factId: string): WhyReport | null {
     return why(factId, {

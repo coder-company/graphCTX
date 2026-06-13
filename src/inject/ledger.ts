@@ -14,13 +14,17 @@ export class Ledger {
     if (!sessionId) return facts;
     const set = this.seen.get(sessionId);
     if (!set) return facts;
-    return facts.filter((f) => !set.has(f.fact.fact_id));
+    // Open loops are exempt from anti-repetition: an unfinished thread must keep
+    // resurfacing across compactions until it is resolved (M1 §7).
+    return facts.filter((f) => f.fact.fact_kind === "open_loop" || !set.has(f.fact.fact_id));
   }
 
   record(sessionId: string | undefined, facts: ScoredFact[]): void {
     if (!sessionId) return;
     const set = this.seen.get(sessionId) ?? new Set<string>();
-    for (const f of facts) set.add(f.fact.fact_id);
+    for (const f of facts) {
+      if (f.fact.fact_kind !== "open_loop") set.add(f.fact.fact_id);
+    }
     this.seen.set(sessionId, set);
   }
 }

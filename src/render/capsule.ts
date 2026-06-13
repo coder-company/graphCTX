@@ -3,6 +3,7 @@ import type { CardSection, RenderedCard } from "./cards.js";
 import { estimateTokens } from "./tokens.js";
 
 const SECTION_ORDER: CardSection[] = [
+  "open_loops",
   "task_state",
   "repo_constraints",
   "procedure",
@@ -11,6 +12,7 @@ const SECTION_ORDER: CardSection[] = [
 ];
 
 const SECTION_TITLE: Record<CardSection, string> = {
+  open_loops: "Open loops / unfinished work",
   task_state: "Task state",
   repo_constraints: "Repo constraints",
   procedure: "Applicable procedure",

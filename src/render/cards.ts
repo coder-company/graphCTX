@@ -3,6 +3,7 @@ import { asClaim } from "../security/sanitize.js";
 import { estimateTokens } from "./tokens.js";
 
 export type CardSection =
+  | "open_loops"
   | "task_state"
   | "repo_constraints"
   | "procedure"
@@ -18,6 +19,7 @@ export interface RenderedCard {
 
 // Maps a fact to its capsule section.
 export function sectionFor(fact: Fact): CardSection {
+  if (fact.fact_kind === "open_loop") return "open_loops";
   if (fact.fact_kind === "task_state" || fact.fact_kind === "failure") return "task_state";
   if (fact.fact_kind === "procedural") return "procedure";
   if (fact.promotion_state.startsWith("user_")) return "user_preferences";
@@ -42,6 +44,9 @@ function cardBody(fact: Fact): string {
   // Low-trust prose is framed as a claim, never a directive (I2).
   if (fact.trust_tier === "low") {
     return asClaim(obj);
+  }
+  if (fact.fact_kind === "open_loop") {
+    return `Unfinished: ${obj}`;
   }
   switch (fact.predicate) {
     case "test_command":

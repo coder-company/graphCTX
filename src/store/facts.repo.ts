@@ -325,6 +325,16 @@ export class FactsRepo {
     return rows.map((r) => this.hydrate(r));
   }
 
+  // Active open loops in scope (M1 §7) — durable unfinished threads that must
+  // always resurface at PostCompact/SessionStart.
+  openLoops(scope: ScopeFilter): Fact[] {
+    const { clause, params } = scopeClause(scope);
+    const rows = this.db
+      .prepare(`SELECT * FROM facts WHERE status = 'active' AND fact_kind = 'open_loop' ${clause}`)
+      .all(...params) as FactRow[];
+    return rows.map((r) => this.hydrate(r));
+  }
+
   candidates(scope: ScopeFilter): Fact[] {
     const { clause, params } = scopeClause(scope);
     const rows = this.db

@@ -162,6 +162,43 @@ program
   });
 
 program
+  .command("loop")
+  .argument("<text>", 'the unfinished work, e.g. "finish the retry backoff"')
+  .description("record a durable open loop (resurfaces at PostCompact/SessionStart)")
+  .option("-C, --cwd <dir>", "workspace directory", process.cwd())
+  .option("--session <id>", "session id (session-scoped by default)")
+  .action(async (text, opts) => {
+    const rt = new Runtime({ workspaceDir: opts.cwd });
+    const fact = rt.noteOpenLoop(text, opts.session);
+    process.stdout.write(`Open loop ${fact.fact_id.slice(-8)}: ${text}\n`);
+    rt.close();
+  });
+
+program
+  .command("resolve")
+  .argument("<fact_id>", "open-loop fact id (full or last-8 suffix)")
+  .description("resolve an open loop so it stops resurfacing")
+  .option("-C, --cwd <dir>", "workspace directory", process.cwd())
+  .action(async (factArg, opts) => {
+    const rt = new Runtime({ workspaceDir: opts.cwd });
+    let id = factArg as string;
+    if (!rt.facts.get(id)) {
+      const match = rt.facts
+        .all({ user_id: rt.userId, workspace_id: rt.workspaceId })
+        .find((f) => f.fact_id.endsWith(factArg));
+      if (match) id = match.fact_id;
+    }
+    if (!rt.facts.get(id)) {
+      process.stdout.write(`no fact found for "${factArg}"\n`);
+      process.exitCode = 1;
+    } else {
+      await rt.resolveOpenLoop(id);
+      process.stdout.write(`Resolved open loop ${id.slice(-8)}.\n`);
+    }
+    rt.close();
+  });
+
+program
   .command("extract")
   .description("run deterministic extractors against the workspace")
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())

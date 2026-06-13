@@ -104,11 +104,16 @@ export class VectorIndex {
         .prepare("SELECT embedding, dim FROM embedding_cache WHERE content_hash = ?")
         .get(hash) as { embedding: Buffer; dim: number } | undefined;
       if (!row || row.dim !== this.dim) return null;
-      return new Float32Array(
+      // Copy into a fresh, 4-byte-aligned buffer (the SQLite Buffer aliases a
+      // pooled ArrayBuffer that may be misaligned — reading it in place is UB).
+      const out = new Float32Array(this.dim);
+      const view = new DataView(
         row.embedding.buffer,
         row.embedding.byteOffset,
-        row.embedding.byteLength / 4,
+        row.embedding.byteLength,
       );
+      for (let i = 0; i < this.dim; i++) out[i] = view.getFloat32(i * 4, true);
+      return out;
     } catch {
       return null;
     }
@@ -116,7 +121,9 @@ export class VectorIndex {
 
   private writeCache(hash: string, vec: Float32Array): void {
     try {
-      const buf = Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength);
+      // Serialize little-endian explicitly so reads are stable across platforms.
+      const buf = Buffer.alloc(vec.length * 4);
+      for (let i = 0; i < vec.length; i++) buf.writeFloatLE(vec[i] ?? 0, i * 4);
       this.db
         .prepare(
           "INSERT OR REPLACE INTO embedding_cache(content_hash, dim, embedding, created_at) VALUES (?, ?, ?, ?)",

@@ -61,6 +61,20 @@ export class InjectionPlanner {
       this.deps.budgetConfig,
     );
 
+    // M1 §7: on compaction recovery / session boot, active open loops are ALWAYS
+    // handed back — they are the "what was I doing" thread. Force-include any
+    // that survived verification/secret/dedupe but were crowded out by budget.
+    if (ctx.event === "PostCompact" || ctx.event === "SessionStart") {
+      const present = new Set(selected.map((s) => s.scored.fact.fact_id));
+      for (const s of deduped) {
+        if (s.fact.fact_kind === "open_loop" && !present.has(s.fact.fact_id)) {
+          const card = renderCard(s.fact);
+          selected.push({ scored: s, tokens: card.tokens, markdown: card.markdown });
+          present.add(s.fact.fact_id);
+        }
+      }
+    }
+
     if (selected.length === 0) return EMPTY_CAPSULE;
 
     const cards = selected.map((s) => renderCard(s.scored.fact));
