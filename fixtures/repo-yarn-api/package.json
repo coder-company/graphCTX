@@ -1,0 +1,10 @@
+{
+  "name": "acme-api",
+  "private": true,
+  "scripts": {
+    "start": "node dist/server.js",
+    "build": "tsc -p tsconfig.json",
+    "test": "jest --runInBand",
+    "lint": "eslint src"
+  }
+}

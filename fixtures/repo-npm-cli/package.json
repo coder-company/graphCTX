@@ -1,0 +1,10 @@
+{
+  "name": "acme-cli",
+  "private": true,
+  "scripts": {
+    "build": "tsup src/index.ts",
+    "test": "node --test",
+    "lint": "biome check src",
+    "typecheck": "tsc --noEmit"
+  }
+}

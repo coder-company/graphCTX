@@ -1,0 +1,11 @@
+{
+  "name": "acme-web",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "lint": "biome check src",
+    "typecheck": "tsc --noEmit"
+  }
+}
