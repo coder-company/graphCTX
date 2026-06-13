@@ -1,47 +1,81 @@
-# graphCTX M0 — Live Demo
+# graphCTX M0 — Live Demo (≈3 minutes, offline)
 
-> **The one question M0 answers: does *pushed* memory beat *pulled* memory when a
-> coding agent drifts under compaction?**
+> **The one question M0 answers:** does *pushed* memory beat *pulled* memory when
+> a coding agent drifts under compaction?
 >
-> M0 says **yes** — proven two ways: (1) an automated A/B/C eval across 5 sample
-> repos, and (2) a live Claude Code agent that recalls a memory-only fact *only*
-> when graphCTX pushes it via a lifecycle hook.
+> **Yes** — and the headline proof is live: the *same* Claude Code agent, asked
+> the *same* question, says **"I don't know"** without graphCTX and answers
+> **correctly** with it. The only difference is a lifecycle-hook *push*.
 
 ---
 
-## 0. Setup (one time)
+## 0. One-time setup (~30s, offline)
 
 ```bash
-npm install          # builds better-sqlite3, biome, esbuild
-npm run build        # tsc → dist/  (or use `npx tsx src/cli.ts` directly)
-```
+npm install          # builds better-sqlite3 (no network calls at runtime)
+npm run build        # tsc → dist/   (optional: you can run from source via tsx)
 
-Put `graphctx` on your PATH (for the hook handler the client invokes):
-
-```bash
-# option A: link the built binary
+# put `graphctx` on PATH for the hook handler the agent invokes:
 npm link             # exposes `graphctx` → dist/cli.js
-# option B: dev shim
-printf '#!/usr/bin/env bash\nexec npx tsx %s/src/cli.ts "$@"\n' "$PWD" > ~/.local/bin/graphctx
-chmod +x ~/.local/bin/graphctx
+# ...or a dev shim:
+printf '#!/usr/bin/env bash\nexec npx tsx %s/src/cli.ts "$@"\n' "$PWD" > ~/.local/bin/graphctx && chmod +x ~/.local/bin/graphctx
 ```
 
 ---
 
-## 1. The automated proof — A/B/C eval (the M0 gate)
+## 1. The headline: live negative-control (the part you should watch)
+
+One command scaffolds everything — a scratch repo, a deploy command stored
+**only in graphCTX memory** (it appears in *no repo file*), hooks wired up, and
+`AGENTS.md` removed so the **push hook is the only channel** that can supply it:
 
 ```bash
-graphctx eval run --suite compaction-recovery --arms A,B,C
+npm run demo            # → /tmp/graphctx-demo  (prints a copy-paste script)
 ```
 
-This copies each `fixtures/repo-*` to a temp dir, runs the **real** deterministic
-extractors, builds the **real** PostCompact capsule via the planner, then scores
-three arms on each repo's post-compaction needs:
+Now run the *same* agent, *same* prompt, twice:
 
-- **A — no memory:** agent retains nothing → guesses wrong every time.
-- **B — pull-only:** agent *may* call `recall`, but only when it remembers to
-  (model-controlled compliance) — the thesis' core weakness.
+```bash
+ASK='What is the exact deploy command for this project? Output it verbatim on one line. If you do not know, say you do not know. Do not read files or run tools.'
+
+# WITHOUT graphCTX (negative control)
+cp -r /tmp/graphctx-demo /tmp/graphctx-demo-bare
+rm -rf /tmp/graphctx-demo-bare/.graphctx /tmp/graphctx-demo-bare/.claude
+( cd /tmp/graphctx-demo-bare && echo "$ASK" | claude -p --permission-mode bypassPermissions )
+
+# WITH graphCTX (push via SessionStart hook)
+( cd /tmp/graphctx-demo && echo "$ASK" | claude -p --permission-mode bypassPermissions )
+```
+
+**Observed, live:**
+
+| | Agent answer |
+|---|---|
+| **WITHOUT graphCTX** | *"I don't know. ... I have no prior knowledge of this project's deploy command."* |
+| **WITH graphCTX** | `./scripts/ship.sh --canary --wait`  *(agent notes: "comes from session memory")* |
+
+Same agent. Same repo. Same prompt. The deploy command exists in **no file** —
+the agent could only have learned it from the graphCTX hook push. **That is push
+beating pull, live.**
+
+---
+
+## 2. The backup: automated A/B/C eval + integrity controls
+
+```bash
+npm run eval -- --arms A,B,C,N,S      # or: graphctx eval run --arms A,B,C,N,S
+```
+
+Each `fixtures/repo-*` is copied to a temp dir; the **real** deterministic
+extractors run, the **real** PostCompact capsule is built by the planner, then:
+
+- **A — no memory:** retains nothing → wrong every time.
+- **B — pull-only:** *may* call `recall`, but only when the model remembers to
+  (model-controlled compliance — the thesis' core weakness).
 - **C — push:** graphCTX pushes the capsule at `PostCompact`, guaranteed.
+- **N — negative-control:** a fact present in *no repo file*; push must deliver it.
+- **S — stale-fact:** a fact whose target path no longer exists; graphCTX must
+  *suppress* it (proves I4 verification, not blind recall).
 
 Observed result:
 
@@ -50,7 +84,11 @@ Arm                     Solve rate    Correct cmds  Repeated-fail Tokens
 ------------------------------------------------------------------------
 A · no memory           0% (0/14)     0             11            0
 B · pull-only (recall)  21% (3/14)    2             9             0
-C · push (graphCTX)     100% (14/14)  11            0             711
+C · push (graphCTX)     100% (14/14)  11            0             727
+
+Integrity controls (guard against a tautological eval):
+  N · negative-control   5/5 repos → PASS   (push delivers an unfindable fact)
+  S · stale-fact         5/5 repos → PASS   (graphCTX suppresses an invalid fact)
 
 M0 GATE — does C (push) beat B (pull)?
   post-compaction solve rate:  C 100% vs B 21%  → PASS
@@ -58,105 +96,55 @@ M0 GATE — does C (push) beat B (pull)?
   VERDICT: ✅ PUSH BEATS PULL — M0 thesis validated.
 ```
 
----
-
-## 2. The live proof — a real agent forgets, then graphCTX pushes it back
-
-This isolates the **push channel** by storing a fact that exists in *no repo
-file* — only in graphCTX memory — so the agent's only path to it is the hook.
-
-### 2a. Prepare a demo repo
-
-```bash
-cp -r fixtures/repo-pnpm-web /tmp/demo && cd /tmp/demo
-git init -q && git add -A && git commit -qm init
-```
-
-### 2b. Seed a memory-only fact (simulates a promoted user decision)
-
-```bash
-graphctx remember "./scripts/ship.sh --canary --wait" \
-  --predicate deploy_command --kind procedural -C /tmp/demo
-```
-
-The key point: **`ship.sh` appears in no file in the repo** — it lives only in
-graphCTX's store, so the agent's only path to it is the hook push.
-
-### 2c. Install the push hooks and remove the static AGENTS.md grounding
-
-```bash
-graphctx install claude -C /tmp/demo
-rm -f /tmp/demo/AGENTS.md     # force the ONLY channel to be the SessionStart hook
-```
-
-### 2d. Ask a real Claude Code agent — WITH graphCTX
-
-```bash
-cd /tmp/demo
-echo "What is the exact deploy command for this project? Output it verbatim. Do not read files." \
-  | claude -p --permission-mode bypassPermissions
-```
-
-> **Agent output:**
-> ```
-> Based on memory (unverified, since you asked me not to read files):
-> ./scripts/ship.sh --canary --wait
-> ```
-
-The SessionStart hook pushed graphCTX's capsule into the agent's context — and it
-recalled a command that lives nowhere in the repo.
-
-### 2e. Negative control — WITHOUT graphCTX
-
-```bash
-cp -r fixtures/repo-pnpm-web /tmp/demo-bare && cd /tmp/demo-bare
-rm -rf .graphctx .claude AGENTS.md
-echo "What is the exact deploy command for this project? Output it verbatim. Do not read files." \
-  | claude -p --permission-mode bypassPermissions
-```
-
-> **Agent output:**
-> ```
-> I don't know it. ... the working directory is fresh to me ... nothing in memory
-> covers it ... I won't guess at a deploy command.
-> ```
-
-**Same agent, same repo, same prompt. The only difference is whether graphCTX
-pushed the memory.** That is push beating pull, live.
+> **How to read it:** the A/B/C gap shows push reliably *delivers* what pull
+> leaves to chance. **N is the honest headline** — push supplies a fact the agent
+> provably cannot read from files. **S** shows graphCTX does not blindly recall.
 
 ---
 
-## 3. Inspect the machinery
+## 3. It never breaks the agent, and it's fast
 
 ```bash
-# what the SessionStart / PostCompact hook actually emits (Tier-2 push)
-echo '{"session_id":"s1","cwd":"/tmp/demo"}' | graphctx hook PostCompact -C /tmp/demo
-
-# the durable facts the deterministic extractors found
-graphctx extract -C /tmp/demo
-
-# pull-style query (the fallback path; NOT the primary channel)
-graphctx recall "how do I run the tests" -C /tmp/demo
-
-# health check
-graphctx doctor -C /tmp/demo
+npm test                 # includes 5 resilience tests + a latency guard
+npm run bench            # hook hot-path latency
 ```
 
-A capsule looks like this (note `[mem:<id>]` provenance on every card — I7):
+- **Resilience (I9):** with a corrupt DB, invalid/schema-bad config, or missing
+  git, the hook exits `0` and emits **nothing** — a broken graphCTX degrades to
+  *no memory*, never a *broken agent*.
+- **Latency (SPEC §24):** retrieval + render **p95 ≈ 5ms** (budget < 150ms).
+
+---
+
+## 4. Inspect the machinery
+
+```bash
+# the exact capsule the SessionStart / PostCompact hook emits (Tier-2 push)
+echo '{"session_id":"s","cwd":"/tmp/graphctx-demo"}' | graphctx hook PostCompact -C /tmp/graphctx-demo
+
+graphctx extract -C /tmp/graphctx-demo     # durable facts the extractors found
+graphctx recall "run the tests" -C /tmp/graphctx-demo   # pull fallback (NOT the primary channel)
+graphctx doctor -C /tmp/graphctx-demo      # health verdict
+```
+
+A capsule (note `[mem:<id>]` provenance on every card — I7):
 
 ```
 ## Restored memory after compaction (graphCTX)
 
 **Repo constraints:**
-- Run tests with: npm run test. Verified @ 44bdb79. [mem:K0P3NRZ8]
-- This repo uses pnpm (not other package managers). [mem:3F69WABH]
-- Do not edit src/generated/api-types.ts — it is generated. [mem:TZNP8JH9]
-- Indentation: space (size 2) (enforced by .editorconfig). [mem:QWCKT48X]
+- Run tests with: npm run test. Verified @ 77c507d. [mem:Z9AZX43T]
+- This repo uses pnpm (not other package managers). [mem:DCBJ5ZXY]
+- Do not edit src/generated/api-types.ts — it is generated. [mem:F9A9VWBJ]
+- Indentation: space (size 2) (enforced by .editorconfig). [mem:904CQF3F]
+
+**Applicable procedure:**
+- repo deploy command: ./scripts/ship.sh --canary --wait [mem:X05Z6R45]
 ```
 
 ---
 
-## 4. What this demonstrates (mapped to the thesis)
+## 5. What this demonstrates (mapped to the thesis)
 
 - **Push is deterministic; pull is a compliance lottery.** Arm C fires every time;
   arm B only when the model remembers to ask — which it does not, post-compaction.
@@ -165,7 +153,7 @@ A capsule looks like this (note `[mem:<id>]` provenance on every card — I7):
 - **No poisoning.** Repo prose is low-trust and framed as a claim (I2); secrets are
   scrubbed (I3); perishable facts are verified to still exist before injection (I4);
   every card is budget-bounded (I6) and provenance-tagged (I7).
-- **Never a broken agent.** Every hook path is wrapped; any failure emits an empty
-  capsule (I9) rather than crashing the session.
+- **Never a broken agent (I9).** Every hook path is wrapped; any failure emits an
+  empty capsule rather than crashing the session.
 
 > **Bottom line: push beats pull under compaction. M0 gate passed — earn the rest.**
