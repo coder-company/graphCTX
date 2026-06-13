@@ -273,7 +273,7 @@ program
 
 program
   .command("eval")
-  .argument("<sub>", "subcommand: run")
+  .argument("<sub>", "subcommand: run | promote")
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
   .option(
@@ -283,6 +283,13 @@ program
   )
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
   .action(async (sub, opts) => {
+    if (sub === "promote") {
+      const { runPromotionEval, formatPromotionReport } = await import("./eval/promotion-eval.js");
+      const report = runPromotionEval();
+      process.stdout.write(formatPromotionReport(report));
+      if (!report.pass) process.exitCode = 1;
+      return;
+    }
     if (sub !== "run") fail(`unknown eval subcommand "${sub}"`);
     const arms = String(opts.arms)
       .split(",")

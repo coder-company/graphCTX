@@ -10,12 +10,14 @@ import type { GateConfig } from "./inject/gate.js";
 import { Ledger } from "./inject/ledger.js";
 import { InjectionPlanner } from "./inject/planner.js";
 import { Invalidator } from "./invalidate/invalidator.js";
+import { Probation } from "./promote/probation.js";
 import { VectorIndex } from "./retrieve/vectors.js";
 import { type DB, openDb } from "./store/db.js";
 import { EdgesRepo } from "./store/edges.repo.js";
 import { EpisodesRepo } from "./store/episodes.repo.js";
 import { FactsRepo } from "./store/facts.repo.js";
 import { InjectionsRepo } from "./store/injections.repo.js";
+import { PromotionsRepo } from "./store/promotions.repo.js";
 
 export interface RuntimeOptions {
   workspaceDir?: string;
@@ -35,6 +37,7 @@ export class Runtime {
   readonly episodes: EpisodesRepo;
   readonly injections: InjectionsRepo;
   readonly edges: EdgesRepo;
+  readonly promotions: PromotionsRepo;
   readonly episodeLog: EpisodeLog;
   readonly git: Git;
   readonly ledger: Ledger;
@@ -54,6 +57,7 @@ export class Runtime {
     this.episodes = new EpisodesRepo(this.db, this.clock);
     this.injections = new InjectionsRepo(this.db, this.clock);
     this.edges = new EdgesRepo(this.db, this.clock);
+    this.promotions = new PromotionsRepo(this.db, this.clock);
     this.episodeLog = new EpisodeLog(this.episodes, this.loaded.paths.episodes, this.clock);
     this.git = new Git(this.workspaceDir);
     this.ledger = new Ledger();
@@ -127,6 +131,40 @@ export class Runtime {
       // invalidation must never break a write (I9)
     }
     return this.facts.get(fact.fact_id) ?? fact;
+  }
+
+  // Promotion engine (M1 §3). Hard-gated session→workspace probation sweep.
+  probation(): Probation {
+    const c = this.loaded.config.promote;
+    return new Probation({
+      facts: this.facts,
+      edges: this.edges,
+      promotions: this.promotions,
+      workspaceDir: this.workspaceDir,
+      minProcedureSuccesses: c.min_procedure_successes,
+      minFailureRepeats: c.min_failure_repeats,
+      procSuccesses: (factId) => this.procedureSuccesses(factId),
+    });
+  }
+
+  // Run the promotion sweep for a session (called on SessionEnd + by the worker).
+  runPromotionSweep(sessionId?: string): ReturnType<Probation["sweepSessionToWorkspace"]> {
+    return this.probation().sweepSessionToWorkspace({
+      user_id: this.userId,
+      workspace_id: this.workspaceId,
+      session_id: sessionId,
+    });
+  }
+
+  private procedureSuccesses(factId: string): number {
+    try {
+      const row = this.db
+        .prepare("SELECT success_count FROM procedures WHERE fact_id = ?")
+        .get(factId) as { success_count: number } | undefined;
+      return row?.success_count ?? 0;
+    } catch {
+      return 0;
+    }
   }
 
   // Run the six deterministic extractors against the current workspace state.

@@ -78,6 +78,15 @@ export async function handleHook(
     }
   }
 
+  // 2b. On SessionEnd, run the promotion sweep (session → workspace, hard gates).
+  if (event === "SessionEnd") {
+    try {
+      rt.runPromotionSweep(sessionId);
+    } catch {
+      // I9 — promotion must never break the agent
+    }
+  }
+
   // 3. Plan injection for push-eligible events.
   if (!VALID_EVENTS.has(event)) {
     return emptyResult();
