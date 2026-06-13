@@ -61,7 +61,7 @@ export class Runtime {
     this.promotions = new PromotionsRepo(this.db, this.clock);
     this.episodeLog = new EpisodeLog(this.episodes, this.loaded.paths.episodes, this.clock);
     this.git = new Git(this.workspaceDir);
-    this.ledger = new Ledger();
+    this.ledger = new Ledger(this.db);
   }
 
   scope(sessionId?: string): Scope {
@@ -89,6 +89,7 @@ export class Runtime {
     return new InjectionPlanner({
       facts: this.facts,
       injections: this.injections,
+      episodes: this.episodes,
       git: this.git,
       workspaceDir: this.workspaceDir,
       gateConfig: this.gateConfig(),

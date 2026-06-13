@@ -142,7 +142,14 @@ export interface ScopeFilter {
 export interface ScoredFact {
   fact: Fact;
   score: number;
-  signals?: { bm25?: number; entity?: number; semantic?: number; scope?: number };
+  signals?: {
+    bm25?: number;
+    entity?: number;
+    semantic?: number;
+    scope?: number;
+    confidence?: number;
+    recency?: number;
+  };
 }
 
 export type Event =

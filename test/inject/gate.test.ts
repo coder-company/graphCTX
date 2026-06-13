@@ -32,11 +32,30 @@ describe("relevance gate (M0)", () => {
     );
   });
 
-  it("PreToolUse fires only for memory-relevant tools", () => {
-    expect(shouldFire(ctx({ event: "PreToolUse", planned_tool: { name: "Bash" } }), cfg)).toBe(
-      true,
-    );
+  it("PreToolUse fires only for memory-relevant tools with concrete args", () => {
+    // Bash with an actual command → fire (we may have facts about it).
+    expect(
+      shouldFire(
+        ctx({ event: "PreToolUse", planned_tool: { name: "Bash", args: { command: "npm test" } } }),
+        cfg,
+      ),
+    ).toBe(true);
+    // Edit on a concrete path → fire (path may carry constraints).
+    expect(
+      shouldFire(
+        ctx({
+          event: "PreToolUse",
+          planned_tool: { name: "Edit", args: { file_path: "src/a.ts" } },
+        }),
+        cfg,
+      ),
+    ).toBe(true);
+    // Irrelevant tool → never fire.
     expect(shouldFire(ctx({ event: "PreToolUse", planned_tool: { name: "WebSearch" } }), cfg)).toBe(
+      false,
+    );
+    // Bare Bash with no args → not actionable → don't fire (M2 selectivity).
+    expect(shouldFire(ctx({ event: "PreToolUse", planned_tool: { name: "Bash" } }), cfg)).toBe(
       false,
     );
   });

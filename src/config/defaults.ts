@@ -32,7 +32,13 @@ export function defaultConfig(): Config {
       max_cards: 15,
       max_cards_pretool: 5,
       gate_drift_threshold: 0.35,
-      enabled_events: ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostCompact"],
+      enabled_events: [
+        "SessionStart",
+        "UserPromptSubmit",
+        "PreToolUse",
+        "PostToolUse",
+        "PostCompact",
+      ],
     },
     promote: {
       session_to_workspace: true,

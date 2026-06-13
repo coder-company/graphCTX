@@ -44,16 +44,19 @@ export function selectByBudget(
 
   const rendered = scored.map((s) => {
     const card = renderCard(s.fact);
-    return { scored: s, tokens: card.tokens, markdown: card.markdown };
+    return { scored: s, tokens: card.tokens, markdown: card.markdown, priority: mustInclude(s) };
   });
 
-  // Rank by the deterministic raw score (NOT score/tokens): the rendered token
-  // count includes a random ULID provenance suffix, so a density ranking would
-  // flip near-tied facts run-to-run. Tokens are used only for the knapsack fit
-  // below. Content-key breaks exact ties (fact_id is a random ULID).
+  // Rank by must-include priority first (I6: conflict notes + explicit user
+  // instructions are bonus-weighted so they survive the budget), then by the
+  // deterministic raw score (NOT score/tokens — the rendered token count
+  // includes a random ULID provenance suffix, so a density ranking would flip
+  // near-tied facts run-to-run; tokens are used only for the knapsack fit).
+  // Content-key breaks exact ties (fact_id is a random ULID).
   const keyOf = (f: { subject: string; predicate: string; object: unknown }) =>
     `${f.subject}::${f.predicate}::${typeof f.object === "string" ? f.object : JSON.stringify(f.object)}`;
   rendered.sort((a, b) => {
+    if (b.priority !== a.priority) return b.priority - a.priority;
     if (b.scored.score !== a.scored.score) return b.scored.score - a.scored.score;
     const ka = keyOf(a.scored.fact);
     const kb = keyOf(b.scored.fact);
@@ -86,4 +89,15 @@ export function selectByBudget(
   }
 
   return { selected, omitted, totalTokens: used };
+}
+
+// must-include bonus tier (SPEC §15): explicit user instructions and open loops
+// are the highest-value cards and should survive the budget cut. Returns a small
+// integer priority (higher = include first). Pure + deterministic.
+function mustInclude(s: ScoredFact): number {
+  const f = s.fact;
+  let p = 0;
+  if (f.fact_kind === "open_loop") p += 2; // the "what was I doing" thread
+  if (f.source.asserted_by === "user") p += 1; // explicit user instruction
+  return p;
 }

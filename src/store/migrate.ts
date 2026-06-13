@@ -9,6 +9,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS: Array<{ version: number; file: string }> = [
   { version: 1, file: "0001_init.sql" },
   { version: 2, file: "0002_m1.sql" },
+  { version: 3, file: "0003_m2.sql" },
 ];
 
 export function runMigrations(db: Database.Database): void {

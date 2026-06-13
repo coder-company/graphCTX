@@ -336,7 +336,7 @@ program
 
 program
   .command("eval")
-  .argument("<sub>", "subcommand: run | promote")
+  .argument("<sub>", "subcommand: run | promote | drift | all")
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
   .option(
@@ -346,19 +346,46 @@ program
   )
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
   .action(async (sub, opts) => {
-    if (sub === "promote") {
+    const runPromote = async () => {
       const { runPromotionEval, formatPromotionReport } = await import("./eval/promotion-eval.js");
       const report = await runPromotionEval();
       process.stdout.write(formatPromotionReport(report));
-      if (!report.pass) process.exitCode = 1;
+      return report.pass;
+    };
+    const runDrift = async () => {
+      const { runDriftGateEval, formatDriftGateReport } = await import(
+        "./eval/suites/drift-gate.js"
+      );
+      const report = await runDriftGateEval(opts.cwd);
+      process.stdout.write(formatDriftGateReport(report));
+      return report.pass;
+    };
+    const runArms = async () => {
+      const arms = String(opts.arms)
+        .split(",")
+        .map((a) => a.trim());
+      const report = await runEval({ suite: opts.suite, arms, baseDir: opts.cwd });
+      process.stdout.write(formatReport(report));
+      return true;
+    };
+
+    if (sub === "promote") {
+      if (!(await runPromote())) process.exitCode = 1;
+      return;
+    }
+    if (sub === "drift") {
+      if (!(await runDrift())) process.exitCode = 1;
+      return;
+    }
+    if (sub === "all") {
+      const a = await runArms();
+      const p = await runPromote();
+      const d = await runDrift();
+      if (!(a && p && d)) process.exitCode = 1;
       return;
     }
     if (sub !== "run") fail(`unknown eval subcommand "${sub}"`);
-    const arms = String(opts.arms)
-      .split(",")
-      .map((a) => a.trim());
-    const report = await runEval({ suite: opts.suite, arms, baseDir: opts.cwd });
-    process.stdout.write(formatReport(report));
+    await runArms();
   });
 
 program.parseAsync(process.argv);

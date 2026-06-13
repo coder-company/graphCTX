@@ -6,16 +6,24 @@ import { renderCard } from "../render/cards.js";
 import { Retriever } from "../retrieve/retriever.js";
 import type { VectorIndex } from "../retrieve/vectors.js";
 import { containsSecret } from "../security/secrets.js";
+import type { EpisodesRepo } from "../store/episodes.repo.js";
 import type { FactsRepo } from "../store/facts.repo.js";
 import type { InjectionsRepo } from "../store/injections.repo.js";
 import { type BudgetConfig, resolveBudget, selectByBudget } from "./budget.js";
-import { type GateConfig, shouldFire } from "./gate.js";
+import {
+  type DriftSignal,
+  type GateConfig,
+  cosineDistance,
+  shouldFire,
+  taskCentroid,
+} from "./gate.js";
 import { Ledger } from "./ledger.js";
 import { verifyBeforeInject } from "./staleness.js";
 
 export interface PlannerDeps {
   facts: FactsRepo;
   injections?: InjectionsRepo;
+  episodes?: EpisodesRepo;
   git: Git | null;
   workspaceDir: string;
   gateConfig: GateConfig;
@@ -23,6 +31,9 @@ export interface PlannerDeps {
   ledger?: Ledger;
   vectors?: VectorIndex | null;
 }
+
+// How many recent episodes form the rolling task centroid for drift detection.
+const DRIFT_WINDOW = 8;
 
 // The core orchestration (SPEC §15). gate → retrieve → verify (I4) → dedupe →
 // budget (I6) → render → log. Returns EMPTY_CAPSULE when the gate declines.
@@ -38,7 +49,8 @@ export class InjectionPlanner {
   }
 
   async plan(ctx: InjectionContext): Promise<Capsule> {
-    if (!shouldFire(ctx, this.deps.gateConfig)) return EMPTY_CAPSULE;
+    const drift = this.computeDrift(ctx);
+    if (!shouldFire(ctx, this.deps.gateConfig, drift)) return EMPTY_CAPSULE;
 
     const budget = resolveBudget(ctx.event, this.deps.budgetConfig, ctx.budget_tokens);
     const broad = ctx.event === "SessionStart" || ctx.event === "PostCompact";
@@ -84,6 +96,7 @@ export class InjectionPlanner {
     this.ledger.record(
       ctx.scope.session_id,
       selected.map((s) => s.scored),
+      ctx.event,
     );
 
     if (this.deps.injections) {
@@ -99,6 +112,50 @@ export class InjectionPlanner {
 
     return capsule;
   }
+
+  private computeDrift(ctx: InjectionContext): DriftSignal | undefined {
+    return plannerComputeDrift(ctx, this.deps.vectors, this.deps.episodes);
+  }
+}
+
+// Compute the topic-centroid drift signal for the relevance gate (M2, SPEC
+// §5.2). Only meaningful for UserPromptSubmit; for other events the gate ignores
+// it. Degrades to `undefined` (gate falls back to entity-change) when vectors or
+// episode history are unavailable (I9).
+function plannerComputeDrift(
+  ctx: InjectionContext,
+  vectors: VectorIndex | null | undefined,
+  episodes: EpisodesRepo | undefined,
+): DriftSignal | undefined {
+  if (ctx.event !== "UserPromptSubmit") return undefined;
+  const hasNewEntities =
+    (ctx.current_files?.length ?? 0) + (ctx.mentioned_symbols?.length ?? 0) > 0;
+  if (!vectors?.enabled || !episodes || !ctx.scope.session_id || !ctx.user_prompt) {
+    return { hasNewEntities };
+  }
+  try {
+    const recent = episodes
+      .tail(ctx.scope.session_id, DRIFT_WINDOW)
+      .map((e) => promptTextOf(e.payload))
+      .filter((t): t is string => !!t && t.length > 1);
+    if (recent.length === 0) return { hasNewEntities };
+    const centroid = taskCentroid(recent.map((t) => vectors.embed(t)));
+    if (!centroid) return { hasNewEntities };
+    const cur = vectors.embed(ctx.user_prompt);
+    return { centroidDistance: cosineDistance(centroid, cur), hasNewEntities };
+  } catch {
+    return { hasNewEntities };
+  }
+}
+
+function promptTextOf(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+  const p = payload as Record<string, unknown>;
+  for (const key of ["user_prompt", "prompt", "text", "transcript_tail"]) {
+    const v = p[key];
+    if (typeof v === "string" && v.length > 0) return v;
+  }
+  return undefined;
 }
 
 // I3 secret guard. A fact is secret-bearing if it is classified secret/credential
