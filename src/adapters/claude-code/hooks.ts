@@ -83,25 +83,33 @@ export async function handleHook(
     return emptyResult();
   }
 
-  const ctx = await rt.injectionContext(event, sessionId, {
-    user_prompt: payload.prompt,
-    transcript_tail: payload.transcript_tail ?? (await readTranscriptTail(payload.transcript_path)),
-    current_files: payload.current_files,
-    mentioned_symbols: payload.mentioned_symbols,
-    planned_tool: payload.tool_name
-      ? { name: payload.tool_name, args: payload.tool_input }
-      : undefined,
-    tool_result: payload.tool_response
-      ? {
-          success: payload.tool_response.success ?? true,
-          stderr: payload.tool_response.stderr,
-          stdout_tail: payload.tool_response.stdout,
-        }
-      : undefined,
-  });
+  // I9: any failure in context-build / retrieval / render degrades to an empty
+  // capsule. The handler must never throw — a broken graphCTX must not break
+  // the agent. (The CLI wraps this too, as defense in depth.)
+  try {
+    const ctx = await rt.injectionContext(event, sessionId, {
+      user_prompt: payload.prompt,
+      transcript_tail:
+        payload.transcript_tail ?? (await readTranscriptTail(payload.transcript_path)),
+      current_files: payload.current_files,
+      mentioned_symbols: payload.mentioned_symbols,
+      planned_tool: payload.tool_name
+        ? { name: payload.tool_name, args: payload.tool_input }
+        : undefined,
+      tool_result: payload.tool_response
+        ? {
+            success: payload.tool_response.success ?? true,
+            stderr: payload.tool_response.stderr,
+            stdout_tail: payload.tool_response.stdout,
+          }
+        : undefined,
+    });
 
-  const capsule = await rt.planner().plan(ctx);
-  return { capsule, stdout: toClaudeStdout(event, capsule) };
+    const capsule = await rt.planner().plan(ctx);
+    return { capsule, stdout: toClaudeStdout(event, capsule) };
+  } catch {
+    return emptyResult();
+  }
 }
 
 function emptyResult(): HookResult {

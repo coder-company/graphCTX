@@ -200,6 +200,22 @@ program
   });
 
 program
+  .command("bench")
+  .description("measure hook hot-path latency (SPEC §24: < 150ms p95)")
+  .option("--repo <dir>", "fixture repo to bench", "fixtures/repo-pnpm-web")
+  .option("-n, --iterations <n>", "iterations", "50")
+  .option("-C, --cwd <dir>", "base directory", process.cwd())
+  .action(async (opts) => {
+    const { measureHookLatency } = await import("./eval/latency.js");
+    const repo = join(opts.cwd, opts.repo);
+    const r = await measureHookLatency(repo, Number(opts.iterations));
+    process.stdout.write(
+      `graphctx hook latency (${r.iterations} iters, retrieval + render)\n  p50: ${r.p50}ms   p95: ${r.p95}ms   p99: ${r.p99}ms   max: ${r.max}ms\n  budget: < ${r.budgetMs}ms p95  →  ${r.pass ? "PASS ✅" : "FAIL ❌"}\n`,
+    );
+    if (!r.pass) process.exitCode = 1;
+  });
+
+program
   .command("eval")
   .argument("<sub>", "subcommand: run")
   .description("run evaluation suites")
