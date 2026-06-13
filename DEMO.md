@@ -144,6 +144,46 @@ A capsule (note `[mem:<id>]` provenance on every card — I7):
 
 ---
 
+## 4b. Open loops survive compaction (M1)
+
+An *open loop* is unfinished work. graphCTX re-hands it at every PostCompact /
+SessionStart until it is resolved — so "what was I doing?" is never lost to a
+context window flush.
+
+```bash
+# mid-task, record the thread you're on
+graphctx loop "finish wiring retry backoff in api.ts, then add the test" -C /tmp/graphctx-demo
+
+# ...context gets compacted... the next capsule leads with it:
+echo '{"session_id":"s","cwd":"/tmp/graphctx-demo"}' | graphctx hook PostCompact -C /tmp/graphctx-demo
+```
+
+```
+## Restored memory after compaction (graphCTX)
+
+**Open loops / unfinished work:**
+- Unfinished: finish wiring retry backoff in api.ts, then add the test [mem:7K2QF8AB]
+
+**Repo constraints:**
+- ...
+```
+
+It keeps resurfacing across repeated compactions (exempt from anti-repetition).
+Close it when done and it stops appearing:
+
+```bash
+graphctx resolve 7K2QF8AB -C /tmp/graphctx-demo   # accepts the [mem:<id>] suffix
+```
+
+Trace any card's full evidence chain (events, asserter, git anchor, promotion
+gate, supersession edges):
+
+```bash
+graphctx why 7K2QF8AB -C /tmp/graphctx-demo
+```
+
+---
+
 ## 5. What this demonstrates (mapped to the thesis)
 
 - **Push is deterministic; pull is a compliance lottery.** Arm C fires every time;
