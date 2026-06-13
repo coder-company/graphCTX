@@ -20,6 +20,8 @@ AI coding agents forget. Within a long session they drift after context compacti
 
 The winning product is not the graph. **The winning product is the injection loop plus promotion discipline.**
 
+> **Scope note — local-first, not a SaaS.** graphCTX is dev tooling that runs entirely on the user's machine (like `git`, an LSP, or Claude Code's own hooks). The repo, the agent, and the context window are all local, so the core loop needs no server, no API, and no network. Cloud sync / teams / remote MCP are **optional future upsells** (multi-device, collaboration, zero-install) — out of scope for the core product and gated until the local product is proven. See [future/INFRASTRUCTURE.md](future/INFRASTRUCTURE.md).
+
 ---
 
 ## 1. Problem

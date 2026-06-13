@@ -9,7 +9,7 @@
 | **Status** | Living document |
 | **Last updated** | 2026-06-13 |
 | **Owner** | coder-company |
-| **Companion docs** | [PRD.md](PRD.md) · [SPEC.md](SPEC.md) · [INFRASTRUCTURE.md](INFRASTRUCTURE.md) |
+| **Companion docs** | [PRD.md](PRD.md) · [SPEC.md](SPEC.md) · [future/INFRASTRUCTURE.md](future/INFRASTRUCTURE.md) (optional) |
 
 ---
 

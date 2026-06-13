@@ -1,14 +1,17 @@
-# graphCTX — Infrastructure & Deployment Tiers
+# graphCTX — Infrastructure & Deployment Tiers (FUTURE / OPTIONAL)
 
-> How graphCTX scales from a local single binary to a synced, multi-device, team-grade
+> ⚠️ **This is FUTURE, OPTIONAL work — NOT part of the core product and NOT needed to ship or demo graphCTX.**
+> graphCTX is local-first dev tooling; it runs entirely on the user's machine with no server, no API, and no network. This document describes *optional* cloud upsells (multi-device sync, teams, zero-install remote MCP) that may be built **only after the local product is proven** (M0 gate passed). If you are building the product or a demo, **ignore this file** — see [SPEC.md](../SPEC.md).
+
+> How graphCTX *could later* scale from a local single binary to a synced, multi-device, team-grade
 > service — **without** changing the core (injection loop, promotion, temporal logic).
 > Cloudflare and Supabase are **optional backends behind one interface**, not a rewrite.
 
 | | |
 |---|---|
-| **Status** | v1.0 |
+| **Status** | Future / optional — gated behind M0 |
 | **Last updated** | 2026-06-13 |
-| **Companion docs** | [PRD.md](PRD.md) · [GAMEPLAN.md](GAMEPLAN.md) · [SPEC.md](SPEC.md) |
+| **Companion docs** | [PRD.md](../PRD.md) · [GAMEPLAN.md](../GAMEPLAN.md) · [SPEC.md](../SPEC.md) |
 
 ---
 
