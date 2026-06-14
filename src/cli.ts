@@ -39,27 +39,55 @@ program
 
 program
   .command("install")
-  .argument("<client>", "client to install hooks for (claude)")
-  .description("wire client lifecycle hooks to graphctx")
+  .argument("<client>", "client: claude | cursor | opencode | generic | auto")
+  .description("wire a client to graphctx (hooks for claude; rules+MCP for others)")
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
   .option("--global", "install to user-level config", false)
-  .option("--bin <path>", "command used to invoke graphctx hook", "graphctx")
+  .option("--bin <path>", "command used to invoke graphctx", "graphctx")
   .action(async (client, opts) => {
-    if (client !== "claude") {
-      fail(`unknown client "${client}" (M0 supports: claude)`);
-    }
     const rt = new Runtime({ workspaceDir: opts.cwd });
-    const { settingsPath } = installClaudeHooks({
-      workspaceDir: rt.workspaceDir,
-      global: opts.global,
-      binPath: opts.bin,
-    });
-    await rt.extract();
-    writeAgentsCapsule(rt);
-    process.stdout.write(
-      `Installed Claude Code hooks → ${settingsPath}\ngraphctx will push memory at SessionStart and PostCompact.\n`,
-    );
+    let resolved = client;
+    if (client === "auto") {
+      const { detectClient } = await import("./adapters/registry.js");
+      resolved = detectClient(rt.workspaceDir);
+      process.stdout.write(`auto-detected client: ${resolved}\n`);
+    }
+
+    if (resolved === "claude") {
+      const { settingsPath } = installClaudeHooks({
+        workspaceDir: rt.workspaceDir,
+        global: opts.global,
+        binPath: opts.bin,
+      });
+      await rt.extract();
+      writeAgentsCapsule(rt);
+      process.stdout.write(
+        `Installed Claude Code hooks (Tier 2 push) → ${settingsPath}\ngraphctx will push memory at SessionStart and PostCompact.\n`,
+      );
+      rt.close();
+      return;
+    }
+
+    if (resolved === "cursor" || resolved === "opencode" || resolved === "generic") {
+      const { makeAdapter } = await import("./adapters/registry.js");
+      const adapter = makeAdapter(resolved, rt.workspaceDir);
+      const cap = await adapter.detect();
+      await adapter.install({
+        workspaceDir: rt.workspaceDir,
+        global: opts.global,
+        binPath: opts.bin,
+      });
+      await rt.extract();
+      writeAgentsCapsule(rt);
+      process.stdout.write(
+        `Installed ${resolved} adapter (tiers ${cap.tiers.join(",")}; highest T${cap.highest}).\nRegistered MCP server + AGENTS.md grounding. Run \`graphctx serve --mcp\` from the client.\n`,
+      );
+      rt.close();
+      return;
+    }
+
     rt.close();
+    fail(`unknown client "${client}" (supported: claude, cursor, opencode, generic, auto)`);
   });
 
 program
@@ -214,12 +242,18 @@ program
 
 program
   .command("serve")
-  .option("--mcp", "run as MCP server")
-  .description("run the MCP server (M1+; not part of the M0 spike)")
-  .action(() => {
-    process.stdout.write(
-      "graphctx serve --mcp is implemented in M1. M0 uses Claude Code hooks (push) only.\n",
-    );
+  .option("--mcp", "run as MCP server (stdio JSON-RPC)")
+  .option("-C, --cwd <dir>", "workspace directory", process.cwd())
+  .description("run the graphCTX MCP server (stdio, 8 tools)")
+  .action(async (opts) => {
+    if (!opts.mcp) {
+      process.stdout.write("usage: graphctx serve --mcp\n");
+      return;
+    }
+    const { McpServer } = await import("./mcp/server.js");
+    const server = new McpServer({ workspaceDir: opts.cwd });
+    await server.serve();
+    server.close();
   });
 
 program
@@ -336,7 +370,10 @@ program
 
 program
   .command("eval")
-  .argument("<sub>", "subcommand: run | promote | drift | branch | conflict | procedure | all")
+  .argument(
+    "<sub>",
+    "subcommand: run | promote | drift | branch | conflict | procedure | mcp | all",
+  )
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
   .option(
@@ -392,6 +429,14 @@ program
       process.stdout.write(formatProcedureMemoryReport(r));
       return r.pass;
     };
+    const runMcp = async () => {
+      const { runAdaptersMcpEval, formatAdaptersMcpReport } = await import(
+        "./eval/suites/adapters-mcp.js"
+      );
+      const r = await runAdaptersMcpEval(opts.cwd);
+      process.stdout.write(formatAdaptersMcpReport(r));
+      return r.pass;
+    };
 
     if (sub === "promote") {
       if (!(await runPromote())) process.exitCode = 1;
@@ -413,6 +458,10 @@ program
       if (!(await runProcedure())) process.exitCode = 1;
       return;
     }
+    if (sub === "mcp") {
+      if (!(await runMcp())) process.exitCode = 1;
+      return;
+    }
     if (sub === "all") {
       const a = await runArms();
       const p = await runPromote();
@@ -420,7 +469,8 @@ program
       const b = await runBranch();
       const c = await runConflict();
       const pr = await runProcedure();
-      if (!(a && p && d && b && c && pr)) process.exitCode = 1;
+      const m = await runMcp();
+      if (!(a && p && d && b && c && pr && m)) process.exitCode = 1;
       return;
     }
     if (sub !== "run") fail(`unknown eval subcommand "${sub}"`);
