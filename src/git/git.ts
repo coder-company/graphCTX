@@ -62,6 +62,26 @@ export class Git {
     }
   }
 
+  // Parent SHAs of a commit (>1 for a merge). Empty on error/root.
+  async parentsOf(sha: SHA): Promise<string[]> {
+    try {
+      const raw = (await this.git.raw(["rev-list", "--parents", "-n", "1", sha])).trim();
+      const parts = raw.split(/\s+/).filter(Boolean);
+      return parts.slice(1); // first token is the commit itself
+    } catch {
+      return [];
+    }
+  }
+
+  // Full commit message (subject + body). Empty string on error.
+  async commitMessage(sha: SHA): Promise<string> {
+    try {
+      return (await this.git.raw(["log", "-1", "--format=%B", sha])).trim();
+    } catch {
+      return "";
+    }
+  }
+
   async mergeBase(a: SHA, b: SHA): Promise<SHA | null> {
     try {
       return (await this.git.raw(["merge-base", a, b])).trim() || null;

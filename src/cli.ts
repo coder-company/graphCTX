@@ -336,7 +336,7 @@ program
 
 program
   .command("eval")
-  .argument("<sub>", "subcommand: run | promote | drift | all")
+  .argument("<sub>", "subcommand: run | promote | drift | branch | conflict | procedure | all")
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
   .option(
@@ -368,6 +368,30 @@ program
       process.stdout.write(formatReport(report));
       return true;
     };
+    const runBranch = async () => {
+      const { runBranchTruthEval, formatBranchTruthReport } = await import(
+        "./eval/suites/branch-truth.js"
+      );
+      const r = runBranchTruthEval();
+      process.stdout.write(formatBranchTruthReport(r));
+      return r.pass;
+    };
+    const runConflict = async () => {
+      const { runParallelConflictEval, formatParallelConflictReport } = await import(
+        "./eval/suites/parallel-conflict.js"
+      );
+      const r = runParallelConflictEval();
+      process.stdout.write(formatParallelConflictReport(r));
+      return r.pass;
+    };
+    const runProcedure = async () => {
+      const { runProcedureMemoryEval, formatProcedureMemoryReport } = await import(
+        "./eval/suites/procedure-memory.js"
+      );
+      const r = await runProcedureMemoryEval();
+      process.stdout.write(formatProcedureMemoryReport(r));
+      return r.pass;
+    };
 
     if (sub === "promote") {
       if (!(await runPromote())) process.exitCode = 1;
@@ -377,11 +401,26 @@ program
       if (!(await runDrift())) process.exitCode = 1;
       return;
     }
+    if (sub === "branch") {
+      if (!(await runBranch())) process.exitCode = 1;
+      return;
+    }
+    if (sub === "conflict") {
+      if (!(await runConflict())) process.exitCode = 1;
+      return;
+    }
+    if (sub === "procedure") {
+      if (!(await runProcedure())) process.exitCode = 1;
+      return;
+    }
     if (sub === "all") {
       const a = await runArms();
       const p = await runPromote();
       const d = await runDrift();
-      if (!(a && p && d)) process.exitCode = 1;
+      const b = await runBranch();
+      const c = await runConflict();
+      const pr = await runProcedure();
+      if (!(a && p && d && b && c && pr)) process.exitCode = 1;
       return;
     }
     if (sub !== "run") fail(`unknown eval subcommand "${sub}"`);

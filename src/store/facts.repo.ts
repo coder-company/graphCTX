@@ -308,6 +308,34 @@ export class FactsRepo {
     }
   }
 
+  // Expired facts that carry a valid_until_commit anchor — candidates for
+  // revert-driven reactivation (git/dag.ts).
+  expiredWithValidUntil(): Fact[] {
+    const rows = this.db
+      .prepare(
+        `SELECT f.* FROM facts f
+         JOIN git_anchors g ON g.fact_id = f.fact_id
+         WHERE f.status = 'expired' AND g.valid_until_commit IS NOT NULL`,
+      )
+      .all() as FactRow[];
+    return rows.map((r) => this.hydrate(r));
+  }
+
+  // Reactivate a fact whose invalidating commit was reverted (SPEC §8): clear
+  // the expiry anchor + invalidation and mark active again.
+  reactivate(id: string): void {
+    this.db
+      .prepare(
+        "UPDATE facts SET status = 'active', t_expired = NULL, invalidated_by = NULL WHERE fact_id = ?",
+      )
+      .run(id);
+    this.db
+      .prepare(
+        "UPDATE git_anchors SET valid_until_commit = NULL, invalidated_by_commit = NULL WHERE fact_id = ?",
+      )
+      .run(id);
+  }
+
   bySubjectPredicate(s: string, p: string, scope: ScopeFilter): Fact[] {
     const { clause, params } = scopeClause(scope);
     const rows = this.db

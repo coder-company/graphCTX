@@ -3,13 +3,23 @@ import { type LoadedConfig, loadConfig } from "./config/config.js";
 import { type Clock, systemClock } from "./core/clock.js";
 import { workspaceIdFromPath } from "./core/ids.js";
 import type { Event, InjectionContext, Scope } from "./core/types.js";
+import { extractFactsFromEpisodes } from "./extract/llm/fact-extractor.js";
+import { mineProcedures } from "./extract/llm/procedure-miner.js";
 import { runDeterministicExtraction } from "./extract/pipeline.js";
+import { type DagEvent, detectEvent, revalidateOnRevert } from "./git/dag.js";
 import { Git } from "./git/git.js";
 import type { BudgetConfig } from "./inject/budget.js";
 import type { GateConfig } from "./inject/gate.js";
 import { Ledger } from "./inject/ledger.js";
 import { InjectionPlanner } from "./inject/planner.js";
 import { Invalidator } from "./invalidate/invalidator.js";
+import { createLlmInvalidationAgent } from "./invalidate/llm-agent.js";
+import {
+  type LlmProvider,
+  type ProviderConfig,
+  nullProvider,
+  resolveProvider,
+} from "./llm/provider.js";
 import { Probation } from "./promote/probation.js";
 import { type WhyReport, why } from "./provenance/why.js";
 import { VectorIndex } from "./retrieve/vectors.js";
@@ -18,6 +28,7 @@ import { EdgesRepo } from "./store/edges.repo.js";
 import { EpisodesRepo } from "./store/episodes.repo.js";
 import { FactsRepo } from "./store/facts.repo.js";
 import { InjectionsRepo } from "./store/injections.repo.js";
+import { ProceduresRepo } from "./store/procedures.repo.js";
 import { PromotionsRepo } from "./store/promotions.repo.js";
 
 export interface RuntimeOptions {
@@ -43,7 +54,9 @@ export class Runtime {
   readonly git: Git;
   readonly ledger: Ledger;
   readonly vectors: VectorIndex;
+  readonly procedures: ProceduresRepo;
   private readonly clock: Clock;
+  private resolvedProvider?: LlmProvider;
 
   constructor(opts: RuntimeOptions = {}) {
     this.clock = opts.clock ?? systemClock;
@@ -62,6 +75,30 @@ export class Runtime {
     this.episodeLog = new EpisodeLog(this.episodes, this.loaded.paths.episodes, this.clock);
     this.git = new Git(this.workspaceDir);
     this.ledger = new Ledger(this.db);
+    this.procedures = new ProceduresRepo(this.db, this.clock);
+  }
+
+  private providerConfig(): ProviderConfig {
+    const l = this.loaded.config.llm;
+    return {
+      provider: l.provider,
+      chatModel: l.chat_model,
+      embedModel: l.embed_model,
+      apiKeyEnv: l.api_key_env,
+      baseUrl: l.base_url || undefined,
+    };
+  }
+
+  // Resolve the configured LLM provider lazily + fail-soft. With no key/base_url
+  // this returns the null provider → DETERMINISTIC-ONLY mode (I9). Cached.
+  async provider(): Promise<LlmProvider> {
+    if (this.resolvedProvider) return this.resolvedProvider;
+    try {
+      this.resolvedProvider = await resolveProvider(this.providerConfig());
+    } catch {
+      this.resolvedProvider = nullProvider;
+    }
+    return this.resolvedProvider;
   }
 
   scope(sessionId?: string): Scope {
@@ -111,14 +148,82 @@ export class Runtime {
         // degrade
       }
     }
+    // Provider-backed LLM agent only when a key is configured; otherwise the
+    // deterministic-only null agent (the invalidator still enforces the
+    // cited-evidence post-check regardless).
+    const provider = await this.provider();
+    const llm = provider.available ? createLlmInvalidationAgent({ provider }) : undefined;
     return new Invalidator({
       facts: this.facts,
       edges: this.edges,
       episodes: this.episodes,
+      llm,
       workspaceDir: this.workspaceDir,
       currentBranch: branch,
       currentHead: head,
     });
+  }
+
+  // LLM consolidation worker (SPEC §10.2). ASYNC, OFF the hot path: mines durable
+  // facts + procedures from recent session episodes, runs invalidation on each,
+  // and persists procedures (descriptive-only, D10). Fail-soft: with no provider
+  // this is a no-op (deterministic extraction already ran on the hot path).
+  async consolidate(
+    sessionId?: string,
+    opts: { limit?: number } = {},
+  ): Promise<{ factsLearned: number; proceduresMined: number }> {
+    const provider = await this.provider();
+    if (!provider.available) return { factsLearned: 0, proceduresMined: 0 };
+    if (!sessionId) return { factsLearned: 0, proceduresMined: 0 };
+    const scope = this.scope(sessionId);
+    let episodes: ReturnType<EpisodesRepo["tail"]>;
+    try {
+      episodes = this.episodes.tail(sessionId, opts.limit ?? 50);
+    } catch {
+      return { factsLearned: 0, proceduresMined: 0 };
+    }
+    if (episodes.length === 0) return { factsLearned: 0, proceduresMined: 0 };
+
+    let factsLearned = 0;
+    let proceduresMined = 0;
+    try {
+      const newFacts = await extractFactsFromEpisodes(episodes, { provider, scope });
+      for (const nf of newFacts) {
+        await this.learn(nf);
+        factsLearned++;
+      }
+    } catch {
+      // never break consolidation (I9)
+    }
+    try {
+      const mined = await mineProcedures(episodes, { provider, scope });
+      for (const p of mined) {
+        const fact = this.facts.insert({
+          subject: "workflow",
+          predicate: "procedure",
+          object: p.name,
+          fact_kind: "procedural",
+          temporal_kind: "static",
+          scope,
+          trust_tier: "low",
+          confidence: p.confidence,
+          status: "candidate",
+          promotion_state: "session_only",
+          source: { asserted_by: "llm_extractor", event_ids: p.evidence_ids },
+          tags: ["llm_extracted", "procedure"],
+        });
+        this.procedures.insert({
+          fact_id: fact.fact_id,
+          name: p.name,
+          steps: p.steps,
+          verifier: p.verifier,
+        });
+        proceduresMined++;
+      }
+    } catch {
+      // never break consolidation (I9)
+    }
+    return { factsLearned, proceduresMined };
   }
 
   // Insert a fact AND run invalidation against existing memory (M1). Returns the
@@ -195,6 +300,27 @@ export class Runtime {
   async resolveOpenLoop(loopFactId: string, byFactId?: string): Promise<void> {
     const inv = await this.invalidator();
     inv.resolve(loopFactId, byFactId ?? loopFactId);
+  }
+
+  // Handle a HEAD move (BranchSwitch / FileChanged after commit). Classifies the
+  // transition and, on a REVERT, restores facts whose invalidating commit was
+  // undone (SPEC §8). Fail-soft: returns a noop event off-repo or on error (I9).
+  async onHeadMove(
+    from: string,
+    to: string,
+    fromBranch?: string,
+    toBranch?: string,
+  ): Promise<DagEvent> {
+    try {
+      if (!(await this.git.isRepo())) return { kind: "noop", from, to, fromBranch, toBranch };
+      const ev = await detectEvent(this.git, from, to, fromBranch, toBranch);
+      if (ev.kind === "revert") {
+        await revalidateOnRevert(this.git, this.facts, to, toBranch ?? (await this.git.branch()));
+      }
+      return ev;
+    } catch {
+      return { kind: "noop", from, to, fromBranch, toBranch };
+    }
   }
 
   // Provenance reader (M1 §5): full evidence chain for a fact.
