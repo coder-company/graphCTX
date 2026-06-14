@@ -48,7 +48,7 @@ export class OpenCodeAdapter implements Adapter {
     if (!existsSync(cfgPath)) return;
     try {
       const cfg = JSON.parse(readFileSync(cfgPath, "utf8")) as { mcp?: Record<string, unknown> };
-      if (cfg.mcp) delete cfg.mcp.graphctx;
+      if (cfg.mcp) cfg.mcp.graphctx = undefined;
       writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`, "utf8");
     } catch {
       // best-effort

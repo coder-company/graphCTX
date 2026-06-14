@@ -62,7 +62,7 @@ export class CursorAdapter implements Adapter {
       const mcp = JSON.parse(readFileSync(mcpPath, "utf8")) as {
         mcpServers?: Record<string, unknown>;
       };
-      if (mcp.mcpServers) delete mcp.mcpServers.graphctx;
+      if (mcp.mcpServers) mcp.mcpServers.graphctx = undefined;
       writeFileSync(mcpPath, `${JSON.stringify(mcp, null, 2)}\n`, "utf8");
     } catch {
       // best-effort
