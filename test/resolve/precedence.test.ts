@@ -1,0 +1,62 @@
+import { describe, expect, it } from "vitest";
+import type { Fact } from "../../src/core/types.js";
+import { byPrecedence, precedenceRank } from "../../src/resolve/precedence.js";
+
+function fact(over: Partial<Fact>): Fact {
+  return {
+    fact_id: Math.random().toString(36).slice(2),
+    subject: "repo",
+    predicate: "p",
+    object: "o",
+    fact_kind: "semantic",
+    temporal_kind: "static",
+    scope: { user_id: "u", workspace_id: "w" },
+    status: "active",
+    promotion_state: "workspace_active",
+    trust_tier: "high",
+    sensitivity: "public",
+    confidence: 0.5,
+    evidence_count: 1,
+    contradiction_count: 0,
+    injection_count: 0,
+    time: { t_created: "2026-01-01T00:00:00Z", t_recorded: "2026-01-01T00:00:00Z" },
+    source: { asserted_by: "user", event_ids: [] },
+    tags: [],
+    ...over,
+  };
+}
+
+describe("precedence (SPEC §14)", () => {
+  it("safety tag always wins", () => {
+    expect(precedenceRank(fact({ tags: ["safety"] }))).toBe(0);
+  });
+
+  it("repo prose ranks BELOW user profile (D14)", () => {
+    const prose = fact({
+      trust_tier: "low",
+      source: { asserted_by: "deterministic_parser", event_ids: [] },
+    });
+    const userProfile = fact({ promotion_state: "user_static_active" });
+    expect(precedenceRank(prose)).toBeGreaterThan(precedenceRank(userProfile));
+  });
+
+  it("current-session user instruction outranks repo structured evidence", () => {
+    const userNow = fact({
+      scope: { user_id: "u", workspace_id: "w", session_id: "s1" },
+      source: { asserted_by: "user", event_ids: [] },
+    });
+    const repoStructured = fact({
+      trust_tier: "high",
+      source: { asserted_by: "deterministic_parser", event_ids: [] },
+    });
+    expect(precedenceRank(userNow, "s1")).toBeLessThan(precedenceRank(repoStructured, "s1"));
+  });
+
+  it("byPrecedence is deterministic", () => {
+    const a = fact({ object: "a" });
+    const b = fact({ object: "b" });
+    const r1 = byPrecedence([a, b]).map((f) => f.object);
+    const r2 = byPrecedence([b, a]).map((f) => f.object);
+    expect(r1).toEqual(r2);
+  });
+});

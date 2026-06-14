@@ -1,0 +1,10 @@
+{
+  "name": "acme-web: pnpm + vitest, generated types",
+  "plan": "Add a User profile page, wire it to the API, run the test suite, keep generated types untouched.",
+  "needs": [
+    { "task": "run the test suite", "predicate": "test_command", "correct": "npm run test", "wrong": "npm test" },
+    { "task": "use the right package manager", "predicate": "package_manager", "correct": "pnpm", "wrong": "npm" },
+    { "task": "regenerate api types instead of editing", "predicate": "do_not_edit", "correct": "src/generated/api-types.ts", "wrong": "edit src/generated/api-types.ts" }
+  ],
+  "recall_compliance": [false, false, true]
+}

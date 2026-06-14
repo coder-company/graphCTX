@@ -1,0 +1,10 @@
+{
+  "name": "acme-cli: npm + node:test, tabs",
+  "plan": "Add a `--json` flag, write a node:test case, match the repo's tab indentation.",
+  "needs": [
+    { "task": "run the tests", "predicate": "test_command", "correct": "npm run test", "wrong": "npm test" },
+    { "task": "match indentation style", "predicate": "indent_style", "correct": "tab", "wrong": "space" },
+    { "task": "use the project package manager", "predicate": "package_manager", "correct": "npm", "wrong": "pnpm" }
+  ],
+  "recall_compliance": [true, false, false]
+}
