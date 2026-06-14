@@ -3,6 +3,7 @@ import type { Fact } from "../core/types.js";
 import type { Git } from "../git/git.js";
 import { EMPTY_CAPSULE, renderCapsule } from "../render/capsule.js";
 import { renderCard } from "../render/cards.js";
+import { resolveConflicts } from "../resolve/conflicts.js";
 import { Retriever } from "../retrieve/retriever.js";
 import type { VectorIndex } from "../retrieve/vectors.js";
 import { containsSecret } from "../security/secrets.js";
@@ -19,6 +20,12 @@ import {
 } from "./gate.js";
 import { Ledger } from "./ledger.js";
 import { verifyBeforeInject } from "./staleness.js";
+
+export interface PlanOptions {
+  // Skip the relevance gate (used by the explicit `recall` pull path, which is
+  // user-initiated and should always answer).
+  bypassGate?: boolean;
+}
 
 export interface PlannerDeps {
   facts: FactsRepo;
@@ -48,9 +55,9 @@ export class InjectionPlanner {
     this.ledger = deps.ledger ?? new Ledger();
   }
 
-  async plan(ctx: InjectionContext): Promise<Capsule> {
+  async plan(ctx: InjectionContext, opts: PlanOptions = {}): Promise<Capsule> {
     const drift = this.computeDrift(ctx);
-    if (!shouldFire(ctx, this.deps.gateConfig, drift)) return EMPTY_CAPSULE;
+    if (!opts.bypassGate && !shouldFire(ctx, this.deps.gateConfig, drift)) return EMPTY_CAPSULE;
 
     const budget = resolveBudget(ctx.event, this.deps.budgetConfig, ctx.budget_tokens);
     const broad = ctx.event === "SessionStart" || ctx.event === "PostCompact";
@@ -89,13 +96,27 @@ export class InjectionPlanner {
 
     if (selected.length === 0) return EMPTY_CAPSULE;
 
-    const cards = selected.map((s) => renderCard(s.scored.fact));
-    const conflicts = detectConflicts(selected.map((s) => s.scored));
+    // Precedence resolution (SPEC §14): suppress contradicted losers, surface the
+    // conflict so the agent sees which value won and why. Falls back to the M0
+    // detector for the conflict note text when resolution finds none.
+    const resolution = resolveConflicts(
+      selected.map((s) => s.scored),
+      ctx.scope.session_id,
+    );
+    const winners = new Set(resolution.resolved.map((r) => r.fact.fact_id));
+    const kept = selected.filter((s) => winners.has(s.scored.fact.fact_id));
+    const finalSelected = kept.length > 0 ? kept : selected;
+
+    const cards = finalSelected.map((s) => renderCard(s.scored.fact));
+    const conflicts =
+      resolution.conflicts.length > 0
+        ? resolution.conflicts
+        : detectConflicts(finalSelected.map((s) => s.scored));
     const capsule = renderCapsule(ctx.event, cards, conflicts, omitted);
 
     this.ledger.record(
       ctx.scope.session_id,
-      selected.map((s) => s.scored),
+      finalSelected.map((s) => s.scored),
       ctx.event,
     );
 
@@ -103,7 +124,7 @@ export class InjectionPlanner {
       this.deps.injections.log({
         session_id: ctx.scope.session_id ?? "unknown",
         event_type: ctx.event,
-        selected_fact_ids: selected.map((s) => s.scored.fact.fact_id),
+        selected_fact_ids: finalSelected.map((s) => s.scored.fact.fact_id),
         rejected_fact_ids: omitted.map((o) => o.fact_id),
         token_count: capsule.token_count,
         git_head: ctx.git.head,

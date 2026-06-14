@@ -1,4 +1,10 @@
-# graphCTX M0 — Live Demo (≈3 minutes, offline)
+# graphCTX — Live Demo (≈3 minutes, offline)
+
+> M0 proves the thesis (push beats pull); M1–M4 build it out (memory core,
+> relevance gate, branch-truth + conflict resolution, multi-client + MCP). Each
+> milestone has a live gate — see §4c–§4f. The M0 headline below is still the
+> fastest way to *see* the difference.
+
 
 > **The one question M0 answers:** does *pushed* memory beat *pulled* memory when
 > a coding agent drifts under compaction?
@@ -180,6 +186,86 @@ gate, supersession edges):
 
 ```bash
 graphctx why 7K2QF8AB -C /tmp/graphctx-demo
+```
+
+---
+
+## 4c. Selective mid-session push (M2 — the relevance gate)
+
+Push is only valuable if it fires at the *right* moment. The relevance gate
+fires on SessionStart/PostCompact (always), on topic drift / new entities at
+`UserPromptSubmit`, and **selectively** at `PreToolUse` — only when memory
+plausibly applies (a concrete `Bash` command, an `Edit`/`Write` on a real path),
+not on every tool call.
+
+```bash
+graphctx eval drift -C /tmp/graphctx-demo
+```
+
+```
+  PreToolUse fired on 11/35 calls (rate 31%) — selective
+  harmful injections: 0/35 cards (rate 0%)
+  cross-channel duplicate cards: 0
+  VERDICT: ✅ M2 GATE PASS — selective gate, zero harmful injections, no cross-channel dupes.
+```
+
+The DB-backed ledger guarantees a fact pushed by a short-lived hook is **not**
+re-pushed by the long-lived MCP rider in the same session (cross-channel
+idempotency). Open loops are exempt by design.
+
+---
+
+## 4d. Truth across branches + conflict resolution (M3)
+
+```bash
+graphctx eval branch       # facts don't leak across branches; revert restores truth
+graphctx eval conflict     # parallel writes never silent-LWW (partition/dispute/surface)
+graphctx eval procedure    # LLM extraction safe: secrets dropped, trust capped, evidence verified
+```
+
+LLM extraction (optional, async, off the hot path) runs **only when a key is
+configured** — with no key graphCTX runs in deterministic-only mode and never
+blocks the agent. Extracted facts are capped to low trust (I2), secret-scrubbed
+(I3), and their cited evidence is verified against real episodes.
+
+---
+
+## 4e. Any client + the MCP surface (M4)
+
+graphCTX is not Claude-only. One command wires whichever client you use; hookless
+clients still get the Tier-0 `AGENTS.md` floor + Tier-1 MCP riders.
+
+```bash
+graphctx install cursor      # writes .cursor/rules + registers the MCP server
+graphctx install opencode    # registers the MCP server in opencode.json
+graphctx install auto        # auto-detect the client in this workspace
+
+# the long-lived MCP server (stdio JSON-RPC) exposes EXACTLY 8 tools (I8):
+graphctx serve --mcp
+#   remember · recall · inject_context · checkpoint_session
+#   promote · forget · why · resolve_conflict
+```
+
+```bash
+graphctx eval mcp            # install per client + MCP 8-tool smoke + secure proxy
+```
+
+```
+  ✓ MCP exposes EXACTLY 8 tools (I8) — got 8
+  ✓ proxy (enabled) refuses a capsule that trips the secret scanner (I3)
+  checks: 20/20   MCP tools: 8 (must be 8)   proxy leaks: 0 (must be 0)
+  VERDICT: ✅ M4 GATE PASS — multi-client install, MCP 8-tool surface, secure proxy, telemetry classifies.
+```
+
+The Tier-4 proxy (rewrite outgoing context for hookless clients) is **opt-in
+only** and refuses to inject any capsule that trips the secret scanner.
+
+---
+
+## 4f. Run every gate at once
+
+```bash
+graphctx eval all     # M0 A/B/C/N/S + promotion + drift + branch + conflict + procedure + mcp
 ```
 
 ---

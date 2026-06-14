@@ -9,7 +9,7 @@
 | M1 — memory core | `m1-finish` | promotion precision ≥ 90% | ✅ PASS (100% precision/recall, 0 leaks) |
 | M2 — injection loop | `m2-injection` | harmful-injection < target + selective gate | ✅ PASS (0 harmful, 31% PreToolUse fire-rate, 0 dupes) |
 | M3 — robustness | `m3-robustness` | branch-truth + parallel-conflict + procedure pass | ✅ PASS (0 leaks, 0 silent winners, safe LLM extraction) |
-| M4 — adapters + MCP | `adapters-mcp` | install per client + MCP smoke | ⬜ not started |
+| M4 — adapters + MCP | `adapters-mcp` | install per client + MCP smoke + secure proxy | ✅ PASS (20/20; MCP=8 tools; 0 proxy leaks) |
 
 ## Module status (SPEC §2 layout)
 
@@ -43,18 +43,18 @@
 | inject/budget | §15 | ✅ | utility ranking + redundancy penalty + must-include bonuses + caps |
 | inject/planner | §15 | ✅ | gate → retrieve → verify → dedupe → budget → render → log |
 | render/capsule + cards + tokens | §16 | ✅ | fixed section order; open-loops + conflict sections; [mem:id] (I7) |
-| adapters/adapter | §17 | 🟡 | interface + tiers defined; capability detection in M4 |
-| adapters/claude-code | §17 | ✅ | install/hooks/templates; all lifecycle events wired |
-| adapters/cursor, opencode, generic, proxy | §17 | ⬜ | M4 |
-| mcp/server + tools | §18 | ⬜ | M4 (exactly 8 tools, I8) |
+| adapters/adapter + registry + channel | §17 | ✅ | capability detection + tier routing; channel ladder T0-4; auto-detect client |
+| adapters/claude-code | §17 | ✅ | install/hooks/templates; all lifecycle events wired (Tier 2) |
+| adapters/cursor, opencode, generic, proxy | §17 | ✅ | cursor (rules+MCP, T0-1), opencode (MCP, T0-1-3), generic (T0-1 floor), proxy (T4 opt-in + secret-refusing) |
+| mcp/server + tools | §18 | ✅ | stdio JSON-RPC (no SDK dep); EXACTLY 8 tools (I8); Tier-1 parasitic rider |
 | llm/provider + openai/anthropic/local | §10 | ✅ | lazy + async-only + fail-soft; fetch-based (no SDK deps); null provider = deterministic-only |
 | security/secrets | §20 | ✅ | scan on write + capsule pre-send (I3); sensitivity stamping |
 | security/trust | §20 | ✅ | trust tiers enforced via extractors + gates + precedence; LLM facts capped to low |
-| security/sanitize | §20 | 🟡 | prose kept low-trust + non-executable; explicit neutralization framing in M4 |
-| telemetry/metrics + outcomes | §21 | ⬜ | M4 (local-only outcome classification) |
+| security/sanitize | §20 | ✅ | prose kept low-trust + non-executable; proxy refuses secret capsules at the send edge |
+| telemetry/metrics + outcomes | §21 | ✅ | local-only outcome classification (helped/ignored/harmful) → injection rows |
 | provenance/why | §11 | ✅ | full evidence chain reader + CLI |
-| eval/harness + suites | §22 | ✅ | compaction-recovery (A/B/C/N/S), promotion-precision, drift-gate, branch-truth, parallel-conflict, procedure-memory; `eval all` |
-| cli.ts | §19 | 🟡 | init/install/hook/serve/recall/remember/extract/why/loop/resolve/doctor/demo/bench/eval; profile/conflicts/time-travel pending |
+| eval/harness + suites | §22 | ✅ | compaction-recovery (A/B/C/N/S), promotion-precision, drift-gate, branch-truth, parallel-conflict, procedure-memory, adapters-mcp; `eval all` runs all 7 |
+| cli.ts | §19 | ✅ | init/install(claude\|cursor\|opencode\|generic\|auto)/uninstall/hook/serve --mcp/recall/remember/extract/why/loop/resolve/doctor/demo/bench/eval; profile/time-travel are nice-to-have, deferred |
 
 ## Invariants (enforced throughout)
 
@@ -67,13 +67,13 @@
 | I5 | durable writes append-only | ✅ |
 | I6 | respect token budgets, utility/token select | ✅ |
 | I7 | every card carries provenance | ✅ |
-| I8 | MCP surface ≤ 8 tools | ⬜ (MCP server in M4) |
+| I8 | MCP surface ≤ 8 tools | ✅ (exactly 8; runtime + table guard) |
 | I9 | failures degrade to no-memory | ✅ (every path wrapped) |
 
 ## Performance
 
 | Metric | Budget | Latest |
 |---|---|---|
-| `hook <event>` p95 | < 150ms | ~8.7ms ✅ |
+| `hook <event>` p95 | < 150ms | ~8.8ms ✅ |
 
-_Last updated: end of Phase 3 (M3). 120 tests, 6 gate suites green._
+_Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 hold._
