@@ -368,7 +368,23 @@ program
   .command("compare")
   .description("benchmark graphCTX vs Supermemory (multi-axis; --live for API bake-off)")
   .option("--live", "run the live API bake-off (requires SUPERMEMORY_API_KEY)", false)
+  .option("--deep", "run deep scenarios: latency dists, scale, push-vs-pull", false)
+  .option("--json", "emit machine-readable JSON (with --deep)", false)
+  .option("-C, --cwd <dir>", "workspace directory", process.cwd())
   .action(async (opts) => {
+    if (opts.deep) {
+      const { runScenarios } = await import("./bench/scenarios.js");
+      if (!opts.json)
+        process.stdout.write("running deep scenarios (scale + latency dists + live)…\n");
+      const report = await runScenarios({ baseDir: opts.cwd });
+      if (opts.json) {
+        process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      } else {
+        const { formatScenarios } = await import("./bench/scenarios-report.js");
+        process.stdout.write(`${formatScenarios(report)}\n`);
+      }
+      return;
+    }
     const { runBenchmark, formatReport } = await import("./bench/compare.js");
     if (opts.live) process.stdout.write("running live bake-off (ingest + index wait ~12s)…\n");
     const report = await runBenchmark({ live: opts.live });
