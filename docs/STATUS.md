@@ -90,7 +90,7 @@ _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 ho
 |---|---|---|
 | Green tree (5 gates) | ✅ perfected | all 5 gates green; biome format errors fixed (iter1) |
 | Retrieval & ranking | 🟡 in-progress | RRF fusion (iter3): recall@1 0.44, recall@5 0.83, recall@10 0.83, MRR 0.59 (was 0.33/0.50/0.67/0.43). New `eval retrieval` suite + regression gate |
-| Relevance gate precision | ⬜ untouched | M2: 31% PreToolUse fire, 0 harmful — needs labeled precision/recall |
+| Relevance gate precision | 🟡 in-progress | gate-precision suite (iter4): P/R/F1=1.0 on 26 labeled cases, all 4 branches (TP15 FP0 FN0 TN11). Guarded in `eval gate`. To perfect: adversarial + utility-labeled dataset |
 | Invalidation & temporal | ⬜ untouched | git-DAG events working; patch-id depth + bi-temporal SOTA compare pending |
 | Conflict & precedence | ⬜ untouched | 0 silent LWW; concurrency stress scale pending |
 | LLM extraction & procedures | ⬜ untouched | safe+capped; precision/recall not quantified |
