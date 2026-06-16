@@ -18,3 +18,6 @@ coverage/
 # Binary build outputs and generated files
 dist-bin/
 src/store/migrations.generated.ts
+
+# autoresearch run artifacts (never committed)
+autoresearch-results/
