@@ -412,7 +412,7 @@ program
   .command("eval")
   .argument(
     "<sub>",
-    "subcommand: run | promote | drift | branch | conflict | procedure | mcp | all",
+    "subcommand: run | promote | drift | retrieval | branch | conflict | procedure | mcp | all",
   )
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
@@ -435,6 +435,14 @@ program
       );
       const report = await runDriftGateEval(opts.cwd);
       process.stdout.write(formatDriftGateReport(report));
+      return report.pass;
+    };
+    const runRetrieval = async () => {
+      const { runRetrievalQualityEval, formatRetrievalQualityReport } = await import(
+        "./eval/suites/retrieval-quality.js"
+      );
+      const report = await runRetrievalQualityEval();
+      process.stdout.write(formatRetrievalQualityReport(report));
       return report.pass;
     };
     const runArms = async () => {
@@ -486,6 +494,10 @@ program
       if (!(await runDrift())) process.exitCode = 1;
       return;
     }
+    if (sub === "retrieval") {
+      if (!(await runRetrieval())) process.exitCode = 1;
+      return;
+    }
     if (sub === "branch") {
       if (!(await runBranch())) process.exitCode = 1;
       return;
@@ -506,11 +518,12 @@ program
       const a = await runArms();
       const p = await runPromote();
       const d = await runDrift();
+      const rq = await runRetrieval();
       const b = await runBranch();
       const c = await runConflict();
       const pr = await runProcedure();
       const m = await runMcp();
-      if (!(a && p && d && b && c && pr && m)) process.exitCode = 1;
+      if (!(a && p && d && rq && b && c && pr && m)) process.exitCode = 1;
       return;
     }
     if (sub !== "run") fail(`unknown eval subcommand "${sub}"`);
