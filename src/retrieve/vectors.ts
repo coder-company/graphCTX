@@ -82,7 +82,28 @@ export class VectorIndex {
     }
   }
 
+  // Embed the query once, for re-ranking a bounded candidate set.
+  embedQuery(queryText: string): Float32Array {
+    return this.embed(queryText);
+  }
+
+  // Cosine distance (0..2; smaller = closer) between a precomputed query vector
+  // and a candidate's text, using the deterministic local embedding (cached by
+  // content hash, so repeat calls are ~free). Used by retrieve-then-rerank to
+  // bound vector cost to O(candidates) instead of an O(N) full-table KNN scan.
+  cosineDistanceTo(queryVec: Float32Array, text: string): number {
+    const v = this.embed(text);
+    let dot = 0;
+    const n = Math.min(this.dim, queryVec.length, v.length);
+    for (let i = 0; i < n; i++) dot += (queryVec[i] ?? 0) * (v[i] ?? 0);
+    // Both vectors are L2-normalized → dot == cosine similarity in [-1, 1].
+    return 1 - dot;
+  }
+
   // KNN search over the vec0 index. Returns [] when disabled (BM25 fallback).
+  // NOTE: sqlite-vec does a brute-force scan (no ANN index), so this is O(N) in
+  // corpus size. Prefer cosineDistanceTo() over a BM25 candidate pool on the hot
+  // path; reserve this for offline/broad passes.
   search(queryText: string, k: number): VectorHit[] {
     if (!this.enabled) return [];
     try {

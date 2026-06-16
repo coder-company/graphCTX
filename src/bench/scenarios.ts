@@ -180,7 +180,10 @@ export async function runLocal(scaleFacts: number, repeats = 20): Promise<LocalS
           budget_tokens: 1000,
         });
         const t0 = performance.now();
-        const scored = await retriever.retrieve(ctx, { includeAllActive: true });
+        // Measure the per-prompt HOT PATH (indexed BM25 + bounded semantic
+        // re-rank, k-limited) — not the includeAllActive boot/compaction pass,
+        // which is an O(N) "fill empty context" scan run only at session start.
+        const scored = await retriever.retrieve(ctx, { k: 10 });
         retr.push(performance.now() - t0);
         if (r === 0) {
           const top = scored

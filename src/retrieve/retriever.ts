@@ -6,6 +6,12 @@ import { fuse } from "./rank.js";
 import { entityScore, scopeWeight } from "./signals.js";
 import { type VectorIndex, distanceToScore } from "./vectors.js";
 
+// Bounded semantic expansion limits (keep the hot path flat at scale). The cap
+// bounds the embed-rerank scan for sparse queries; the max-distance gate avoids
+// surfacing weak semantic matches as noise.
+const SEMANTIC_SCAN_CAP = 512;
+const SEMANTIC_MAX_DIST = 1.05;
+
 export interface RetrieveOptions {
   // For SessionStart/PostCompact we also want a broad "all active workspace facts"
   // pass even when the query is sparse.
@@ -79,31 +85,47 @@ export class Retriever {
     }
 
     // Semantic (vector) signal — hybrid with BM25 (SPEC §13, §624-625). Applied
-    // as an ADDITIVE boost layered on the existing pool: it improves recall and
-    // re-ranking for semantically-relevant facts without displacing what BM25 /
-    // the broad pass already surfaced (so hybrid recall >= BM25-only). Disabled
-    // index → no-op → pure BM25 fallback.
+    // as an ADDITIVE re-rank boost over the candidates BM25 + the broad pass
+    // already surfaced. We re-rank the bounded candidate POOL (retrieve-then-
+    // rerank) rather than running an O(N) full-table vec0 KNN scan, so vector
+    // cost is O(candidates) and the hot path stays flat as the corpus grows.
+    // Disabled index → no-op → pure BM25 fallback (hybrid recall >= BM25-only).
     if (query && this.vectors?.enabled) {
-      const hits = this.vectors.search(query, k);
-      const ranks = new Map<string, number>();
-      hits.forEach((h, i) => ranks.set(h.fact_id, i));
-      for (const hit of hits) {
-        const existing = pool.get(hit.fact_id);
-        const semBoost = distanceToScore(hit.distance) * 0.35;
-        if (existing) {
-          existing.score += semBoost;
-          existing.signals = { ...existing.signals, semantic: hit.distance };
-        } else {
-          const f = this.repo.get(hit.fact_id);
-          if (!f || f.status !== "active") continue;
-          if (!inScope(f, wsScope.user_id, wsScope.workspace_id, ctx.scope.session_id)) continue;
-          const w = scopeWeight(f, ctx.scope.session_id);
-          pool.set(f.fact_id, {
-            fact: f,
-            score: semBoost * w,
-            signals: { semantic: hit.distance, scope: w },
-          });
+      try {
+        const qv = this.vectors.embedQuery(query);
+        // 1) Re-rank the BM25 candidate pool (always cheap: O(pool)).
+        for (const sf of pool.values()) {
+          const dist = this.vectors.cosineDistanceTo(qv, String(sf.fact.object));
+          sf.score += distanceToScore(dist) * 0.35;
+          sf.signals = { ...sf.signals, semantic: dist };
         }
+        // 2) Bounded semantic expansion: when BM25 surfaced few candidates (a
+        // sparse/short query, or a query whose answer shares no keywords — e.g.
+        // "which package manager" → "pnpm"), embed-rerank a CAPPED slice of
+        // active facts to recover pure-semantic matches. The cap keeps this
+        // O(SEMANTIC_SCAN_CAP), not O(N), so the hot path stays flat at scale.
+        if (pool.size < k) {
+          let scanned = 0;
+          const semCandidates: Array<{ fact: Fact; dist: number }> = [];
+          for (const f of this.repo.activeAsOf(wsScope)) {
+            if (scanned >= SEMANTIC_SCAN_CAP) break;
+            scanned++;
+            if (pool.has(f.fact_id)) continue;
+            const dist = this.vectors.cosineDistanceTo(qv, String(f.object));
+            semCandidates.push({ fact: f, dist });
+          }
+          semCandidates.sort((a, b) => a.dist - b.dist);
+          for (const c of semCandidates.slice(0, k)) {
+            if (c.dist > SEMANTIC_MAX_DIST) continue;
+            if (!inScope(c.fact, wsScope.user_id, wsScope.workspace_id, ctx.scope.session_id)) continue;
+            const w = scopeWeight(c.fact, ctx.scope.session_id);
+            add({ fact: c.fact, score: distanceToScore(c.dist) * 0.35 * w }, 0);
+            const added = pool.get(c.fact.fact_id);
+            if (added) added.signals = { ...added.signals, semantic: c.dist };
+          }
+        }
+      } catch {
+        // semantic re-rank is best-effort; BM25 ordering stands on failure
       }
     }
 
