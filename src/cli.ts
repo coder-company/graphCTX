@@ -412,7 +412,7 @@ program
   .command("eval")
   .argument(
     "<sub>",
-    "subcommand: run | promote | drift | retrieval | gate | branch | conflict | procedure | mcp | all",
+    "subcommand: run | promote | drift | retrieval | gate | security | branch | conflict | procedure | mcp | all",
   )
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
@@ -459,6 +459,14 @@ program
       );
       const report = runGatePrecisionEval();
       process.stdout.write(formatGatePrecisionReport(report));
+      return report.pass;
+    };
+    const runSecurity = async () => {
+      const { runSecurityAdversarialEval, formatSecurityAdversarialReport } = await import(
+        "./eval/suites/security-adversarial.js"
+      );
+      const report = await runSecurityAdversarialEval();
+      process.stdout.write(formatSecurityAdversarialReport(report));
       return report.pass;
     };
     const runBranch = async () => {
@@ -510,6 +518,10 @@ program
       if (!(await runGate())) process.exitCode = 1;
       return;
     }
+    if (sub === "security") {
+      if (!(await runSecurity())) process.exitCode = 1;
+      return;
+    }
     if (sub === "branch") {
       if (!(await runBranch())) process.exitCode = 1;
       return;
@@ -532,11 +544,12 @@ program
       const d = await runDrift();
       const rq = await runRetrieval();
       const g = await runGate();
+      const sec = await runSecurity();
       const b = await runBranch();
       const c = await runConflict();
       const pr = await runProcedure();
       const m = await runMcp();
-      if (!(a && p && d && rq && g && b && c && pr && m)) process.exitCode = 1;
+      if (!(a && p && d && rq && g && sec && b && c && pr && m)) process.exitCode = 1;
       return;
     }
     if (sub !== "run") fail(`unknown eval subcommand "${sub}"`);
