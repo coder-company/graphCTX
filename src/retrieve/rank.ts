@@ -1,8 +1,9 @@
 import type { Fact, ScoredFact } from "../core/types.js";
 
 // Stable content key for deterministic tiebreaking. fact_id is a random ULID and
-// must NOT be used to break ties (it varies run-to-run).
-function contentKey(f: Fact): string {
+// must NOT be used to break ties (it varies run-to-run). Exported so the
+// retriever can break per-retriever RANK ties identically (RRF determinism).
+export function contentKey(f: Fact): string {
   const obj = typeof f.object === "string" ? f.object : JSON.stringify(f.object);
   return `${f.subject}::${f.predicate}::${obj}`;
 }
