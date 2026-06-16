@@ -117,7 +117,8 @@ export class Retriever {
           semCandidates.sort((a, b) => a.dist - b.dist);
           for (const c of semCandidates.slice(0, k)) {
             if (c.dist > SEMANTIC_MAX_DIST) continue;
-            if (!inScope(c.fact, wsScope.user_id, wsScope.workspace_id, ctx.scope.session_id)) continue;
+            if (!inScope(c.fact, wsScope.user_id, wsScope.workspace_id, ctx.scope.session_id))
+              continue;
             const w = scopeWeight(c.fact, ctx.scope.session_id);
             add({ fact: c.fact, score: distanceToScore(c.dist) * 0.35 * w }, 0);
             const added = pool.get(c.fact.fact_id);

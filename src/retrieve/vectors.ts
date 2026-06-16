@@ -201,7 +201,9 @@ function resolveVecExtensionPath(): string | null {
     const file = process.platform === "win32" ? "vec0.dll" : "vec0";
     // sqlite-vec ships per-platform packages: sqlite-vec-linux-x64, etc.
     const pkg = `sqlite-vec-${plat}`;
-    const base = require.resolve(`${pkg}/${file}.${process.platform === "darwin" ? "dylib" : process.platform === "win32" ? "dll" : "so"}`);
+    const base = require.resolve(
+      `${pkg}/${file}.${process.platform === "darwin" ? "dylib" : process.platform === "win32" ? "dll" : "so"}`,
+    );
     return base;
   } catch {
     return null;
