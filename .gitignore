@@ -14,3 +14,7 @@ coverage/
 .idea/
 .vscode/
 *.tsbuildinfo
+
+# Binary build outputs and generated files
+dist-bin/
+src/store/migrations.generated.ts

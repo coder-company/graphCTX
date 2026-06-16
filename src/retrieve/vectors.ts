@@ -162,13 +162,49 @@ export function distanceToScore(distance: number): number {
 }
 
 function loadSqliteVec(db: DB): boolean {
+  // The retriever may receive either our DB wrapper (with .raw) or, in unit
+  // tests, a raw better-sqlite3 handle directly. Resolve the real handle.
+  const handle = (db as { raw?: unknown }).raw ?? db;
+  const isBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
+  if (isBun) {
+    // Bun: load the platform vec0 extension directly onto the raw handle. The
+    // .so path is resolved from an env override (set by the binary's bootstrap,
+    // which extracts the embedded extension) or the bundled npm package.
+    try {
+      const path = resolveVecExtensionPath();
+      if (!path) return false;
+      (handle as { loadExtension(p: string): void }).loadExtension(path);
+      return true;
+    } catch {
+      return false;
+    }
+  }
   try {
-    // Lazy require so a missing optional dep never crashes the module graph.
+    // Node: the sqlite-vec npm package loads onto the better-sqlite3 handle.
     const sqliteVec = require("sqlite-vec") as { load: (d: unknown) => void };
-    sqliteVec.load(db);
+    sqliteVec.load(handle);
     return true;
   } catch {
     return false;
+  }
+}
+
+// Locate the vec0 loadable extension for the Bun runtime. Priority:
+//   1) GRAPHCTX_VEC0_PATH env (set by the compiled binary after it extracts the
+//      embedded extension to a temp dir)
+//   2) the bundled sqlite-vec-<platform> npm package next to node_modules
+function resolveVecExtensionPath(): string | null {
+  const override = process.env.GRAPHCTX_VEC0_PATH;
+  if (override) return override;
+  try {
+    const plat = `${process.platform}-${process.arch}`;
+    const file = process.platform === "win32" ? "vec0.dll" : "vec0";
+    // sqlite-vec ships per-platform packages: sqlite-vec-linux-x64, etc.
+    const pkg = `sqlite-vec-${plat}`;
+    const base = require.resolve(`${pkg}/${file}.${process.platform === "darwin" ? "dylib" : process.platform === "win32" ? "dll" : "so"}`);
+    return base;
+  } catch {
+    return null;
   }
 }
 

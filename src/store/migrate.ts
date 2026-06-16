@@ -1,18 +1,9 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import type Database from "better-sqlite3";
+import { MIGRATIONS } from "./migrations.generated.js";
+import type { DB } from "./sqlite.js";
 
-const here = dirname(fileURLToPath(import.meta.url));
-
-// Forward-only numbered migrations. M0 ships 0001 only.
-const MIGRATIONS: Array<{ version: number; file: string }> = [
-  { version: 1, file: "0001_init.sql" },
-  { version: 2, file: "0002_m1.sql" },
-  { version: 3, file: "0003_m2.sql" },
-];
-
-export function runMigrations(db: Database.Database): void {
+// Forward-only numbered migrations, inlined at build time (see
+// scripts/gen-migrations.mjs) so the compiled binary needs no filesystem.
+export function runMigrations(db: DB): void {
   db.exec("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
   const row = db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get() as
     | { value: string }
@@ -21,19 +12,14 @@ export function runMigrations(db: Database.Database): void {
 
   for (const m of MIGRATIONS) {
     if (m.version <= current) continue;
-    const sql = readFileSync(resolveMigration(m.file), "utf8");
-    db.exec(sql);
+    db.exec(m.sql);
     db.prepare(
       "INSERT INTO meta(key, value) VALUES('schema_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
     ).run(String(m.version));
   }
 }
 
-function resolveMigration(file: string): string {
-  return join(here, "migrations", file);
-}
-
-export function schemaVersion(db: Database.Database): number {
+export function schemaVersion(db: DB): number {
   const row = db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get() as
     | { value: string }
     | undefined;

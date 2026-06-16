@@ -16,6 +16,7 @@ import { runEval } from "./eval/harness.js";
 import { formatReport } from "./eval/report.js";
 import { renderCard } from "./render/cards.js";
 import { Runtime } from "./runtime.js";
+import { bootstrapVec0 } from "./store/vec0-bootstrap.js";
 
 const program = new Command();
 program
@@ -516,6 +517,9 @@ program
     await runArms();
   });
 
+// Extract the embedded sqlite-vec extension (compiled binary only; no-op under
+// Node) before any command opens a DB, then dispatch.
+bootstrapVec0();
 program.parseAsync(process.argv);
 
 // ---- helpers ----
