@@ -77,3 +77,35 @@
 | `hook <event>` p95 | < 150ms | ~8.8ms ✅ |
 
 _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 hold._
+
+---
+
+## Perfection Mission — Aspect Ledger
+
+> Ongoing autonomous engineering/research loop driving every aspect to a measured
+> "perfected" bar. Source of truth: `memory` knowledge graph + this table. Always-green
+> bar (tsc + biome + vitest + `eval all` + bench p95<150ms) holds at every commit.
+
+| Aspect | Status | Latest measurement / note |
+|---|---|---|
+| Green tree (5 gates) | ✅ perfected | all 5 gates green; biome format errors fixed (iter1) |
+| Retrieval & ranking | 🟡 in-progress | RRF fusion (iter3): recall@1 0.44, recall@5 0.83, recall@10 0.83, MRR 0.59 (was 0.33/0.50/0.67/0.43). New `eval retrieval` suite + regression gate |
+| Relevance gate precision | ⬜ untouched | M2: 31% PreToolUse fire, 0 harmful — needs labeled precision/recall |
+| Invalidation & temporal | ⬜ untouched | git-DAG events working; patch-id depth + bi-temporal SOTA compare pending |
+| Conflict & precedence | ⬜ untouched | 0 silent LWW; concurrency stress scale pending |
+| LLM extraction & procedures | ⬜ untouched | safe+capped; precision/recall not quantified |
+| Promotion engine | ⬜ untouched | precision 100% on labeled set; recall on larger set pending |
+| Adapters & channel ladder | ⬜ untouched | 20/20 smoke; real-client integration pending |
+| MCP server & 8-tool surface | ⬜ untouched | exactly 8 tools; latest-spec compliance pending |
+| Security (injection/secrets/trust) | ⬜ untouched | I2/I3 enforced; adversarial corpus + secret-scan recall pending |
+| Performance (latency/scale) | ⬜ untouched | p95 ~5ms; 10k–1M scale gate + footprint pending |
+| Storage & migrations | ⬜ untouched | append-only; corruption-recovery breadth pending |
+| Telemetry & outcome learning | ⬜ untouched | classification accuracy + learned scoring pending |
+| Provenance / why() | ⬜ untouched | completeness audit across fact kinds pending |
+| Resilience & fail-soft (I9) | ⬜ untouched | 5 tests pass; fault-injection breadth pending |
+| Eval harness & benchmarks | ⬜ untouched | 8 suites green; competitor head-to-head pending |
+| CLI / UX / docs / demo | ⬜ untouched | docs drift fixed (test count); demo repro pending |
+| Code quality | ⬜ untouched | coverage % + dead-code audit pending |
+
+_Loop note: composite metric = (failing_gates × 100) + (un-perfected aspects); within-aspect
+measured gains are recorded in the `memory` graph. Tests: 139, gate suites: 8 (added `eval retrieval`)._
