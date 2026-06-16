@@ -97,7 +97,7 @@ _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 ho
 | Promotion engine | ⬜ untouched | precision 100% on labeled set; recall on larger set pending |
 | Adapters & channel ladder | ⬜ untouched | 20/20 smoke; real-client integration pending |
 | MCP server & 8-tool surface | ⬜ untouched | exactly 8 tools; latest-spec compliance pending |
-| Security (injection/secrets/trust) | ⬜ untouched | I2/I3 enforced; adversarial corpus + secret-scan recall pending |
+| Security (injection/secrets/trust) | 🟡 in-progress | adversarial benchmark (iter5-6): secret recall 1.0/precision 1.0; 0/13 poison promoted; 0 harmful capsule cards. `eval security` guards it. To perfect: more attack classes, fuzzing |
 | Performance (latency/scale) | ⬜ untouched | p95 ~5ms; 10k–1M scale gate + footprint pending |
 | Storage & migrations | ⬜ untouched | append-only; corruption-recovery breadth pending |
 | Telemetry & outcome learning | ⬜ untouched | classification accuracy + learned scoring pending |
