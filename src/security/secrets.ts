@@ -12,6 +12,15 @@ const SECRET_PATTERNS: Array<{ name: string; re: RegExp }> = [
     name: "generic_assignment",
     re: /(?:api[_-]?key|secret|token|password|passwd|credential)\s*[:=]\s*['"]?[A-Za-z0-9_\-./+]{12,}/i,
   },
+  {
+    // Long hex secret (>=40 hex) appearing next to a credential keyword. The
+    // adjacent keyword keeps this precise: a bare git SHA-1 ("commit <40hex>")
+    // has no secret keyword, so legitimate hashes are NOT flagged. Without this
+    // context requirement we could not distinguish a 40-hex token from a git
+    // SHA without unacceptable false positives.
+    name: "hex_secret_in_context",
+    re: /(?:api[_-]?key|secret|token|password|passwd|credential)[\w.-]*\s*[:=]?\s*['"]?[0-9a-f]{40,}/i,
+  },
 ];
 
 export interface SecretHit {
