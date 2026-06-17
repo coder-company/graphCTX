@@ -414,6 +414,23 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     `status=${missing.status} stdout=${JSON.stringify(missing.stdout.trim())}`,
   );
 
+  const secretMissing = withRepo((dir) => {
+    const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+    const resolved = cli(["resolve", secret, "-C", dir]);
+    const why = cli(["why", secret, "-C", dir]);
+    return { secret, resolved, why };
+  });
+  check(
+    "resolve/why unknown-id output redacts secret-shaped arguments",
+    secretMissing.resolved.status !== 0 &&
+      secretMissing.why.status !== 0 &&
+      !secretMissing.resolved.stdout.includes(secretMissing.secret) &&
+      !secretMissing.why.stdout.includes(secretMissing.secret) &&
+      secretMissing.resolved.stdout.includes("[REDACTED:") &&
+      secretMissing.why.stdout.includes("[REDACTED:"),
+    `resolve=${JSON.stringify(secretMissing.resolved.stdout.trim())} why=${JSON.stringify(secretMissing.why.stdout.trim())}`,
+  );
+
   const checks = detail.length;
   const pass = passed === checks && cliFailures === 0 && openLoopLeaksAfterResolve === 0;
   return { checks, passed, detail, cliFailures, openLoopLeaksAfterResolve, pass };

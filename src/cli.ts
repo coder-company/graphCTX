@@ -26,6 +26,7 @@ import {
   assertSafeMemoryWrite,
   formatMemoryWriteError,
 } from "./security/intake.js";
+import { redactSecrets } from "./security/secrets.js";
 import { safeForSend } from "./security/send-edge.js";
 import { bootstrapVec0 } from "./store/vec0-bootstrap.js";
 import { VERSION } from "./version.js";
@@ -247,7 +248,7 @@ program
     const rt = new Runtime({ workspaceDir: opts.cwd });
     const id = rt.resolveFactId(factArg);
     if (!id) {
-      process.stdout.write(`no fact found for "${factArg}"\n`);
+      process.stdout.write(`no fact found for "${redactSecrets(factArg)}"\n`);
       process.exitCode = 1;
     } else {
       await rt.resolveOpenLoop(id);
@@ -317,7 +318,7 @@ program
     const id = rt.resolveFactId(factArg);
     const report = id ? rt.why(id) : null;
     if (!report) {
-      process.stdout.write(`no fact found for "${factArg}"\n`);
+      process.stdout.write(`no fact found for "${redactSecrets(factArg)}"\n`);
       process.exitCode = 1;
     } else {
       process.stdout.write(formatWhy(report));

@@ -285,3 +285,14 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check --write src/adapters/claude-code/hooks.ts test/resilience/hook-degrades.test.ts src/eval/suites/resilience-failsoft.ts`
   - `npx vitest run test/resilience/hook-degrades.test.ts`
   - `npx tsx src/cli.ts eval resilience`
+
+### Iteration 55 - CLI unknown-id secret redaction
+
+- Redacted user-supplied unknown fact ids in CLI `resolve` and `why` output so
+  secret-shaped arguments are not echoed back to stdout.
+- Added a core memory lifecycle regression for secret-shaped unknown ids across
+  both commands, raising the memory gate to 14/14 checks.
+- Verification:
+  - `npx biome check --write src/cli.ts src/eval/suites/core-memory-lifecycle.ts`
+  - `npx tsx src/cli.ts eval memory`
+  - `npx tsc --noEmit`
