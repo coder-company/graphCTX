@@ -181,3 +181,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx tsx src/cli.ts eval security`
   - `npx tsx src/cli.ts eval quality`
+
+### Iteration 48 - deterministic runtime version extraction
+
+- Added a high-trust deterministic extractor for `.nvmrc`, `.node-version`, and
+  `.tool-versions` runtime version pins.
+- Wired the extractor into the no-LLM pipeline and added regression coverage for
+  Node and pnpm runtime pins with git path anchors.
+- Verification:
+  - `npx biome check src/extract/pipeline.ts src/extract/deterministic/runtime-version.ts test/extract/extractors.test.ts README.md docs/STATUS.md docs/SPEC.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval memory`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsx src/cli.ts eval cli-docs-demo`

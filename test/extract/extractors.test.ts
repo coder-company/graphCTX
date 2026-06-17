@@ -66,6 +66,33 @@ describe("deterministic extractors", () => {
     expect(pm?.object).toBe("pnpm");
   });
 
+  it("runtime pin files → high-trust version constraints", () => {
+    writeFileSync(join(dir, ".nvmrc"), "20.11.1\n");
+    writeFileSync(join(dir, ".tool-versions"), "nodejs 20.11.1\npnpm 10.12.0\n");
+
+    const { res } = extract();
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "runtime node",
+        predicate: "version_pin",
+        object: "20.11.1",
+        fact_kind: "constraint",
+        trust_tier: "high",
+        status: "active",
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "runtime pnpm",
+        predicate: "version_pin",
+        object: "10.12.0",
+      }),
+    );
+    expect(res.inserted.find((f) => f.subject === "runtime pnpm")?.git?.path_globs).toEqual([
+      ".tool-versions",
+    ]);
+  });
+
   it("editorconfig → indent style constraint", () => {
     writeFileSync(join(dir, ".editorconfig"), "[*]\nindent_style = tab\nindent_size = 4\n");
     const { res } = extract();
