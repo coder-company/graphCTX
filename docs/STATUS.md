@@ -17,7 +17,7 @@
 |---|---|---|---|
 | core/ (types, ids, errors, clock) | §7 | ✅ | open_loop kind added; signals extended (confidence/recency) |
 | config/ (schema, defaults, load) | §5 | ✅ | zod-validated; PostToolUse enabled |
-| store/db + migrations | §6 | ✅ | 0001 init, 0002 M1 (embedding_cache/promotions), 0003 M2 (inject_ledger) |
+| store/db + migrations | §6 | ✅ | 0001 init, 0002 M1 (embedding_cache/promotions), 0003 M2 (inject_ledger); storage gate covers forward migrations, pragmas, corruption recovery |
 | store/facts.repo | §6.2 | ✅ | append-only (I5); sensitivity auto-stamp; openLoops() |
 | store/episodes.repo | §9 | ✅ | append + tail (drift window) |
 | store/edges.repo | §6 | ✅ | SUPERSEDES/INVALIDATES/CONFLICTS_WITH/OVERRIDES/SUPERSEDED_BY |
@@ -53,7 +53,7 @@
 | security/sanitize | §20 | ✅ | prose kept low-trust + non-executable; proxy refuses secret capsules at the send edge |
 | telemetry/metrics + outcomes | §21 | ✅ | local-only outcome classification (helped/ignored/harmful) → injection rows |
 | provenance/why | §11 | ✅ | full evidence chain reader + CLI |
-| eval/harness + suites | §22 | ✅ | compaction-recovery (A/B/C/N/S), promotion-precision, drift-gate, branch-truth, parallel-conflict, procedure-memory, adapters-mcp; `eval all` runs all 7 |
+| eval/harness + suites | §22 | ✅ | compaction-recovery (A/B/C/N/S), promotion-precision, drift-gate, branch-truth, parallel-conflict, procedure-memory, adapters-mcp, storage-migrations; `eval all` runs storage |
 | cli.ts | §19 | ✅ | init/install(claude\|cursor\|opencode\|generic\|auto)/uninstall/hook/serve --mcp/recall/remember/extract/why/loop/resolve/doctor/demo/bench/eval; profile/time-travel are nice-to-have, deferred |
 
 ## Invariants (enforced throughout)
@@ -76,7 +76,7 @@
 |---|---|---|
 | `hook <event>` p95 | < 150ms | ~8.8ms ✅ |
 
-_Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 hold._
+_Last updated: storage-migrations parity. 164 tests, 13 gate suites green, all I1-I9 hold._
 
 ---
 
@@ -99,7 +99,7 @@ _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 ho
 | MCP server & 8-tool surface | ✅ | `eval mcp` now covers 54/54 checks: MCP 2025-11-25 initialize shape, exact 8-tool live/static surface with count-drift hard error, per-tool zod input + output-shape contracts, JSON-RPC -32602/-32601 errors, bounded anti-repetition rider, and real `serve --mcp` stdio initialize/tools-list |
 | Security (injection/secrets/trust) | 🟡 in-progress | adversarial benchmark (iter5-6): secret recall 1.0/precision 1.0; 0/13 poison promoted; 0 harmful capsule cards. `eval security` guards it. To perfect: more attack classes, fuzzing |
 | Performance (latency/scale) | ✅ | streaming bulk scale bench: default 1k/10k/50k/100k PASS, 1M p95 ~1.4ms, finite ingest timing, `bench --footprint` startup/RSS/heap gate, and impossible-budget FAIL path |
-| Storage & migrations | ⬜ untouched | append-only; corruption-recovery breadth pending |
+| Storage & migrations | ✅ | new `eval storage` passes 10/10: schema_version 3, reopen migrations 0, v1→v3 rows preserved 3/3, append-only expire tombstones retained, malformed rows skipped, missing optional ledger table degrades, WAL/FK/busy_timeout enforced, cascades/edge trail consistent |
 | Telemetry & outcome learning | ⬜ untouched | classification accuracy + learned scoring pending |
 | Provenance / why() | ⬜ untouched | completeness audit across fact kinds pending |
 | Resilience & fail-soft (I9) | ⬜ untouched | 5 tests pass; fault-injection breadth pending |
@@ -108,4 +108,4 @@ _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 ho
 | Code quality | ⬜ untouched | coverage % + dead-code audit pending |
 
 _Loop note: composite metric = (failing_gates × 100) + (un-perfected aspects); within-aspect
-measured gains are recorded in the `memory` graph. Tests: 163, gate suites: 12 (`eval all` includes retrieval/gate/security/temporal/conflict/procedure/promotion)._
+measured gains are recorded in the `memory` graph. Tests: 164, gate suites: 13 (`eval all` includes retrieval/gate/security/temporal/conflict/procedure/promotion/mcp/storage)._

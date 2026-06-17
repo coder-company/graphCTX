@@ -108,9 +108,24 @@ function rowToFact(row: FactRow, anchor?: AnchorRow): Fact {
   return fact;
 }
 
+function tryRowToFact(row: FactRow, anchor?: AnchorRow): Fact | null {
+  try {
+    return rowToFact(row, anchor);
+  } catch {
+    return null;
+  }
+}
+
 function anchorRowToGit(a: AnchorRow): GitAnchor {
-  const parseArr = (s: string | null): string[] | undefined =>
-    s ? (JSON.parse(s) as string[]) : undefined;
+  const parseArr = (s: string | null): string[] | undefined => {
+    if (!s) return undefined;
+    try {
+      const parsed = JSON.parse(s);
+      return Array.isArray(parsed) ? parsed : undefined;
+    } catch {
+      return undefined;
+    }
+  };
   return {
     repo_id: a.repo_id ?? undefined,
     branch: a.branch ?? undefined,
@@ -266,7 +281,7 @@ export class FactsRepo {
     const anchor = this.db.prepare("SELECT * FROM git_anchors WHERE fact_id = ?").get(id) as
       | AnchorRow
       | undefined;
-    return rowToFact(row, anchor);
+    return tryRowToFact(row, anchor);
   }
 
   // I5: only metadata/lifecycle fields may be updated; truth is immutable.
@@ -400,20 +415,25 @@ export class FactsRepo {
          LIMIT ?`,
       )
       .all(match, ...params, limit) as Array<FactRow & { bm: number }>;
-    const facts = this.hydrateMany(rows);
-    return rows.map((r, i) => ({
-      fact: facts[i]!,
-      // bm25 returns lower=better (negative-ish); convert to a positive score.
-      score: 1 / (1 + Math.max(0, r.bm)),
-      signals: { bm25: r.bm },
-    }));
+    const out: ScoredFact[] = [];
+    for (const row of rows) {
+      const fact = this.hydrate(row);
+      if (!fact) continue;
+      out.push({
+        fact,
+        // bm25 returns lower=better (negative-ish); convert to a positive score.
+        score: 1 / (1 + Math.max(0, row.bm)),
+        signals: { bm25: row.bm },
+      });
+    }
+    return out;
   }
 
-  private hydrate(row: FactRow): Fact {
+  private hydrate(row: FactRow): Fact | null {
     const anchor = this.db
       .prepare("SELECT * FROM git_anchors WHERE fact_id = ?")
       .get(row.fact_id) as AnchorRow | undefined;
-    return rowToFact(row, anchor);
+    return tryRowToFact(row, anchor);
   }
 
   // Batched anchor hydration: fetch every row's git anchor in ONE query per
@@ -432,7 +452,12 @@ export class FactsRepo {
         .all(...chunk.map((r) => r.fact_id)) as AnchorRow[];
       for (const a of found) anchors.set(a.fact_id, a);
     }
-    return rows.map((r) => rowToFact(r, anchors.get(r.fact_id)));
+    const out: Fact[] = [];
+    for (const row of rows) {
+      const fact = tryRowToFact(row, anchors.get(row.fact_id));
+      if (fact) out.push(fact);
+    }
+    return out;
   }
 }
 

@@ -27,6 +27,14 @@ function rowToEpisode(r: EpisodeRow): Episode {
   };
 }
 
+function tryRowToEpisode(r: EpisodeRow): Episode | null {
+  try {
+    return rowToEpisode(r);
+  } catch {
+    return null;
+  }
+}
+
 export class EpisodesRepo {
   private readonly db: DB;
   private readonly clock: Clock;
@@ -71,20 +79,23 @@ export class EpisodesRepo {
     const row = this.db.prepare("SELECT * FROM episodes WHERE event_id = ?").get(eventId) as
       | EpisodeRow
       | undefined;
-    return row ? rowToEpisode(row) : null;
+    return row ? tryRowToEpisode(row) : null;
   }
 
   bySession(sessionId: string): Episode[] {
     const rows = this.db
       .prepare("SELECT * FROM episodes WHERE session_id = ? ORDER BY created_at ASC")
       .all(sessionId) as EpisodeRow[];
-    return rows.map(rowToEpisode);
+    return rows.map(tryRowToEpisode).filter((e): e is Episode => !!e);
   }
 
   tail(sessionId: string, n: number): Episode[] {
     const rows = this.db
       .prepare("SELECT * FROM episodes WHERE session_id = ? ORDER BY created_at DESC LIMIT ?")
       .all(sessionId, n) as EpisodeRow[];
-    return rows.reverse().map(rowToEpisode);
+    return rows
+      .reverse()
+      .map(tryRowToEpisode)
+      .filter((e): e is Episode => !!e);
   }
 }

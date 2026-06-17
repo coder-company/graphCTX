@@ -440,7 +440,7 @@ program
   .command("eval")
   .argument(
     "<sub>",
-    "subcommand: run | memory | promote | drift | retrieval | gate | security | branch | temporal | conflict | procedure | mcp | all",
+    "subcommand: run | memory | promote | drift | retrieval | gate | security | branch | temporal | conflict | procedure | mcp | storage | all",
   )
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
@@ -546,6 +546,14 @@ program
       process.stdout.write(formatAdaptersMcpReport(r));
       return r.pass;
     };
+    const runStorage = async () => {
+      const { runStorageMigrationsEval, formatStorageMigrationsReport } = await import(
+        "./eval/suites/storage-migrations.js"
+      );
+      const r = runStorageMigrationsEval();
+      process.stdout.write(formatStorageMigrationsReport(r));
+      return r.pass;
+    };
 
     if (sub === "promote") {
       if (!(await runPromote())) process.exitCode = 1;
@@ -595,6 +603,10 @@ program
       if (!(await runMcp())) process.exitCode = 1;
       return;
     }
+    if (sub === "storage") {
+      if (!(await runStorage())) process.exitCode = 1;
+      return;
+    }
     if (sub === "all") {
       const a = await runArms();
       const mem = await runMemory();
@@ -608,7 +620,9 @@ program
       const c = await runConflict();
       const pr = await runProcedure();
       const m = await runMcp();
-      if (!(a && mem && p && d && rq && g && sec && b && t && c && pr && m)) process.exitCode = 1;
+      const storage = await runStorage();
+      if (!(a && mem && p && d && rq && g && sec && b && t && c && pr && m && storage))
+        process.exitCode = 1;
       return;
     }
     if (sub !== "run") fail(`unknown eval subcommand "${sub}"`);

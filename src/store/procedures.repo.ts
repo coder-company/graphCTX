@@ -81,19 +81,19 @@ export class ProceduresRepo {
     const row = this.db.prepare("SELECT * FROM procedures WHERE fact_id = ?").get(factId) as
       | ProcedureRow
       | undefined;
-    return row ? hydrate(row) : null;
+    return row ? tryHydrate(row) : null;
   }
 
   byName(name: string): Procedure[] {
     const rows = this.db
       .prepare("SELECT * FROM procedures WHERE name = ?")
       .all(name) as ProcedureRow[];
-    return rows.map(hydrate);
+    return rows.map(tryHydrate).filter((p): p is Procedure => !!p);
   }
 
   all(): Procedure[] {
     const rows = this.db.prepare("SELECT * FROM procedures").all() as ProcedureRow[];
-    return rows.map(hydrate);
+    return rows.map(tryHydrate).filter((p): p is Procedure => !!p);
   }
 
   recordSuccess(procedureId: string, commit?: string): void {
@@ -128,4 +128,12 @@ function hydrate(row: ProcedureRow): Procedure {
     last_success_commit: row.last_success_commit ?? undefined,
     last_success_at: row.last_success_at ?? undefined,
   };
+}
+
+function tryHydrate(row: ProcedureRow): Procedure | null {
+  try {
+    return hydrate(row);
+  } catch {
+    return null;
+  }
 }
