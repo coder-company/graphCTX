@@ -262,7 +262,11 @@ export class FactsRepo {
           valid_from_commit=excluded.valid_from_commit,
           valid_until_commit=excluded.valid_until_commit,
           invalidated_by_commit=excluded.invalidated_by_commit,
-          path_globs_json=excluded.path_globs_json`,
+          path_globs_json=excluded.path_globs_json,
+          file_ids_json=excluded.file_ids_json,
+          symbol_ids_json=excluded.symbol_ids_json,
+          hunk_fingerprints_json=excluded.hunk_fingerprints_json,
+          patch_id=excluded.patch_id`,
       )
       .run(
         fid,
