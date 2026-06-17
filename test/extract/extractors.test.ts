@@ -83,6 +83,54 @@ describe("deterministic extractors", () => {
     expect(strict?.git?.path_globs).toEqual(["tsconfig.json"]);
   });
 
+  it("tooling config → high-trust lint and format constraints", () => {
+    writeFileSync(
+      join(dir, "biome.json"),
+      `{
+        "formatter": {
+          "enabled": true,
+          "indentStyle": "space",
+          "lineWidth": 100,
+        },
+        "linter": {
+          "enabled": true,
+          "rules": {
+            "suspicious": {
+              "noExplicitAny": "warn",
+            },
+          },
+        },
+        "organizeImports": { "enabled": true },
+      }`,
+    );
+
+    const { res } = extract();
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        predicate: "lint_tool",
+        object: "biome",
+        trust_tier: "high",
+        status: "active",
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        predicate: "formatter_line_width",
+        object: 100,
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "biome rule suspicious.noExplicitAny",
+        predicate: "linter_rule_level",
+        object: "warn",
+      }),
+    );
+    expect(res.inserted.find((f) => f.predicate === "organize_imports")?.git?.path_globs).toEqual([
+      "biome.json",
+    ]);
+  });
+
   it("generated-markers → do_not_edit constraint", () => {
     mkdirSync(join(dir, "src"), { recursive: true });
     writeFileSync(join(dir, "src", "g.ts"), "// @generated DO NOT EDIT\nexport const x = 1;\n");

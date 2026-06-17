@@ -22,3 +22,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx tsx src/cli.ts eval quality`
   - `npx tsx src/cli.ts eval cli-docs-demo`
+
+### Iteration 37 - deterministic tooling config extraction
+
+- Added high-trust deterministic extraction for lint/format config files:
+  Biome, ESLint, and Prettier.
+- Extracted Biome format, import organization, and linter rule constraints from
+  structured JSONC config while keeping arbitrary JS/YAML configs to existence
+  facts only.
+- Moved JSONC parsing into a shared internal deterministic extractor helper.
+- Added a regression test for Biome lint/format/rule facts.
+- Updated README, STATUS, and SPEC counters from 7 to 8 deterministic
+  extractors and from 195 to 196 Vitest tests.
+- Verification:
+  - `npx biome check src/extract/pipeline.ts src/extract/deterministic/jsonc.ts src/extract/deterministic/tooling-config.ts src/extract/deterministic/tsconfig.ts test/extract/extractors.test.ts README.md docs/STATUS.md docs/SPEC.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsx src/cli.ts eval cli-docs-demo`

@@ -892,7 +892,7 @@ Build in dependency order; each step independently testable.
 2. `store/` (db, migrations 0001, facts/episodes repos) — no vectors yet (use BM25/FTS only).
 3. `git/` (head, branch, isAncestor, validity rule).
 4. `capture/` (episode log).
-5. `extract/deterministic/` (all seven extractors).
+5. `extract/deterministic/` (all eight extractors).
 6. `retrieve/` (BM25 + scope filter; vectors deferred).
 7. `render/` (capsule + cards + tokens).
 8. `inject/planner` + `inject/gate` (SessionStart + PostCompact only) + `budget`.
