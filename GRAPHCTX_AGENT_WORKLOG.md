@@ -56,3 +56,19 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx tsx src/cli.ts eval quality`
   - `npx tsx src/cli.ts eval cli-docs-demo`
+
+### Iteration 39 - deterministic test config extraction
+
+- Added high-trust deterministic extraction for test runner config files:
+  Vitest, Jest, Playwright, and Cypress.
+- Extracted Vitest runner, environment, timeout, include/exclude globs, and
+  coverage provider/globs from config text without executing config code.
+- Added a regression test for Vitest runner and coverage facts.
+- Updated README, STATUS, and SPEC counters from 9 to 10 deterministic
+  extractors and from 197 to 198 Vitest tests.
+- Verification:
+  - `npx biome check src/extract/pipeline.ts src/extract/deterministic/test-config.ts test/extract/extractors.test.ts README.md docs/STATUS.md docs/SPEC.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsx src/cli.ts eval cli-docs-demo`

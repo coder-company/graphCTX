@@ -177,6 +177,51 @@ describe("deterministic extractors", () => {
     ]);
   });
 
+  it("test config → high-trust runner and coverage facts", () => {
+    writeFileSync(
+      join(dir, "vitest.config.ts"),
+      [
+        'import { defineConfig } from "vitest/config";',
+        "export default defineConfig({",
+        "  test: {",
+        '    include: ["test/**/*.test.ts"],',
+        '    environment: "node",',
+        "    testTimeout: 30000,",
+        "    coverage: {",
+        '      provider: "v8",',
+        '      include: ["src/**/*.ts"],',
+        '      exclude: ["src/cli.ts"],',
+        "    },",
+        "  },",
+        "});",
+      ].join("\n"),
+    );
+
+    const { res } = extract();
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        predicate: "test_runner",
+        object: "vitest",
+        trust_tier: "high",
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        predicate: "test_environment",
+        object: "node",
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        predicate: "coverage_provider",
+        object: "v8",
+      }),
+    );
+    expect(
+      res.inserted.find((f) => f.predicate === "coverage_exclude_globs")?.git?.path_globs,
+    ).toEqual(["vitest.config.ts"]);
+  });
+
   it("generated-markers → do_not_edit constraint", () => {
     mkdirSync(join(dir, "src"), { recursive: true });
     writeFileSync(join(dir, "src", "g.ts"), "// @generated DO NOT EDIT\nexport const x = 1;\n");
