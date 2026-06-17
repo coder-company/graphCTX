@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { writeAgentsCapsule } from "../adapters/boot-capsule.js";
 import { resolveConflicts } from "../resolve/conflicts.js";
 import type { Runtime } from "../runtime.js";
 
@@ -90,6 +91,7 @@ export const MCP_TOOLS: McpTool[] = [
         source: { asserted_by: "user", event_ids: [], raw_quote: `user said: ${a.text}` },
         tags: ["mcp_remember"],
       });
+      refreshAgentsCapsule(rt);
       return { fact_id: fact.fact_id, status: fact.status };
     },
   },
@@ -138,6 +140,7 @@ export const MCP_TOOLS: McpTool[] = [
     async handler(rt, args) {
       const a = checkpointInput.parse(args);
       const swept = await rt.runPromotionSweep(a.session_id);
+      refreshAgentsCapsule(rt);
       return { promoted: swept };
     },
   },
@@ -153,6 +156,7 @@ export const MCP_TOOLS: McpTool[] = [
         return { dry_run: true, candidate_count: candidates.length };
       }
       const swept = await rt.runPromotionSweep(a.session_id);
+      refreshAgentsCapsule(rt);
       return { promoted: swept };
     },
   },
@@ -164,6 +168,7 @@ export const MCP_TOOLS: McpTool[] = [
     async handler(rt, args) {
       const a = forgetInput.parse(args);
       rt.facts.expire(a.fact_id, a.fact_id);
+      refreshAgentsCapsule(rt);
       return { fact_id: a.fact_id, status: "expired" };
     },
   },
@@ -194,3 +199,11 @@ export const MCP_TOOLS: McpTool[] = [
     },
   },
 ];
+
+function refreshAgentsCapsule(rt: Runtime): void {
+  try {
+    writeAgentsCapsule(rt);
+  } catch {
+    // MCP memory writes should not fail just because the static floor cannot refresh.
+  }
+}

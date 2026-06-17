@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -127,6 +127,30 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     recall.stdout.trim(),
   );
 
+  const bootRefresh = withRepo((dir) => {
+    const init = cli(["init", "-C", dir]);
+    const remembered = cli([
+      "remember",
+      "post-install hidden command: POST_INSTALL_DOGFOOD_SENTINEL_6_GRAPHCTX",
+      "-C",
+      dir,
+    ]);
+    const agents = readFileSync(join(dir, "AGENTS.md"), "utf8");
+    return { init, remembered, agents };
+  }, true);
+  if (bootRefresh.init.status !== 0 || bootRefresh.remembered.status !== 0) {
+    cliFailures += 1;
+  }
+  check(
+    "remember refreshes AGENTS.md boot grounding after initial install/init",
+    bootRefresh.init.status === 0 &&
+      bootRefresh.remembered.status === 0 &&
+      bootRefresh.agents.includes("POST_INSTALL_DOGFOOD_SENTINEL_6_GRAPHCTX"),
+    bootRefresh.agents.includes("POST_INSTALL_DOGFOOD_SENTINEL_6_GRAPHCTX")
+      ? "post-install memory present in AGENTS.md"
+      : "post-install memory missing from AGENTS.md",
+  );
+
   const noMatch = withRepo((dir) => cli(["recall", "anything at all", "-C", dir]));
   if (noMatch.status !== 0) cliFailures += 1;
   check(
@@ -194,7 +218,7 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     `status=${missing.status} stdout=${JSON.stringify(missing.stdout.trim())}`,
   );
 
-  const checks = 6;
+  const checks = 7;
   const pass = passed === checks && cliFailures === 0 && openLoopLeaksAfterResolve === 0;
   return { checks, passed, detail, cliFailures, openLoopLeaksAfterResolve, pass };
 }

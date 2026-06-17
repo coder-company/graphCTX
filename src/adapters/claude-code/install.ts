@@ -72,3 +72,37 @@ export function uninstallClaudeHooks(opts: InstallOptions): void {
     // best-effort
   }
 }
+
+export function hasClaudeGraphctxHooks(opts: InstallOptions): boolean {
+  const dir = opts.global
+    ? join(process.env.HOME ?? "", ".claude")
+    : join(opts.workspaceDir, ".claude");
+  const settingsPath = join(dir, "settings.json");
+  if (!existsSync(settingsPath)) return false;
+  try {
+    const settings: ClaudeSettings = JSON.parse(readFileSync(settingsPath, "utf8"));
+    return HOOK_EVENTS.every((event) => hasGraphctxHook(settings.hooks?.[event], event));
+  } catch {
+    return false;
+  }
+}
+
+function hasGraphctxHook(value: unknown, event: string): boolean {
+  if (Array.isArray(value)) return value.some((item) => hasGraphctxHook(item, event));
+  if (!isRecord(value)) return false;
+
+  const command = value.command;
+  if (
+    typeof command === "string" &&
+    command.includes("graphctx") &&
+    command.includes(`hook ${event}`)
+  ) {
+    return true;
+  }
+
+  return hasGraphctxHook(value.hooks, event);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}

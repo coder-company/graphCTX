@@ -1,19 +1,31 @@
 {
   "name": "graphctx",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A local-first memory control plane for coding agents — pushes commit-valid, scope-aware context into AI coding agents at the moments they drift.",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/coder-company/graphCTX.git"
+  },
   "bin": {
     "graphctx": "dist/cli.js"
   },
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
+  "files": ["dist", "README.md", "DEMO.md", "LICENSE"],
   "scripts": {
     "gen": "node scripts/gen-migrations.mjs",
-    "build": "node scripts/gen-migrations.mjs && tsc -p tsconfig.json && node -e \"require('fs').cpSync('src/store/migrations','dist/store/migrations',{recursive:true})\"",
+    "copy-assets": "node scripts/copy-assets.mjs",
+    "build": "node scripts/gen-migrations.mjs && tsc -p tsconfig.json && npm run copy-assets",
     "build:binary": "node scripts/gen-migrations.mjs && node scripts/build-binary.mjs",
+    "pack:smoke": "node scripts/pack-smoke.mjs",
+    "prepack": "npm run build",
     "dev": "tsx src/cli.ts",
     "graphctx": "tsx src/cli.ts",
     "demo": "tsx src/cli.ts demo",
@@ -55,7 +67,7 @@
     "@types/node": "^22.10.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.9"
   },
   "allowScripts": {
     "@biomejs/biome@1.9.4": true,

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Adapter } from "./adapter.js";
+import { ClaudeAdapter } from "./claude-code/index.js";
 import { CursorAdapter } from "./cursor/index.js";
 import { GenericAdapter } from "./generic/index.js";
 import { OpenCodeAdapter } from "./opencode/index.js";
@@ -11,13 +12,15 @@ export type ClientId = "claude" | "cursor" | "opencode" | "generic" | "proxy";
 // Build a named adapter for a workspace.
 export function makeAdapter(client: ClientId, workspaceDir: string): Adapter {
   switch (client) {
+    case "claude":
+      return new ClaudeAdapter(workspaceDir);
     case "cursor":
       return new CursorAdapter(workspaceDir);
     case "opencode":
       return new OpenCodeAdapter(workspaceDir);
     case "proxy":
       return new ProxyAdapter(workspaceDir, { enabled: false });
-    default:
+    case "generic":
       return new GenericAdapter(workspaceDir);
   }
 }

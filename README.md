@@ -123,6 +123,7 @@ npx tsc --noEmit
 npx biome check src test
 npx biome check .
 npx vitest run
+npm run pack:smoke
 npx tsx src/cli.ts eval all
 npx tsx src/cli.ts bench
 node autoresearch-results/metric.mjs
@@ -131,6 +132,7 @@ node autoresearch-results/metric.mjs
 Expected current state:
 
 - `npx vitest run`: 170 tests pass.
+- `npm run pack:smoke`: packed tarball installs and serves MCP from a clean temp app.
 - `npx tsx src/cli.ts eval all`: 19 gate suites pass.
 - `node autoresearch-results/metric.mjs`: `failingGates` is `0`.
 - `npx tsx src/cli.ts bench`: hook hot-path p95 is below 150ms.

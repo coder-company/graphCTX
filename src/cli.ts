@@ -1,15 +1,11 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Command } from "commander";
+import { writeAgentsCapsule } from "./adapters/boot-capsule.js";
 import { handleHook } from "./adapters/claude-code/hooks.js";
-import { installClaudeHooks, uninstallClaudeHooks } from "./adapters/claude-code/install.js";
-import {
-  AGENTS_BEGIN,
-  AGENTS_END,
-  renderAgentsCapsule,
-} from "./adapters/claude-code/templates/agents.js";
+import { hasClaudeGraphctxHooks, uninstallClaudeHooks } from "./adapters/claude-code/install.js";
 import { isoNow } from "./core/clock.js";
 import { GraphCtxError } from "./core/errors.js";
 import { runEval } from "./eval/harness.js";
@@ -23,6 +19,7 @@ import { evalReportPass, formatReport } from "./eval/report.js";
 import { renderCard } from "./render/cards.js";
 import { Runtime } from "./runtime.js";
 import { bootstrapVec0 } from "./store/vec0-bootstrap.js";
+import { VERSION } from "./version.js";
 
 exitOnBrokenPipe(process.stdout);
 exitOnBrokenPipe(process.stderr);
@@ -31,7 +28,7 @@ const program = new Command();
 program
   .name("graphctx")
   .description("Local-first memory control plane for coding agents")
-  .version("0.0.0");
+  .version(VERSION);
 
 program
   .command("init")
@@ -63,22 +60,12 @@ program
       process.stdout.write(`auto-detected client: ${resolved}\n`);
     }
 
-    if (resolved === "claude") {
-      const { settingsPath } = installClaudeHooks({
-        workspaceDir: rt.workspaceDir,
-        global: opts.global,
-        binPath: opts.bin,
-      });
-      await rt.extract();
-      writeAgentsCapsule(rt);
-      process.stdout.write(
-        `Installed Claude Code hooks (Tier 2 push) → ${settingsPath}\ngraphctx will push memory at SessionStart and PostCompact.\n`,
-      );
-      rt.close();
-      return;
-    }
-
-    if (resolved === "cursor" || resolved === "opencode" || resolved === "generic") {
+    if (
+      resolved === "claude" ||
+      resolved === "cursor" ||
+      resolved === "opencode" ||
+      resolved === "generic"
+    ) {
       const { makeAdapter } = await import("./adapters/registry.js");
       const adapter = makeAdapter(resolved, rt.workspaceDir);
       const cap = await adapter.detect();
@@ -89,8 +76,12 @@ program
       });
       await rt.extract();
       writeAgentsCapsule(rt);
+      const next =
+        resolved === "claude"
+          ? "graphctx will push memory at SessionStart and PostCompact."
+          : "Registered MCP server + AGENTS.md grounding. Run `graphctx serve --mcp` from the client.";
       process.stdout.write(
-        `Installed ${resolved} adapter (tiers ${cap.tiers.join(",")}; highest T${cap.highest}).\nRegistered MCP server + AGENTS.md grounding. Run \`graphctx serve --mcp\` from the client.\n`,
+        `Installed ${resolved} adapter (tiers ${cap.tiers.join(",")}; highest T${cap.highest}).\n${next}\n`,
       );
       rt.close();
       return;
@@ -195,6 +186,7 @@ program
       git: { repo_id: repoId, branch, valid_from_commit: head, introduced_by_commit: head },
       tags: ["user_explicit"],
     });
+    refreshAgentsCapsule(rt);
     process.stdout.write(`Remembered ${fact.fact_id}: ${renderCard(fact).markdown}\n`);
     rt.close();
   });
@@ -208,6 +200,7 @@ program
   .action(async (text, opts) => {
     const rt = new Runtime({ workspaceDir: opts.cwd });
     const fact = rt.noteOpenLoop(text, opts.session);
+    refreshAgentsCapsule(rt);
     process.stdout.write(`Open loop ${fact.fact_id.slice(-8)}: ${text}\n`);
     rt.close();
   });
@@ -231,6 +224,7 @@ program
       process.exitCode = 1;
     } else {
       await rt.resolveOpenLoop(id);
+      refreshAgentsCapsule(rt);
       process.stdout.write(`Resolved open loop ${id.slice(-8)}.\n`);
     }
     rt.close();
@@ -243,6 +237,7 @@ program
   .action(async (opts) => {
     const rt = new Runtime({ workspaceDir: opts.cwd });
     const res = await rt.extract();
+    refreshAgentsCapsule(rt);
     process.stdout.write(
       `Extracted ${res.inserted.length} facts (secrets skipped: ${res.skippedSecret}, dupes: ${res.skippedDuplicate}).\n`,
     );
@@ -300,7 +295,7 @@ program
     const rt = new Runtime({ workspaceDir: opts.cwd });
     const isRepo = await rt.git.isRepo();
     const factCount = rt.facts.all({ user_id: rt.userId, workspace_id: rt.workspaceId }).length;
-    const hooks = existsSync(join(rt.workspaceDir, ".claude", "settings.json"));
+    const hooks = hasClaudeGraphctxHooks({ workspaceDir: rt.workspaceDir });
     const ready = hooks && factCount > 0;
     const verdict = ready
       ? "READY ✅ — hooks installed and memory populated; push is live."
@@ -659,38 +654,12 @@ program.parseAsync(process.argv);
 
 // ---- helpers ----
 
-function writeAgentsCapsule(rt: Runtime): void {
-  const facts = rt.facts
-    .activeAsOf({ user_id: rt.userId, workspace_id: rt.workspaceId })
-    .filter((f) => f.trust_tier === "high")
-    .slice(0, 12)
-    .map((f) =>
-      renderCard(f)
-        .markdown.replace(/^- /, "")
-        .replace(/\s*\[mem:[^\]]+\]$/, ""),
-    );
-  const capsule = renderAgentsCapsule({ facts, generatedAt: isoNow() });
-  const path = join(rt.workspaceDir, "AGENTS.md");
-  let content = capsule;
-  if (existsSync(path)) {
-    const existing = readFileSync(path, "utf8");
-    if (existing.includes(AGENTS_BEGIN) && existing.includes(AGENTS_END)) {
-      content = existing.replace(
-        new RegExp(`${escapeRe(AGENTS_BEGIN)}[\\s\\S]*${escapeRe(AGENTS_END)}`),
-        capsule,
-      );
-    } else {
-      content = `${existing.trimEnd()}\n\n${capsule}\n`;
-    }
-  } else {
-    content = `${capsule}\n`;
+function refreshAgentsCapsule(rt: Runtime): void {
+  try {
+    writeAgentsCapsule(rt);
+  } catch (e) {
+    logError(e);
   }
-  mkdirSync(rt.workspaceDir, { recursive: true });
-  writeFileSync(path, content, "utf8");
-}
-
-function escapeRe(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function safeParse(s: string): Record<string, unknown> {

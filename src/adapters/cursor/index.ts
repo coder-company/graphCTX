@@ -1,9 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { isoNow } from "../../core/clock.js";
 import type { Capsule, InjectionContext } from "../../core/types.js";
 import type { Adapter, Capability, ChannelTier, InstallOptions } from "../adapter.js";
-import { renderAgentsCapsule } from "../claude-code/templates/agents.js";
+import { factsFromCapsule, writeAgentsCapsuleFacts } from "../boot-capsule.js";
 
 // Cursor adapter (SPEC §17). Cursor has no lifecycle push hooks, but supports:
 //   Tier 0 — project rules (.cursor/rules/*.mdc) loaded as grounding, and
@@ -71,14 +70,6 @@ export class CursorAdapter implements Adapter {
 
   async deliver(capsule: Capsule, _ctx: InjectionContext, _tier: ChannelTier): Promise<void> {
     // Refresh the AGENTS.md floor (Cursor also reads it); rider is served by MCP.
-    const facts = capsule.markdown
-      .split("\n")
-      .filter((l) => l.trim().startsWith("-"))
-      .map((l) => l.replace(/^- /, "").replace(/\s*\[mem:[^\]]+\]$/, ""));
-    const rendered = renderAgentsCapsule({ facts, generatedAt: isoNow() });
-    const path = join(this.workspaceDir, "AGENTS.md");
-    let content = rendered;
-    if (existsSync(path)) content = `${readFileSync(path, "utf8").trimEnd()}\n\n${rendered}\n`;
-    writeFileSync(path, content, "utf8");
+    writeAgentsCapsuleFacts(this.workspaceDir, factsFromCapsule(capsule));
   }
 }

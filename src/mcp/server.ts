@@ -2,6 +2,7 @@ import { createInterface } from "node:readline";
 import { buildRider } from "../adapters/channel.js";
 import type { Capsule } from "../core/types.js";
 import { Runtime } from "../runtime.js";
+import { VERSION } from "../version.js";
 import { MCP_TOOLS } from "./tools.js";
 
 // graphCTX MCP server (SPEC §18). Long-lived stdio JSON-RPC 2.0 process exposing
@@ -52,7 +53,7 @@ export class McpServer {
         case "initialize":
           return this.ok(req.id, {
             protocolVersion: PROTOCOL_VERSION,
-            serverInfo: { name: "graphctx", version: "0.0.0" },
+            serverInfo: { name: "graphctx", version: VERSION },
             capabilities: { tools: {} },
           });
         case "notifications/initialized":

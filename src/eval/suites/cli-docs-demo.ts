@@ -205,8 +205,10 @@ export async function runCliDocsDemoEval(): Promise<CliDocsDemoReport> {
       doctor.notReady.stdout.includes("NOT READY") &&
       doctor.notReady.stdout.includes("graphctx install") &&
       doctor.ready.stdout.includes("READY") &&
-      doctor.ready.stdout.includes("push is live"),
-    `notReady=${lastNonEmptyLine(doctor.notReady.stdout)} ready=${lastNonEmptyLine(doctor.ready.stdout)}`,
+      doctor.ready.stdout.includes("push is live") &&
+      doctor.afterUninstall.stdout.includes("NOT READY") &&
+      doctor.afterUninstall.stdout.includes("claude hooks: not installed"),
+    `notReady=${lastNonEmptyLine(doctor.notReady.stdout)} ready=${lastNonEmptyLine(doctor.ready.stdout)} afterUninstall=${lastNonEmptyLine(doctor.afterUninstall.stdout)}`,
   );
 
   const mcp = await evaluateMcpTools();
@@ -409,14 +411,25 @@ async function evaluateDemo(): Promise<{
   });
 }
 
-function evaluateDoctor(): { notReady: CliResult; ready: CliResult } {
+function evaluateDoctor(): {
+  notReady: CliResult;
+  ready: CliResult;
+  afterUninstall: CliResult;
+} {
   const notReady = withFixtureRepo((dir) => cli(["doctor", "-C", dir]));
   const ready = withFixtureRepo((dir) => {
     initGitRepo(dir);
     cli(["install", "claude", "-C", dir]);
     return cli(["doctor", "-C", dir]);
   });
-  return { notReady, ready };
+  const afterUninstall = withFixtureRepo((dir) => {
+    initGitRepo(dir);
+    cli(["init", "-C", dir]);
+    cli(["install", "claude", "-C", dir]);
+    cli(["uninstall", "claude", "-C", dir]);
+    return cli(["doctor", "-C", dir]);
+  });
+  return { notReady, ready, afterUninstall };
 }
 
 async function evaluateMcpTools(): Promise<{ status: number; names: string[] }> {

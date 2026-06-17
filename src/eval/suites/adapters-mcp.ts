@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildHookPayload, selectTier } from "../../adapters/channel.js";
 import { handleHook } from "../../adapters/claude-code/hooks.js";
+import { hasClaudeGraphctxHooks } from "../../adapters/claude-code/install.js";
 import { ProxyAdapter } from "../../adapters/proxy/index.js";
 import { detectClient, makeAdapter } from "../../adapters/registry.js";
 import type { Capsule, InjectionContext } from "../../core/types.js";
@@ -101,6 +102,15 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       mkdirSync(join(claudeDir, ".claude"), { recursive: true });
       writeFileSync(join(claudeDir, "CLAUDE.md"), "# Claude workspace\n", "utf8");
       check("detectClient classifies claude workspace", detectClient(claudeDir) === "claude");
+      const claude = makeAdapter(detectClient(claudeDir), claudeDir);
+      const claudeCap = await claude.detect();
+      await claude.install({ workspaceDir: claudeDir, binPath: "graphctx" });
+      check(
+        "detected claude adapter installs Tier 2 graphctx hooks",
+        claude.id === "claude" &&
+          claudeCap.tiers.includes(2) &&
+          hasClaudeGraphctxHooks({ workspaceDir: claudeDir }),
+      );
     } finally {
       rmSync(claudeDir, { recursive: true, force: true });
     }
@@ -137,6 +147,19 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       agents.includes("repo test_command: npm test") &&
         rider.includes(capsule.markdown) &&
         hookPayload.hookSpecificOutput?.additionalContext === capsule.markdown,
+    );
+    const secretFloorCapsule: Capsule = {
+      markdown: "- repo api_key: FAKEsecret01234567890 [mem:secret]",
+      cards: [{ fact_id: "secret", reason: "test", tokens: 8 }],
+      omitted: [],
+      conflicts: [],
+      token_count: 8,
+    };
+    await generic.deliver(secretFloorCapsule, {} as never, 0);
+    const agentsAfterSecret = readFileSync(agentsPath, "utf8");
+    check(
+      "static adapter floor refuses secret-scanner cards",
+      !agentsAfterSecret.includes("FAKEsecret01234567890"),
     );
     const ctx = { event: "UserPromptSubmit" } as InjectionContext;
     check("channel ladder selects highest supported tier", selectTier([0, 1, 2], ctx) === 2);
@@ -228,6 +251,13 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       check(
         "MCP tools/call remember succeeds",
         remembered.result?.isError === false && isRememberPayload(rememberedPayload),
+      );
+      const agentsAfterRemember = existsSync(join(mcpDir, "AGENTS.md"))
+        ? readFileSync(join(mcpDir, "AGENTS.md"), "utf8")
+        : "";
+      check(
+        "MCP remember refreshes AGENTS.md static grounding",
+        agentsAfterRemember.includes("use vitest"),
       );
 
       const recalled = await callTool(server, requestId++, "recall", { query: "vitest" });

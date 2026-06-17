@@ -31,4 +31,4 @@ export const MIGRATIONS: Migration[] = ${JSON.stringify(entries, null, 2)};
 `;
 
 writeFileSync(out, body);
-console.log(`gen-migrations: wrote ${entries.length} migrations → ${out}`);
+console.error(`gen-migrations: wrote ${entries.length} migrations → ${out}`);
