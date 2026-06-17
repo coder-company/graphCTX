@@ -23,6 +23,7 @@ describe("secret scanning (I3)", () => {
     ).toBe(true);
     expect(containsSecret("Authorization: Bearer plainlowentropytoken123")).toBe(true);
     expect(containsSecret("Cookie: session_id=plainlowentropycookie123")).toBe(true);
+    expect(containsSecret("Cookie: theme=light; session_id=plainlowentropycookie123")).toBe(true);
   });
 
   it("does not flag ordinary command text", () => {
@@ -47,6 +48,9 @@ describe("secret scanning (I3)", () => {
       "plainlowentropytoken123",
     );
     expect(redactSecrets("Cookie: session_id=plainlowentropycookie123")).not.toContain(
+      "plainlowentropycookie123",
+    );
+    expect(redactSecrets("Cookie: theme=light; session_id=plainlowentropycookie123")).not.toContain(
       "plainlowentropycookie123",
     );
     const value = redactSecretValue({ token: secret, safe: "npm test" });

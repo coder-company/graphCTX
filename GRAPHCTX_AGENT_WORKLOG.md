@@ -169,3 +169,15 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval mcp`
   - `npx tsx src/cli.ts eval security`
   - `npx tsx src/cli.ts eval quality`
+
+### Iteration 47 - multi-cookie session redaction
+
+- Fixed cookie/session secret scanning so a sensitive cookie is detected even
+  when it appears after benign cookies in a `Cookie:` header.
+- Added unit and adversarial security coverage for delayed session cookies.
+- Verification:
+  - `npx biome check src/security/secrets.ts test/security/secrets.test.ts src/eval/suites/security-adversarial.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/security/secrets.test.ts test/security/promotion-injection.test.ts test/eval/security-adversarial.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval quality`

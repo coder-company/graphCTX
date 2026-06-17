@@ -188,6 +188,7 @@ const SECRET_FUZZ_CASES: SecretCase[] = [
       ["fuzz generic token single quotes", "token: 'FZalpha0123456789Bravo'"],
       ["fuzz generic password dotenv", "PASSWORD=FZbravo0123456789Charlie"],
       ["fuzz bearer-style opaque", "Authorization: Bearer FZcharlieA1b2C3d4E5f6G7h8I9"],
+      ["fuzz delayed session cookie", "Cookie: theme=light; session_id=FZcookie0123456789Alpha"],
       ["fuzz credential json", '{"credential":"FZdelta0123456789Echo"}'],
     ] as const
   ).map(([label, text]) => ({ label, text, isSecret: true })),
