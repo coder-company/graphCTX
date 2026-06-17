@@ -18,6 +18,7 @@ import { hasClaudeGraphctxHooks } from "../../adapters/claude-code/install.js";
 import { ProxyAdapter } from "../../adapters/proxy/index.js";
 import { detectClient, makeAdapter } from "../../adapters/registry.js";
 import type { Capsule, InjectionContext } from "../../core/types.js";
+import { Git } from "../../git/git.js";
 import { McpServer } from "../../mcp/server.js";
 import { MCP_TOOLS } from "../../mcp/tools.js";
 import type { Runtime } from "../../runtime.js";
@@ -43,6 +44,16 @@ const EXPECTED_MCP_TOOL_NAMES = [
   "why",
   "resolve_conflict",
 ];
+
+const GIT_ENV: NodeJS.ProcessEnv = {
+  ...process.env,
+  GIT_AUTHOR_NAME: "graphctx eval",
+  GIT_AUTHOR_EMAIL: "eval@graphctx.local",
+  GIT_COMMITTER_NAME: "graphctx eval",
+  GIT_COMMITTER_EMAIL: "eval@graphctx.local",
+  GIT_AUTHOR_DATE: "2026-01-01T00:00:00 +0000",
+  GIT_COMMITTER_DATE: "2026-01-01T00:00:00 +0000",
+};
 
 // Phase-4 (M4) gate suite. Verifies the multi-client surface:
 //   1. install per client writes the right config (cursor rules+MCP, opencode MCP).
@@ -360,6 +371,11 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
   try {
     cpSync(fixture, mcpDir, { recursive: true });
     rmSync(join(mcpDir, ".graphctx"), { recursive: true, force: true });
+    initGitRepo(mcpDir);
+    const mcpGit = new Git(mcpDir);
+    const expectedRepoId = await mcpGit.repoId();
+    const expectedHead = await mcpGit.head();
+    const expectedBranch = await mcpGit.branch();
     const server = new McpServer({ workspaceDir: mcpDir });
     try {
       const init = (await server.handle({ jsonrpc: "2.0", id: 1, method: "initialize" })) as {
@@ -476,9 +492,18 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       const whySuffix = await callTool(server, requestId++, "why", {
         fact_id: rememberedFactId.slice(-8),
       });
+      const whyPayload = payloadObject(whySuffix);
+      const rememberedAnchor = isRecord(whyPayload?.git_anchor) ? whyPayload.git_anchor : null;
       check(
         "MCP why accepts a last-8 fact id suffix",
-        whySuffix.result?.isError === false && isRecord(payloadObject(whySuffix)?.fact),
+        whySuffix.result?.isError === false && isRecord(whyPayload?.fact),
+      );
+      check(
+        "MCP remember stamps current git repo/head/branch anchor",
+        rememberedAnchor?.repo_id === expectedRepoId &&
+          rememberedAnchor.valid_from_commit === expectedHead &&
+          rememberedAnchor.introduced_by_commit === expectedHead &&
+          rememberedAnchor.branch === expectedBranch,
       );
 
       const badMethod = (await server.handle({
@@ -793,6 +818,24 @@ function rejectsToolCountDrift(): boolean {
   } finally {
     MCP_TOOLS.splice(originalLength);
   }
+}
+
+function initGitRepo(dir: string): void {
+  execFileSync("git", ["-c", "init.defaultBranch=main", "init", "-q", "."], {
+    cwd: dir,
+    env: GIT_ENV,
+    stdio: "ignore",
+  });
+  execFileSync("git", ["add", "-A"], { cwd: dir, env: GIT_ENV, stdio: "ignore" });
+  execFileSync(
+    "git",
+    ["-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "init"],
+    {
+      cwd: dir,
+      env: GIT_ENV,
+      stdio: "ignore",
+    },
+  );
 }
 
 function runServeMcpStdio(workspaceDir: string): { initialized: boolean; toolNames: string[] } {

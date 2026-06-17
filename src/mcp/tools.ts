@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { writeAgentsCapsule } from "../adapters/boot-capsule.js";
-import type { Event } from "../core/types.js";
+import type { Event, GitAnchor } from "../core/types.js";
 import { redactWhyReport } from "../provenance/why.js";
 import { resolveConflicts } from "../resolve/conflicts.js";
 import type { Runtime } from "../runtime.js";
@@ -110,6 +110,7 @@ export const MCP_TOOLS: McpTool[] = [
         status: "active",
         promotion_state: a.session_id ? "session_only" : "workspace_active",
         source: { asserted_by: "user", event_ids: [], raw_quote: `user said: ${a.text}` },
+        git: await currentGitAnchor(rt),
         tags: ["mcp_remember"],
       });
       refreshAgentsCapsule(rt);
@@ -229,5 +230,20 @@ function refreshAgentsCapsule(rt: Runtime): void {
     writeAgentsCapsule(rt);
   } catch {
     // MCP memory writes should not fail just because the static floor cannot refresh.
+  }
+}
+
+async function currentGitAnchor(rt: Runtime): Promise<GitAnchor | undefined> {
+  if (!(await rt.git.isRepo())) return undefined;
+  try {
+    const head = await rt.git.head();
+    return {
+      repo_id: await rt.git.repoId(),
+      branch: await rt.git.branch(),
+      valid_from_commit: head,
+      introduced_by_commit: head,
+    };
+  } catch {
+    return undefined;
   }
 }
