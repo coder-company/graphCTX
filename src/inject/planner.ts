@@ -6,6 +6,7 @@ import { renderCard } from "../render/cards.js";
 import { resolveConflicts } from "../resolve/conflicts.js";
 import { Retriever } from "../retrieve/retriever.js";
 import type { VectorIndex } from "../retrieve/vectors.js";
+import { isDangerousDirective } from "../security/sanitize.js";
 import { containsSecret } from "../security/secrets.js";
 import type { EpisodesRepo } from "../store/episodes.repo.js";
 import type { FactsRepo } from "../store/facts.repo.js";
@@ -66,9 +67,12 @@ export class InjectionPlanner {
     // I4: verify perishable facts synchronously; drop those whose target is gone.
     const verified = scored.filter((s) => verifyBeforeInject(s.fact, this.deps.workspaceDir));
 
-    // I3: secret guard — never inject a fact classified as secret/credential or
-    // whose rendered content trips the secret scanner (defense in depth pre-send).
-    const safe = verified.filter((s) => !isSecretBearing(s.fact));
+    // I3 + send-edge security guard: never inject secrets, credentials, or
+    // unframed dangerous executable directives. Low-trust prose can still render
+    // as a claim; high-trust-looking command payloads must be impact-blocked.
+    const safe = verified.filter(
+      (s) => !isSecretBearing(s.fact) && !isUnframedDangerousDirective(s.fact),
+    );
 
     // anti-repetition (cross-channel idempotency within a session)
     const deduped = this.ledger.removeRecentlyInjected(safe, ctx.scope.session_id);
@@ -185,6 +189,14 @@ function isSecretBearing(fact: Fact): boolean {
   if (fact.sensitivity === "secret" || fact.sensitivity === "credential") return true;
   const obj = typeof fact.object === "string" ? fact.object : JSON.stringify(fact.object);
   return containsSecret(`${fact.subject} ${fact.predicate} ${obj} ${fact.source.raw_quote ?? ""}`);
+}
+
+function isUnframedDangerousDirective(fact: Fact): boolean {
+  if (fact.trust_tier === "low") return false;
+  const obj = typeof fact.object === "string" ? fact.object : JSON.stringify(fact.object);
+  return isDangerousDirective(
+    `${fact.subject} ${fact.predicate} ${obj} ${fact.source.raw_quote ?? ""}`,
+  );
 }
 
 // Minimal conflict detection (M0): contradictory objects for the same

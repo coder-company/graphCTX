@@ -6,7 +6,11 @@ const SECRET_PATTERNS: Array<{ name: string; re: RegExp }> = [
   { name: "anthropic", re: /sk-ant-[A-Za-z0-9_-]{20,}/ },
   { name: "aws_access_key", re: /AKIA[0-9A-Z]{16}/ },
   { name: "github_token", re: /gh[pousr]_[A-Za-z0-9]{20,}/ },
-  { name: "slack_token", re: /xox[baprs]-[A-Za-z0-9-]{10,}/ },
+  { name: "github_fine_grained_pat", re: /github_pat_[A-Za-z0-9_]{20,}/ },
+  { name: "gitlab_pat", re: /glpat-[A-Za-z0-9_-]{16,}/ },
+  { name: "npm_token", re: /npm_[A-Za-z0-9]{20,}/ },
+  { name: "stripe_secret_key", re: /sk_(?:live|test)_[A-Za-z0-9]{16,}/ },
+  { name: "slack_token", re: /xox[abcrps]-[A-Za-z0-9-]{10,}/ },
   { name: "private_key", re: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/ },
   {
     name: "generic_assignment",
@@ -35,7 +39,9 @@ export function scanSecrets(text: string): SecretHit[] {
     if (m) hits.push({ pattern: name, index: m.index });
   }
   // Entropy check for long opaque tokens.
-  for (const tok of text.split(/\s+/)) {
+  for (const raw of text.split(/\s+/)) {
+    const tok = raw.replace(/^[`'"]+|[`'",;]+$/g, "");
+    if (isBenignOpaqueToken(tok)) continue;
     if (
       tok.length >= 24 &&
       shannonEntropy(tok) > 4.0 &&
@@ -68,4 +74,11 @@ function shannonEntropy(s: string): number {
     h -= p * Math.log2(p);
   }
   return h;
+}
+
+function isBenignOpaqueToken(s: string): boolean {
+  return (
+    /^[A-Za-z_][A-Za-z0-9_]*=\d+(?:\.\d+)+(?:[-+][A-Za-z0-9.]+)?$/.test(s) ||
+    /^sha\d+-[A-Za-z0-9+/=]{8,}$/i.test(s)
+  );
 }
