@@ -397,8 +397,22 @@ program
   .description("measure hook hot-path latency (SPEC §24: < 150ms p95)")
   .option("--repo <dir>", "fixture repo to bench", "fixtures/repo-pnpm-web")
   .option("-n, --iterations <n>", "iterations", "50")
+  .option("--scale", "measure hot-path retrieval p50/p95/p99 at 1k-100k facts", false)
+  .option("--sizes <list>", "comma-separated corpus sizes for --scale", "1000,10000,50000,100000")
   .option("-C, --cwd <dir>", "base directory", process.cwd())
   .action(async (opts) => {
+    if (opts.scale) {
+      const { runScaleBenchmark, formatScaleReport } = await import("./bench/scale.js");
+      const sizes = String(opts.sizes)
+        .split(",")
+        .map((s) => Number(s.trim()))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      process.stdout.write("running scale benchmark (ingest can take a few minutes at 100k)…\n");
+      const report = await runScaleBenchmark({ sizes });
+      process.stdout.write(`${formatScaleReport(report)}\n`);
+      if (!report.pass) process.exitCode = 1;
+      return;
+    }
     const { measureHookLatency } = await import("./eval/latency.js");
     const repo = join(opts.cwd, opts.repo);
     const r = await measureHookLatency(repo, Number(opts.iterations));

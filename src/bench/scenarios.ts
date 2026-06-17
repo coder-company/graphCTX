@@ -29,7 +29,7 @@ export interface Dist {
   n: number;
 }
 
-function dist(xs: number[]): Dist {
+export function dist(xs: number[]): Dist {
   if (xs.length === 0) return { p50: 0, p95: 0, p99: 0, mean: 0, min: 0, max: 0, n: 0 };
   const s = [...xs].sort((a, b) => a - b);
   const q = (p: number) => s[Math.min(s.length - 1, Math.floor((p / 100) * s.length))] as number;
@@ -104,7 +104,7 @@ export const PROBES: Probe[] = [
 ];
 
 // Filler facts to test retrieval precision at scale (distractors).
-function filler(n: number): string[] {
+export function filler(n: number): string[] {
   const verbs = ["refactor", "optimize", "document", "test", "review", "profile", "cache", "index"];
   const nouns = [
     "parser",
@@ -130,7 +130,7 @@ function filler(n: number): string[] {
 // ----------------------------------------------------------------------------
 // graphCTX local side
 // ----------------------------------------------------------------------------
-function insertFact(rt: Runtime, text: string): Fact {
+export function insertFact(rt: Runtime, text: string): Fact {
   return rt.facts.insert({
     subject: "repo",
     predicate: "note",
