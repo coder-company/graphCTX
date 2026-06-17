@@ -76,7 +76,7 @@
 |---|---|---|
 | `hook <event>` p95 | < 150ms | 26.74ms ✅ |
 
-_Last updated: shared command-surface quality helpers. 188 tests, 19 gate suites green, all I1-I9 hold._
+_Last updated: CLI numeric option validation. 188 tests, 19 gate suites green, all I1-I9 hold._
 
 _Quality counters: Tests: 188. Gate suites: 19._
 
@@ -106,7 +106,7 @@ _Quality counters: Tests: 188. Gate suites: 19._
 | Provenance / why() | ✅ | new `eval provenance` passes 5/5: deterministic extract→why chain complete, last-8 suffix equals full-id report, unknown id exits cleanly with `no fact found`, clean vs dangling evidence reports complete/incomplete, and git anchor/promotions/edges sections render when present |
 | Resilience & fail-soft (I9) | ✅ | new `eval resilience` passes 10/10: no-key deterministic-only capsule emits with exit 0, corrupt DB and bad config degrade to empty output, missing git and planner crashes never propagate, secret-bearing hook payloads are redacted before episode persistence, provider resolution returns `nullProvider`, no-key extraction is a deterministic no-op, and SessionStart/SessionEnd lifecycle hooks run fail-soft |
 | Eval harness & benchmarks | ✅ | `eval benchmarks` passes 6/6: centralized 19-suite registry, A/B/C/N/S ablation confirms push 93% > pull 21% with N/S 5/5 controls, offline graphCTX-vs-Supermemory scorecard renders, live bake-off skips without key, 1k/10k scale p95 stays under budget, empty/invalid scale size lists fail closed instead of passing vacuously, and trapped offline network calls remain 0 |
-| CLI / UX / docs / demo | ✅ | new `eval cli-docs-demo` passes 9/9: help/docs command surface aligned, SPEC §15/§17 hook event drift fixed, demo facts stay memory-only/offline, doctor prints READY/NOT READY remediation, MCP advertises exactly 8 tools, Claude install round-trip and piped auto-detect hold |
+| CLI / UX / docs / demo | ✅ | new `eval cli-docs-demo` passes 10/10: help/docs command surface aligned, SPEC §15/§17 hook event drift fixed, demo facts stay memory-only/offline, doctor prints READY/NOT READY remediation, MCP advertises exactly 8 tools, Claude install round-trip and piped auto-detect hold, and invalid numeric flags fail before work starts |
 | Code quality | ✅ | new `eval quality` passes 6/6: full-repo Biome, strict TS config/scripts, shared command-surface helpers for CLI help/docs/README reachability, eval-suite runner/test coverage, final README docs-as-code, and generated migration packaging guard |
 
 _Loop note: composite metric = (failing_gates × 100) + (un-perfected aspects); within-aspect

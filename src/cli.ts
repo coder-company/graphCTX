@@ -143,10 +143,11 @@ program
   .option("-b, --budget <n>", "token budget", "1000")
   .option("--session <id>", "session id")
   .action(async (query, opts) => {
+    const budget = parsePositiveIntegerOption(opts.budget, "--budget");
     const rt = new Runtime({ workspaceDir: opts.cwd });
     const ctx = await rt.injectionContext("UserPromptSubmit", opts.session ?? "recall", {
       user_prompt: query,
-      budget_tokens: Number(opts.budget),
+      budget_tokens: budget,
     });
     const { Retriever } = await import("./retrieve/retriever.js");
     const retriever = new Retriever(rt.facts, rt.git);
@@ -448,11 +449,11 @@ program
       } catch (e) {
         fail((e as Error).message);
       }
-      const budgetMs = Number(opts.budgetMs);
+      const budgetMs = parsePositiveNumberOption(opts.budgetMs, "--budget-ms");
       process.stdout.write("running scale benchmark (streaming bulk ingest; 1M may take a bit)…\n");
       const report = await runScaleBenchmark({
         sizes,
-        budgetMs: Number.isFinite(budgetMs) && budgetMs > 0 ? budgetMs : undefined,
+        budgetMs,
       });
       process.stdout.write(`${formatScaleReport(report)}\n`);
       if (!report.pass) process.exitCode = 1;
@@ -460,7 +461,8 @@ program
     }
     const { measureHookLatency } = await import("./eval/latency.js");
     const repo = join(opts.cwd, opts.repo);
-    const r = await measureHookLatency(repo, Number(opts.iterations));
+    const iterations = parsePositiveIntegerOption(opts.iterations, "--iterations");
+    const r = await measureHookLatency(repo, iterations);
     process.stdout.write(
       `graphctx hook latency (${r.iterations} iters, retrieval + render)\n  p50: ${r.p50}ms   p95: ${r.p95}ms   p99: ${r.p99}ms   max: ${r.max}ms\n  budget: < ${r.budgetMs}ms p95  →  ${r.pass ? "PASS ✅" : "FAIL ❌"}\n`,
     );
@@ -757,6 +759,22 @@ async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
   return Buffer.concat(chunks).toString("utf8").trim();
+}
+
+function parsePositiveIntegerOption(raw: string, flag: string): number {
+  const n = Number(raw);
+  if (!Number.isSafeInteger(n) || n <= 0) {
+    fail(`${flag} must be a positive integer`);
+  }
+  return n;
+}
+
+function parsePositiveNumberOption(raw: string, flag: string): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) {
+    fail(`${flag} must be a positive number`);
+  }
+  return n;
 }
 
 function fail(msg: string): never {

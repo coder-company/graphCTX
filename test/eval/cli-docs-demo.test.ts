@@ -13,6 +13,7 @@ describe("CLI/docs/demo parity eval", () => {
     expect(r.mcpTools).toBe(8);
     expect(r.networkCalls).toBe(0);
     expect(r.pipeFailures).toBe(0);
+    expect(r.argValidationFailures).toBe(0);
     expect(r.pass).toBe(true);
   }, 60000);
 });

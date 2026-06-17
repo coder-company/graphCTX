@@ -33,6 +33,7 @@ export interface CliDocsDemoReport {
   mcpTools: number;
   networkCalls: number;
   pipeFailures: number;
+  argValidationFailures: number;
   pass: boolean;
 }
 
@@ -223,6 +224,13 @@ export async function runCliDocsDemoEval(): Promise<CliDocsDemoReport> {
     `auto=${JSON.stringify(auto.auto.stdout.trim())} unknownExit=${auto.unknown.status}`,
   );
 
+  const numericArgs = evaluateNumericArgValidation();
+  check(
+    "numeric CLI options reject invalid values before running work",
+    numericArgs.failures === 0,
+    numericArgs.detail,
+  );
+
   const checks = detail.length;
   const report: CliDocsDemoReport = {
     checks,
@@ -235,7 +243,12 @@ export async function runCliDocsDemoEval(): Promise<CliDocsDemoReport> {
     mcpTools: mcp.names.length,
     networkCalls: demo.networkCalls,
     pipeFailures,
-    pass: passed === checks && demo.networkCalls === 0 && pipeFailures === 0,
+    argValidationFailures: numericArgs.failures,
+    pass:
+      passed === checks &&
+      demo.networkCalls === 0 &&
+      pipeFailures === 0 &&
+      numericArgs.failures === 0,
   };
   return report;
 }
@@ -252,7 +265,7 @@ export function formatCliDocsDemoReport(r: CliDocsDemoReport): string {
     `  checks: ${r.passed}/${r.checks}   commands: ${r.commandCount}   tests: ${r.testCount}   suites: ${r.suiteCount}`,
   );
   lines.push(
-    `  demo facts: ${r.demoFacts}   MCP tools: ${r.mcpTools}   network calls: ${r.networkCalls}   pipe failures: ${r.pipeFailures}`,
+    `  demo facts: ${r.demoFacts}   MCP tools: ${r.mcpTools}   network calls: ${r.networkCalls}   pipe failures: ${r.pipeFailures}   arg validation failures: ${r.argValidationFailures}`,
   );
   lines.push(
     r.pass
@@ -456,6 +469,36 @@ function evaluateInstallAutoAndUnknown(): { auto: CliResult; unknown: CliResult 
     const unknown = cli(["install", "frobnicate", "-C", dir]);
     return { auto, unknown };
   });
+}
+
+function evaluateNumericArgValidation(): { failures: number; detail: string } {
+  const cases = [
+    {
+      label: "recall --budget",
+      result: cli(["recall", "query", "--budget", "nope"]),
+      expected: "--budget must be a positive integer",
+    },
+    {
+      label: "bench --iterations",
+      result: cli(["bench", "--iterations", "nope"]),
+      expected: "--iterations must be a positive integer",
+    },
+    {
+      label: "bench --scale --budget-ms",
+      result: cli(["bench", "--scale", "--sizes", "1000", "--budget-ms", "nope"]),
+      expected: "--budget-ms must be a positive number",
+    },
+  ];
+  const failed = cases.filter(
+    (c) =>
+      c.result.status !== 1 ||
+      c.result.stdout.trim() !== "" ||
+      !c.result.stderr.includes(c.expected),
+  );
+  return {
+    failures: failed.length,
+    detail: cases.map((c) => `${c.label}=${c.result.status}`).join(" "),
+  };
 }
 
 async function withOfflineNetworkTrap<T>(fn: () => Promise<T>): Promise<{
