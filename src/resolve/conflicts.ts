@@ -1,4 +1,6 @@
 import type { ConflictNote, Fact, ScoredFact } from "../core/types.js";
+import { asClaim } from "../security/sanitize.js";
+import { redactSecretValue } from "../security/secrets.js";
 import { byPrecedence, precedenceRank } from "./precedence.js";
 
 export interface ResolveResult {
@@ -52,7 +54,7 @@ export function resolveConflicts(scored: ScoredFact[], currentSessionId?: string
     const loser = orderedFacts[1]!;
     conflicts.push({
       conflict_id: key.slice(-8),
-      summary: `Conflicting ${key.replace("::", " ")}: "${objStr(winnerFact)}" wins over "${objStr(loser)}" (${winReason(winnerFact, loser, currentSessionId)}).`,
+      summary: `Conflicting ${key.replace("::", " ")}: ${quotedObj(winnerFact)} wins over ${quotedObj(loser)} (${winReason(winnerFact, loser, currentSessionId)}).`,
     });
   }
 
@@ -79,6 +81,20 @@ function winReason(winner: Fact, loser: Fact, sessionId?: string): string {
 
 function objStr(f: Fact): string {
   return typeof f.object === "string" ? f.object : JSON.stringify(f.object);
+}
+
+function quotedObj(f: Fact): string {
+  return JSON.stringify(displayObj(f));
+}
+
+function displayObj(f: Fact): string {
+  const redacted = redactSecretValue(f.object);
+  const value = typeof redacted === "string" ? redacted : JSON.stringify(redacted);
+  return isRepoProse(f) ? asClaim(value) : value;
+}
+
+function isRepoProse(f: Fact): boolean {
+  return f.trust_tier === "low" && f.source.asserted_by === "deterministic_parser";
 }
 
 // ---- Optimistic concurrency for parallel-session durable writes (SPEC §14) ----
