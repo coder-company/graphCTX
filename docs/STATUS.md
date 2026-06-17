@@ -28,7 +28,7 @@
 | git/git + anchors | §8 | ✅ | head/branch/isAncestor/validity; anchorAtHead; branch filter; parentsOf/commitMessage |
 | git/dag | §8 | ✅ | detectEvent (ff/merge/rebase/revert/switch); revert re-validates prior fact |
 | capture/episode-log + normalizers | §9 | ✅ | append-only JSONL + DB mirror; claude normalizer |
-| extract/deterministic/* (10) | §10.1 | ✅ | package-scripts, editorconfig, tsconfig, tooling-config, lockfile, docker, test-config, ci, generated-markers, agent-files |
+| extract/deterministic/* (10) | §10.1 | ✅ | package-scripts/metadata, editorconfig, tsconfig, tooling-config, lockfile, docker, test-config, ci, generated-markers, agent-files |
 | extract/llm/* | §10.2 | ✅ | fact-extractor + procedure-miner (zod, secret-scrub, trust-cap, evidence-filter); 3 versioned prompts |
 | invalidate/relation + invalidator | §11 | ✅ | deterministic-first + edges + cited-evidence post-check |
 | invalidate/llm-agent | §11 | ✅ | provider-backed agent + null fallback; cited-evidence enforced by invalidator |
@@ -76,7 +76,7 @@
 |---|---|---|
 | `hook <event>` p95 | < 150ms | 15.78ms ✅ |
 
-_Last updated: high-trust test/Docker/tooling/tsconfig deterministic extraction, high-entropy redaction hardening, repo-id-isolated temporal validity, measured hook latency, fail-closed adapter install/uninstall, and typed CLI error formatting. 198 tests, 19 gate suites green, all I1-I9 hold._
+_Last updated: package metadata extraction plus high-trust test/Docker/tooling/tsconfig deterministic extraction, high-entropy redaction hardening, repo-id-isolated temporal validity, measured hook latency, fail-closed adapter install/uninstall, and typed CLI error formatting. 198 tests, 19 gate suites green, all I1-I9 hold._
 
 _Quality counters: Tests: 198. Gate suites: 19._
 

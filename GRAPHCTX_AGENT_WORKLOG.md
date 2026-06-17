@@ -72,3 +72,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx tsx src/cli.ts eval quality`
   - `npx tsx src/cli.ts eval cli-docs-demo`
+
+### Iteration 40 - deterministic package metadata extraction
+
+- Expanded the existing package.json deterministic extractor beyond scripts.
+- Added high-trust facts for package name, Node module type, Node engine
+  constraint, declared package manager, CLI bin mappings, and workspace globs.
+- Extended the package extraction regression test to cover Node engine and CLI
+  bin metadata.
+- Verification:
+  - `npx biome check src/extract/deterministic/package-scripts.ts test/extract/extractors.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsx src/cli.ts eval cli-docs-demo`

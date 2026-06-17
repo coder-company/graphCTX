@@ -29,7 +29,13 @@ describe("deterministic extractors", () => {
   it("package-scripts → high-trust active command facts (immediately promotable)", () => {
     writeFileSync(
       join(dir, "package.json"),
-      JSON.stringify({ scripts: { test: "vitest run", build: "tsc" } }),
+      JSON.stringify({
+        name: "graphctx",
+        type: "module",
+        engines: { node: ">=20" },
+        bin: { graphctx: "dist/cli.js" },
+        scripts: { test: "vitest run", build: "tsc" },
+      }),
     );
     const { res } = extract();
     const test = res.inserted.find((f) => f.predicate === "test_command");
@@ -37,6 +43,19 @@ describe("deterministic extractors", () => {
     expect(test!.trust_tier).toBe("high");
     expect(test!.status).toBe("active");
     expect(test!.object).toContain("test");
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        predicate: "node_engine",
+        object: ">=20",
+        fact_kind: "constraint",
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        predicate: "cli_bin",
+        object: "graphctx -> dist/cli.js",
+      }),
+    );
   });
 
   it("lockfile → package manager detection", () => {
