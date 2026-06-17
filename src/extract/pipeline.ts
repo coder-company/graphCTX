@@ -22,10 +22,12 @@ export interface ExtractResult {
   inserted: Fact[];
   skippedSecret: number;
   skippedDuplicate: number;
+  expiredStale: number;
 }
 
 // Runs all deterministic extractors synchronously (SPEC §10.1, < 50ms target),
-// scrubs secrets (I3), and upserts new facts. Idempotent on (subject,predicate,object).
+// scrubs secrets (I3), reconciles stale deterministic evidence, and upserts new
+// facts. Idempotent on (subject,predicate,object).
 export function runDeterministicExtraction(repo: FactsRepo, ctx: ExtractContext): ExtractResult {
   const candidates: NewFact[] = [];
   for (const ex of DETERMINISTIC_EXTRACTORS) {
@@ -39,6 +41,7 @@ export function runDeterministicExtraction(repo: FactsRepo, ctx: ExtractContext)
   const inserted: Fact[] = [];
   let skippedSecret = 0;
   let skippedDuplicate = 0;
+  const currentEvidenceKeys = new Set<string>();
 
   for (const f of candidates) {
     const objStr = typeof f.object === "string" ? f.object : JSON.stringify(f.object);
@@ -46,6 +49,7 @@ export function runDeterministicExtraction(repo: FactsRepo, ctx: ExtractContext)
       skippedSecret++;
       continue;
     }
+    currentEvidenceKeys.add(evidenceKey(f, objStr));
     if (isDuplicate(repo, f, objStr)) {
       skippedDuplicate++;
       continue;
@@ -53,7 +57,9 @@ export function runDeterministicExtraction(repo: FactsRepo, ctx: ExtractContext)
     inserted.push(repo.insert(f));
   }
 
-  return { inserted, skippedSecret, skippedDuplicate };
+  const expiredStale = expireStaleDeterministicFacts(repo, ctx, currentEvidenceKeys);
+
+  return { inserted, skippedSecret, skippedDuplicate, expiredStale };
 }
 
 function isDuplicate(repo: FactsRepo, f: NewFact, objStr: string): boolean {
@@ -65,4 +71,41 @@ function isDuplicate(repo: FactsRepo, f: NewFact, objStr: string): boolean {
     const eObj = typeof e.object === "string" ? e.object : JSON.stringify(e.object);
     return eObj === objStr && e.status !== "expired";
   });
+}
+
+function expireStaleDeterministicFacts(
+  repo: FactsRepo,
+  ctx: ExtractContext,
+  currentEvidenceKeys: Set<string>,
+): number {
+  let expired = 0;
+  for (const existing of repo.activeAsOf({
+    user_id: ctx.scope.user_id,
+    workspace_id: ctx.scope.workspace_id,
+  })) {
+    if (!isManagedDeterministicFact(existing)) continue;
+    if (currentEvidenceKeys.has(evidenceKey(existing))) continue;
+    repo.expireDueToMissingEvidence(existing.fact_id, ctx.head);
+    expired++;
+  }
+  return expired;
+}
+
+function isManagedDeterministicFact(fact: Fact): boolean {
+  return (
+    fact.source.asserted_by === "deterministic_parser" &&
+    fact.trust_tier === "high" &&
+    fact.promotion_state === "workspace_active"
+  );
+}
+
+function evidenceKey(fact: Pick<Fact, "subject" | "predicate" | "object">): string;
+function evidenceKey(fact: NewFact, objectString?: string): string;
+function evidenceKey(
+  fact: Pick<Fact, "subject" | "predicate" | "object"> | NewFact,
+  objectString?: string,
+): string {
+  const obj =
+    objectString ?? (typeof fact.object === "string" ? fact.object : JSON.stringify(fact.object));
+  return `${fact.subject}\u0000${fact.predicate}\u0000${obj}`;
 }

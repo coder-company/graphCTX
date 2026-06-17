@@ -86,4 +86,30 @@ describe("deterministic extractors", () => {
     const { res } = extract();
     expect(res.inserted.find((f) => f.predicate === "claims")).toBeUndefined();
   });
+
+  it("expires high-trust deterministic facts when their evidence disappears", () => {
+    const db = openDb(":memory:");
+    const repo = new FactsRepo(db);
+    const ctx = {
+      workspaceDir: dir,
+      scope: { user_id: "u", workspace_id: "w" },
+      head: "commit-1",
+    };
+
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    const first = runDeterministicExtraction(repo, ctx);
+    const remembered = first.inserted.find((f) => f.predicate === "test_command");
+    expect(remembered?.status).toBe("active");
+
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: {} }));
+    const second = runDeterministicExtraction(repo, { ...ctx, head: "commit-2" });
+    const historical = repo.get(remembered!.fact_id);
+
+    expect(second.expiredStale).toBe(1);
+    expect(historical?.status).toBe("expired");
+    expect(historical?.git?.valid_until_commit).toBe("commit-2");
+    expect(repo.activeAsOf({ user_id: "u", workspace_id: "w" })).not.toContainEqual(
+      expect.objectContaining({ fact_id: remembered!.fact_id }),
+    );
+  });
 });

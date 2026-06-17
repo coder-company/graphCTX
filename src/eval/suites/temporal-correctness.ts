@@ -420,6 +420,57 @@ async function scClassificationMatrix(): Promise<{
   return { result, rows };
 }
 
+// --- Scenario 8: evidence disappearance -----------------------------------
+// Deterministic extraction is temporal reconciliation, not append-only recall:
+// when structured evidence disappears, the old fact is expired at the current
+// commit, hidden from injection, but still queryable through why().
+async function scEvidenceDisappearanceExpires(): Promise<ScenarioResult> {
+  return withRepo(async (r) => {
+    const c1 = r.commit(
+      "package.json",
+      JSON.stringify({ scripts: { test: "vitest run" } }),
+      "add test script",
+    );
+    const rt = runtimeFor(r.dir);
+    try {
+      const first = await rt.extract();
+      const fact = first.inserted.find((f) => f.predicate === "test_command");
+      r.commit("package.json", JSON.stringify({ scripts: {} }), "remove test script");
+      const c2 = r.head();
+      const second = await rt.extract();
+      const historical = fact ? rt.facts.get(fact.fact_id) : null;
+      const whyReport = fact ? rt.why(fact.fact_id) : null;
+      const ctx = await rt.injectionContext("UserPromptSubmit", "temporal-evidence", {
+        user_prompt: "how do I run tests",
+      });
+      const capsule = await rt.planner().plan(ctx, { bypassGate: true });
+
+      const pass =
+        fact !== undefined &&
+        fact.git?.valid_from_commit === c1 &&
+        second.expiredStale === 1 &&
+        historical?.status === "expired" &&
+        historical.git?.valid_until_commit === c2 &&
+        whyReport?.fact.status === "expired" &&
+        !capsule.markdown.includes("vitest run");
+      return {
+        id: "8-evidence-disappearance",
+        label:
+          "evidence disappearance: removed structured evidence expires stale fact without erasing why history",
+        pass,
+        gated: true,
+        detail:
+          `initialFact=${fact?.fact_id.slice(-8) ?? "-"} firstFrom=${short(c1)} ` +
+          `expiredStale=${second.expiredStale} status=${historical?.status ?? "-"} ` +
+          `until=${short(historical?.git?.valid_until_commit)} whyVisible=${whyReport !== null} ` +
+          `injected=${capsule.markdown.includes("vitest run")}`,
+      };
+    } finally {
+      rt.close();
+    }
+  });
+}
+
 export async function runTemporalCorrectnessEval(): Promise<TemporalCorrectnessReport> {
   const scenarios: ScenarioResult[] = [];
 
@@ -434,6 +485,7 @@ export async function runTemporalCorrectnessEval(): Promise<TemporalCorrectnessR
 
   const matrix = await scClassificationMatrix();
   scenarios.push(matrix.result);
+  scenarios.push(await scEvidenceDisappearanceExpires());
 
   // Informationally tagged for report readability, but gated: patch-id equivalence
   // is now part of fact validity, not just a measured capability.
@@ -461,6 +513,10 @@ export async function runTemporalCorrectnessEval(): Promise<TemporalCorrectnessR
     patchIdWired: cherry.patchIdWired,
     pass: gatedPassed === gated.length && cherry.patchIdEqual,
   };
+}
+
+function short(sha: string | undefined): string {
+  return sha ? sha.slice(0, 7) : "-";
 }
 
 export function formatTemporalCorrectnessReport(r: TemporalCorrectnessReport): string {

@@ -327,6 +327,15 @@ export class FactsRepo {
     }
   }
 
+  expireDueToMissingEvidence(id: string, atCommit?: string): void {
+    this.update(id, { status: "expired", t_expired: this.clock.iso() });
+    if (atCommit) {
+      this.db
+        .prepare("UPDATE git_anchors SET valid_until_commit = ? WHERE fact_id = ?")
+        .run(atCommit, id);
+    }
+  }
+
   // Expired facts that carry a valid_until_commit anchor — candidates for
   // revert-driven reactivation (git/dag.ts).
   expiredWithValidUntil(): Fact[] {
