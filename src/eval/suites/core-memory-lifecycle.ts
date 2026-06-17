@@ -159,6 +159,35 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     `status=${noMatch.status} stdout=${JSON.stringify(noMatch.stdout.trim())}`,
   );
 
+  const secretRecall = withRepo((dir) => {
+    const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+    const remembered = cli([
+      "remember",
+      secret,
+      "--subject",
+      "repo",
+      "--predicate",
+      "deploy_token",
+      "-C",
+      dir,
+    ]);
+    const recall = cli(["recall", "deploy token", "-C", dir]);
+    return { secret, remembered, recall };
+  });
+  if (secretRecall.remembered.status !== 0 || secretRecall.recall.status !== 0) {
+    cliFailures += 1;
+  }
+  check(
+    "secret-bearing memories are redacted on remember and suppressed from recall",
+    secretRecall.remembered.status === 0 &&
+      secretRecall.recall.status === 0 &&
+      !secretRecall.remembered.stdout.includes(secretRecall.secret) &&
+      secretRecall.remembered.stdout.includes("[REDACTED:openai]") &&
+      !secretRecall.recall.stdout.includes(secretRecall.secret) &&
+      secretRecall.recall.stdout.trim() === "(no matching memory)",
+    `remember=${JSON.stringify(secretRecall.remembered.stdout.trim())} recall=${JSON.stringify(secretRecall.recall.stdout.trim())}`,
+  );
+
   const why = withRepo((dir) => {
     const out = cli([
       "remember",

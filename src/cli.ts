@@ -21,6 +21,7 @@ import {
 import { evalReportPass, formatReport } from "./eval/report.js";
 import { renderCard } from "./render/cards.js";
 import { Runtime } from "./runtime.js";
+import { safeForSend } from "./security/send-edge.js";
 import { bootstrapVec0 } from "./store/vec0-bootstrap.js";
 import { VERSION } from "./version.js";
 
@@ -148,7 +149,9 @@ program
     });
     const { Retriever } = await import("./retrieve/retriever.js");
     const retriever = new Retriever(rt.facts, rt.git);
-    const scored = await retriever.retrieve(ctx, { includeAllActive: true });
+    const scored = (await retriever.retrieve(ctx, { includeAllActive: true })).filter((s) =>
+      safeForSend(s.fact),
+    );
     if (scored.length === 0) {
       process.stdout.write("(no matching memory)\n");
     } else {

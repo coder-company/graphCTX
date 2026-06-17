@@ -1,5 +1,6 @@
 import type { Fact } from "../core/types.js";
 import { asClaim } from "../security/sanitize.js";
+import { redactSecretValue } from "../security/secrets.js";
 import { estimateTokens } from "./tokens.js";
 
 export type CardSection =
@@ -78,9 +79,10 @@ function verifiedAt(fact: Fact): string {
 }
 
 function stringify(o: unknown): string {
-  if (typeof o === "string") return o;
+  const redacted = redactSecretValue(o);
+  if (typeof redacted === "string") return redacted;
   if (o === true) return "true";
-  return JSON.stringify(o);
+  return JSON.stringify(redacted);
 }
 
 function shortId(id: string): string {
