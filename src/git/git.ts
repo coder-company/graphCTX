@@ -47,16 +47,19 @@ export class Git {
     }
   }
 
-  // Is `a` an ancestor of `b` (i.e. a reachable from b)? `git merge-base --is-ancestor`.
+  // Is `a` an ancestor of `b` (i.e. a reachable from b)? `git merge-base
+  // --is-ancestor` signals via EXIT CODE (0=yes, 1=no), but simple-git's raw()
+  // does NOT throw on exit code 1 — it returns "" — so the exit status is lost
+  // and every query would read as "ancestor". We instead use the robust
+  // identity: a is an ancestor of b iff merge-base(a,b) === a (canonical sha).
   async isAncestor(a: SHA, b: SHA): Promise<boolean> {
     if (a === b) return true;
     try {
-      await this.git.raw(["merge-base", "--is-ancestor", a, b]);
-      return true;
-    } catch (e) {
-      // exit code 1 = not an ancestor; other = error. simple-git throws on non-zero.
-      const msg = (e as Error).message ?? "";
-      if (/exit code=?1\b/.test(msg) || msg.includes("not an ancestor")) return false;
+      const base = (await this.git.raw(["merge-base", a, b])).trim();
+      if (!base) return false;
+      const full = (await this.git.raw(["rev-parse", "--verify", `${a}^{commit}`])).trim();
+      return base === full;
+    } catch {
       // Unknown commit etc. -> treat as not-ancestor (conservative).
       return false;
     }
@@ -82,6 +85,26 @@ export class Git {
     }
   }
 
+  // Has the change introduced by `target` been reverted somewhere in the history
+  // reachable from `head`? A real `git revert` adds a NEW commit (target stays an
+  // ancestor), so reachability alone can't tell — we look for the standard
+  // "This reverts commit <target>" trailer git writes. Best-effort; false on error.
+  async isRevertedBy(target: SHA, head: SHA): Promise<boolean> {
+    try {
+      const out = await this.git.raw([
+        "log",
+        "-F",
+        `--grep=This reverts commit ${target}`,
+        "--max-count=1",
+        "--format=%H",
+        head,
+      ]);
+      return out.trim().length > 0;
+    } catch {
+      return false;
+    }
+  }
+
   async mergeBase(a: SHA, b: SHA): Promise<SHA | null> {
     try {
       return (await this.git.raw(["merge-base", a, b])).trim() || null;
@@ -92,7 +115,10 @@ export class Git {
 
   async patchId(commit: SHA): Promise<string | null> {
     try {
-      const diff = await this.git.raw(["diff-tree", "-p", commit]);
+      // --no-commit-id drops the leading commit SHA so the hash reflects only the
+      // change (the patch), not the commit it lives in. Without it a cherry-picked
+      // change would hash differently on each branch and patch-id would be useless.
+      const diff = await this.git.raw(["diff-tree", "--no-commit-id", "-p", commit]);
       // patch-id reads a patch on stdin; emulate by hashing the diff deterministically.
       return stableHash(diff);
     } catch {

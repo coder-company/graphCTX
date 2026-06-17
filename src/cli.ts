@@ -426,7 +426,7 @@ program
   .command("eval")
   .argument(
     "<sub>",
-    "subcommand: run | promote | drift | retrieval | gate | security | branch | conflict | procedure | mcp | all",
+    "subcommand: run | promote | drift | retrieval | gate | security | branch | temporal | conflict | procedure | mcp | all",
   )
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
@@ -491,6 +491,14 @@ program
       process.stdout.write(formatBranchTruthReport(r));
       return r.pass;
     };
+    const runTemporal = async () => {
+      const { runTemporalCorrectnessEval, formatTemporalCorrectnessReport } = await import(
+        "./eval/suites/temporal-correctness.js"
+      );
+      const r = await runTemporalCorrectnessEval();
+      process.stdout.write(formatTemporalCorrectnessReport(r));
+      return r.pass;
+    };
     const runConflict = async () => {
       const { runParallelConflictEval, formatParallelConflictReport } = await import(
         "./eval/suites/parallel-conflict.js"
@@ -540,6 +548,10 @@ program
       if (!(await runBranch())) process.exitCode = 1;
       return;
     }
+    if (sub === "temporal") {
+      if (!(await runTemporal())) process.exitCode = 1;
+      return;
+    }
     if (sub === "conflict") {
       if (!(await runConflict())) process.exitCode = 1;
       return;
@@ -560,10 +572,11 @@ program
       const g = await runGate();
       const sec = await runSecurity();
       const b = await runBranch();
+      const t = await runTemporal();
       const c = await runConflict();
       const pr = await runProcedure();
       const m = await runMcp();
-      if (!(a && p && d && rq && g && sec && b && c && pr && m)) process.exitCode = 1;
+      if (!(a && p && d && rq && g && sec && b && t && c && pr && m)) process.exitCode = 1;
       return;
     }
     if (sub !== "run") fail(`unknown eval subcommand "${sub}"`);
