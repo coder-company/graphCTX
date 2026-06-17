@@ -68,6 +68,36 @@ export function runStorageMigrationsEval(): StorageMigrationsReport {
   });
 
   withTempDir((dir) => {
+    const path = join(dir, "failed.db");
+    const db = openSqlite(path);
+    try {
+      let threw = false;
+      try {
+        runMigrations(db, [
+          {
+            version: 1,
+            file: "0001_bad.sql",
+            sql: [
+              "CREATE TABLE partial_migration(id TEXT);",
+              "INSERT INTO partial_migration(id) VALUES ('x');",
+              "CREATE TABLE broken (",
+            ].join(" "),
+          },
+        ]);
+      } catch {
+        threw = true;
+      }
+      check(
+        "migration failure: partial DDL rolled back and schema_version unchanged",
+        threw && !tableExists(db, "partial_migration") && schemaVersion(db) === 0,
+        `threw=${threw} partial=${tableExists(db, "partial_migration")} schema_version=${schemaVersion(db)}`,
+      );
+    } finally {
+      db.close();
+    }
+  });
+
+  withTempDir((dir) => {
     const path = join(dir, "forward.db");
     seedVersionOneDb(path);
     const db = openSqlite(path);
