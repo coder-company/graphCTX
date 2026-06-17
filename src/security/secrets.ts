@@ -11,6 +11,18 @@ const SECRET_PATTERNS: Array<{ name: string; re: RegExp }> = [
   { name: "npm_token", re: /npm_[A-Za-z0-9]{20,}/ },
   { name: "stripe_secret_key", re: /sk_(?:live|test)_[A-Za-z0-9]{16,}/ },
   { name: "slack_token", re: /xox[abcrps]-[A-Za-z0-9-]{10,}/ },
+  {
+    name: "credential_url",
+    re: /\b[a-z][a-z0-9+.-]*:\/\/[^/\s:@]+:[^/\s:@]+@[^/\s]+/i,
+  },
+  {
+    name: "slack_webhook",
+    re: /https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9/_-]{20,}/,
+  },
+  {
+    name: "discord_webhook",
+    re: /https:\/\/discord(?:app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9._-]{20,}/,
+  },
   { name: "private_key", re: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/ },
   {
     name: "generic_assignment",

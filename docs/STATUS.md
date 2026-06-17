@@ -76,7 +76,7 @@
 |---|---|---|
 | `hook <event>` p95 | < 150ms | 26.74ms ✅ |
 
-_Last updated: full git-anchor restamping. 189 tests, 19 gate suites green, all I1-I9 hold._
+_Last updated: credential URL and webhook secret detection. 189 tests, 19 gate suites green, all I1-I9 hold._
 
 _Quality counters: Tests: 189. Gate suites: 19._
 
@@ -99,7 +99,7 @@ _Quality counters: Tests: 189. Gate suites: 19._
 | Promotion engine | ✅ | `eval promote` now gates hard boolean admission with atomic audited probation: precision/recall 100%/100%, 0 secret/task_state leaks, verified-procedure succeeds through the procedures table, missing-target perishable facts are held (`held unverified: 1`), and fact state rolls back if promotion audit recording fails |
 | Adapters & channel ladder | ✅ | `eval mcp` now covers 30/30 adapter/channel checks: marked client detection, highest-tier selection, Tier 0/1/2 transport-only capsule invariance, reversible cursor install/uninstall preserving unrelated MCP config, parseable opencode installs, secure opt-in proxy, and Claude hook Tier-2/fail-soft behavior |
 | MCP server & 8-tool surface | ✅ | `eval mcp` now covers 65/65 adapter/MCP checks: MCP 2025-11-25 initialize shape, exact 8-tool live/static surface with count-drift hard error, per-tool zod input + output-shape contracts including lifecycle-event enum and scalar JSON schema constraints, JSON-RPC -32602/-32601 errors, bounded anti-repetition rider, last-8 provenance lookup, telemetry precedence, real `serve --mcp` stdio initialize/tools-list, Claude adapter detection, static-floor secret refusal, MCP `remember` secret refusal, and Cursor adapter reversibility |
-| Security (injection/secrets/trust) | ✅ | adversarial benchmark: secret recall 1.0/precision 1.0; 0 poison promoted across expanded attack families; 0 harmful capsule cards; deterministic fuzz cases. `eval security` guards it |
+| Security (injection/secrets/trust) | ✅ | adversarial benchmark: secret recall 1.0/precision 1.0 including credential-bearing database URLs and webhook URLs; 0 poison promoted across expanded attack families; 0 harmful capsule cards; deterministic fuzz cases. `eval security` guards it |
 | Performance (latency/scale) | ✅ | bounded long-prompt FTS term cap plus streaming bulk scale bench: 1k/10k/50k PASS with measured p95 1.59/1.73/1.76ms after this change, default 100k PASS, 1M p95 ~1.4ms, finite ingest timing, `bench --footprint` startup/RSS/heap gate, and impossible-budget FAIL path |
 | Storage & migrations | ✅ | new `eval storage` passes 10/10: schema_version 3, reopen migrations 0, v1→v3 rows preserved 3/3, append-only expire tombstones retained, malformed rows skipped, missing optional ledger table degrades, WAL/FK/busy_timeout enforced, cascades/edge trail consistent |
 | Telemetry & outcome learning | ✅ | new `eval telemetry` passes 9/9: classifier accuracy 1.00>=0.90 with harmful-over-helped precedence, local-only recording with 0 network calls and disabled-write=0, signal storage whitelists known booleans and drops secret/unknown fields, fail-soft missing-table handling, malformed summary rows skipped, learned ranking lift +1.00, and DB-backed ledger cross-channel/open_loop behavior |

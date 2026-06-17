@@ -95,6 +95,21 @@ const SECRET_CASES: SecretCase[] = [
     isSecret: true,
   },
   {
+    label: "database url env assignment",
+    text: "DATABASE_URL=postgres://admin:FAKEpass123@db.example.com:5432/app",
+    isSecret: true,
+  },
+  {
+    label: "slack webhook url",
+    text: "https://hooks.slack.com/services/T00000000/B00000000/FAKEfakeFAKEfake",
+    isSecret: true,
+  },
+  {
+    label: "discord webhook url",
+    text: "https://discord.com/api/webhooks/123456789012345678/FAKEfakeFAKEfakeFAKEfake",
+    isSecret: true,
+  },
+  {
     label: "bare 40-hex token",
     text: "apptoken da39a3ee5e6b4b0d3255bfef95601890afd80709",
     isSecret: true,
@@ -155,6 +170,11 @@ const SECRET_CASES: SecretCase[] = [
     isSecret: false,
   },
   { label: "npm package env var", text: "npm_package_version=1.2.3", isSecret: false },
+  {
+    label: "database url without credentials",
+    text: "DATABASE_URL=postgres://localhost/app",
+    isSecret: false,
+  },
   {
     label: "git full sha mention",
     text: "commit da39a3ee5e6b4b0d3255bfef95601890afd80709 reverted the change",

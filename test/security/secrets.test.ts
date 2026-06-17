@@ -17,12 +17,17 @@ describe("secret scanning (I3)", () => {
     expect(containsSecret("api_key: 'A1b2C3d4E5f6G7h8'")).toBe(true);
     expect(containsSecret("github_pat_11AAFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE")).toBe(true);
     expect(containsSecret("xoxc-0000000000-FAKEfakeFAKEfake")).toBe(true);
+    expect(containsSecret("DATABASE_URL=postgres://admin:FAKEpass123@db.example/app")).toBe(true);
+    expect(
+      containsSecret("https://hooks.slack.com/services/T00000000/B00000000/FAKEfakeFAKEfake"),
+    ).toBe(true);
   });
 
   it("does not flag ordinary command text", () => {
     expect(containsSecret("npm run test")).toBe(false);
     expect(containsSecret("this repo uses pnpm")).toBe(false);
     expect(containsSecret("npm_package_version=1.2.3")).toBe(false);
+    expect(containsSecret("DATABASE_URL=postgres://localhost/app")).toBe(false);
   });
 
   it("reports the matched pattern name", () => {
@@ -33,6 +38,9 @@ describe("secret scanning (I3)", () => {
   it("redacts secret-shaped text and nested values for user-facing output", () => {
     const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
     expect(redactSecrets(`token ${secret}`)).not.toContain(secret);
+    expect(redactSecrets("DATABASE_URL=postgres://admin:FAKEpass123@db.example/app")).not.toContain(
+      "FAKEpass123",
+    );
     const value = redactSecretValue({ token: secret, safe: "npm test" });
     expect(JSON.stringify(value)).not.toContain(secret);
     expect(value).toEqual({ token: "[REDACTED:openai]", safe: "npm test" });
