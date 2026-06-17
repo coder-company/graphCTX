@@ -134,6 +134,7 @@ export class Retriever {
     // a small fixed relevance that sorts below real BM25 hits.
     if (opts.includeAllActive) {
       for (const f of this.repo.activeAsOf(wsScope)) addLex(f, 0.3);
+      for (const f of this.repo.userScopedActive(ctx.scope.user_id)) addLex(f, 0.45);
       if (ctx.scope.session_id) {
         for (const f of this.repo.activeAsOf({
           user_id: ctx.scope.user_id,

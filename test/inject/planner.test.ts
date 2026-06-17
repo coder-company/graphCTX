@@ -113,4 +113,30 @@ describe("injection planner (core loop)", () => {
     const capsule = await planner.plan(ctx("PostCompact"));
     expect(capsule.cards.find((c) => c.fact_id)).toBeUndefined();
   });
+
+  it("SessionStart includes explicit user-scoped preferences in the broad push pass", async () => {
+    const db = openDb(":memory:");
+    const facts = new FactsRepo(db);
+    facts.insert(
+      activeFact({
+        subject: "user",
+        predicate: "prefers_style",
+        object: "use concise status updates",
+        fact_kind: "preference",
+        scope: { user_id: "u" },
+        source: { asserted_by: "user", event_ids: [] },
+        promotion_state: "user_static_active",
+      }),
+    );
+    const planner = new InjectionPlanner({
+      facts,
+      git: null,
+      workspaceDir: process.cwd(),
+      gateConfig,
+      budgetConfig,
+    });
+    const capsule = await planner.plan(ctx("SessionStart"));
+    expect(capsule.markdown).toContain("User preferences");
+    expect(capsule.markdown).toContain("use concise status updates");
+  });
 });

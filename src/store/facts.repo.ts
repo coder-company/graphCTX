@@ -396,6 +396,22 @@ export class FactsRepo {
     return this.hydrateMany(rows);
   }
 
+  userScopedActive(userId: string, limit?: number): Fact[] {
+    const limitClause = limit !== undefined ? "LIMIT ?" : "";
+    const params = limit !== undefined ? [userId, limit] : [userId];
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM facts
+         WHERE status = 'active'
+           AND scope_user_id = ?
+           AND scope_workspace_id IS NULL
+           AND scope_session_id IS NULL
+         ${limitClause}`,
+      )
+      .all(...params) as FactRow[];
+    return this.hydrateMany(rows);
+  }
+
   candidates(scope: ScopeFilter): Fact[] {
     const { clause, params } = scopeClause(scope);
     const rows = this.db

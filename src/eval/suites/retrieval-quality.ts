@@ -642,6 +642,7 @@ export interface RetrievalQualityReport {
   mrrFloor: number;
   semanticProbe: SemanticProbeReport;
   diversityProbe: DiversityProbeReport;
+  userScopeProbe: UserScopeProbeReport;
   pass: boolean;
   rows: Array<{
     label: string;
@@ -669,6 +670,12 @@ export interface DiversityProbeReport {
   skipped: boolean;
   top5Families: string[];
   distinctFamiliesTop5: number;
+  pass: boolean;
+}
+
+export interface UserScopeProbeReport {
+  label: string;
+  includedAtSessionStart: boolean;
   pass: boolean;
 }
 
@@ -777,6 +784,7 @@ export async function runRetrievalQualityEval(): Promise<RetrievalQualityReport>
 
     const semanticProbe = await runSemanticNoOverlapProbe();
     const diversityProbe = await runDiversityProbe();
+    const userScopeProbe = await runUserScopeBroadPushProbe();
 
     rt.close();
 
@@ -799,14 +807,55 @@ export async function runRetrievalQualityEval(): Promise<RetrievalQualityReport>
       mrrFloor: MRR_FLOOR,
       semanticProbe,
       diversityProbe,
+      userScopeProbe,
       pass:
         recallAt10 >= RECALL10_FLOOR &&
         recallAt5 >= RECALL5_FLOOR &&
         mrr >= MRR_FLOOR &&
         semanticProbe.pass &&
-        diversityProbe.pass,
+        diversityProbe.pass &&
+        userScopeProbe.pass,
       rows,
     };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+async function runUserScopeBroadPushProbe(): Promise<UserScopeProbeReport> {
+  const label = "user-scope broad push: explicit preference at SessionStart";
+  const dir = mkdtempSync(join(tmpdir(), "graphctx-retrieval-user-"));
+  try {
+    const rt = new Runtime({
+      workspaceDir: dir,
+      userId: scope.user_id,
+      clock: fixedClock(FIXED_AT),
+    });
+    rt.facts.insert({
+      subject: "user",
+      predicate: "prefers_style",
+      object: "use concise status updates",
+      fact_kind: "preference",
+      temporal_kind: "static",
+      scope: { user_id: scope.user_id },
+      trust_tier: "high",
+      status: "active",
+      promotion_state: "user_static_active",
+      source: { asserted_by: "user", event_ids: [], raw_quote: "use concise status updates" },
+      tags: ["preference"],
+    });
+    const ctx = await rt.injectionContext("SessionStart", "retrieval-user-scope", {
+      user_prompt: "",
+    });
+    const ranked = await new Retriever(rt.facts, rt.git, rt.vectors).retrieve(ctx, {
+      includeAllActive: true,
+      k: 10,
+    });
+    const includedAtSessionStart = ranked.some(
+      (sf) => sf.fact.promotion_state === "user_static_active",
+    );
+    rt.close();
+    return { label, includedAtSessionStart, pass: includedAtSessionStart };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -1020,10 +1069,16 @@ export function formatRetrievalQualityReport(r: RetrievalQualityReport): string 
       : `  ${r.diversityProbe.label}: top-5 families [${r.diversityProbe.top5Families.join(", ")}], distinct=${r.diversityProbe.distinctFamiliesTop5} (floor ${DIVERSITY_FAMILY_FLOOR})`,
   );
   lines.push("");
+  lines.push("User-scope broad push probe");
+  lines.push("-".repeat(72));
+  lines.push(
+    `  ${r.userScopeProbe.label}: ${r.userScopeProbe.includedAtSessionStart ? "included" : "missing"}`,
+  );
+  lines.push("");
   lines.push(
     r.pass
-      ? `  VERDICT: ✅ RETRIEVAL PASS — recall@10 ${pct(r.recallAt10)} >= floor ${pct(r.floor)}. Semantic no-overlap and MMR diversity gates pass.`
-      : `  VERDICT: ❌ RETRIEVAL FAIL — recall@10 ${pct(r.recallAt10)} (floor ${pct(r.floor)}), recall@5 ${pct(r.recallAt5)} (floor ${pct(r.recallAt5Floor)}), MRR ${num(r.mrr)} (floor ${num(r.mrrFloor)}), semantic=${r.semanticProbe.pass ? "pass" : "fail"}, diversity=${r.diversityProbe.pass ? "pass" : "fail"}.`,
+      ? `  VERDICT: ✅ RETRIEVAL PASS — recall@10 ${pct(r.recallAt10)} >= floor ${pct(r.floor)}. Semantic no-overlap, MMR diversity, and user-scope broad-push gates pass.`
+      : `  VERDICT: ❌ RETRIEVAL FAIL — recall@10 ${pct(r.recallAt10)} (floor ${pct(r.floor)}), recall@5 ${pct(r.recallAt5)} (floor ${pct(r.recallAt5Floor)}), MRR ${num(r.mrr)} (floor ${num(r.mrrFloor)}), semantic=${r.semanticProbe.pass ? "pass" : "fail"}, diversity=${r.diversityProbe.pass ? "pass" : "fail"}, userScope=${r.userScopeProbe.pass ? "pass" : "fail"}.`,
   );
   lines.push("");
   return `${lines.join("\n")}\n`;
