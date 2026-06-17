@@ -195,3 +195,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval memory`
   - `npx tsx src/cli.ts eval quality`
   - `npx tsx src/cli.ts eval cli-docs-demo`
+
+### Iteration 49 - package-manager-aware script extraction
+
+- Made package script command facts use the declared `packageManager` or lockfile
+  runner instead of always emitting `npm run <script>`.
+- Updated pnpm, yarn, and bun fixture expectations so eval truth matches the
+  actual package manager for each repo.
+- Verification:
+  - `npx biome check src/extract/deterministic/package-scripts.ts test/extract/extractors.test.ts fixtures/repo-pnpm-web/scenario.json fixtures/repo-pnpm-mono/scenario.json fixtures/repo-yarn-api/scenario.json fixtures/repo-bun-lib/scenario.json fixtures/README.md README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/extract/extractors.test.ts test/eval/harness.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval run --arms A,B,C,N,S`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`

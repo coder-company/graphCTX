@@ -2,7 +2,7 @@
   "name": "acme-api: yarn + jest, CI commands",
   "plan": "Add a /health endpoint, add a jest test, ensure it passes the same way CI runs it.",
   "needs": [
-    { "task": "run tests like CI", "predicate": "test_command", "correct": "npm run test", "wrong": "npm test" },
+    { "task": "run tests like CI", "predicate": "test_command", "correct": "yarn run test", "wrong": "npm run test" },
     { "task": "install deps the project way", "predicate": "package_manager", "correct": "yarn", "wrong": "npm" },
     { "task": "match the CI test command", "predicate": "ci_command", "correct": "yarn test", "wrong": "jest" }
   ],

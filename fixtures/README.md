@@ -21,7 +21,7 @@ compaction, then replays the post-compaction needs under arms A/B/C:
   "name": "...",
   "needs": [
     { "task": "run tests", "predicate": "test_command",
-      "correct": "pnpm test", "wrong": "npm test" }
+      "correct": "pnpm run test", "wrong": "npm run test" }
   ],
   "recall_compliance": [false, false, true, false]
 }

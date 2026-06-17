@@ -58,6 +58,28 @@ describe("deterministic extractors", () => {
     );
   });
 
+  it("package-scripts use the declared package manager or lockfile runner", () => {
+    writeFileSync(
+      join(dir, "package.json"),
+      JSON.stringify({
+        scripts: { test: "vitest run" },
+        packageManager: "pnpm@10.12.0",
+      }),
+    );
+    const declared = extract();
+    expect(declared.res.inserted.find((f) => f.predicate === "test_command")?.object).toBe(
+      "pnpm run test",
+    );
+
+    rmSync(join(dir, "package.json"), { force: true });
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: { test: "bun test" } }));
+    writeFileSync(join(dir, "bun.lock"), "");
+    const locked = extract();
+    expect(locked.res.inserted.find((f) => f.predicate === "test_command")?.object).toBe(
+      "bun run test",
+    );
+  });
+
   it("lockfile → package manager detection", () => {
     writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: {} }));
     writeFileSync(join(dir, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");

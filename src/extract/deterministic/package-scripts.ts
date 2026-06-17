@@ -13,6 +13,8 @@ interface PackageJson {
   workspaces?: unknown;
 }
 
+type ScriptRunner = "npm" | "pnpm" | "yarn" | "bun";
+
 // Maps common script names to a canonical predicate.
 const SCRIPT_PREDICATE: Record<string, string> = {
   test: "test_command",
@@ -36,6 +38,7 @@ export const packageScriptsExtractor: Extractor = {
       return [];
     }
     const scripts = pkg.scripts ?? {};
+    const runner = detectScriptRunner(ctx, pkg);
     const facts: NewFact[] = [];
     for (const [name, body] of Object.entries(scripts)) {
       const predicate = SCRIPT_PREDICATE[name];
@@ -44,11 +47,11 @@ export const packageScriptsExtractor: Extractor = {
         structuredFact({
           subject: "repo",
           predicate,
-          object: `npm run ${name}`,
+          object: scriptCommand(runner, name),
           fact_kind: "semantic",
           temporal_kind: "static",
           scope: ctx.scope,
-          tags: ["command", name, "config_file"],
+          tags: ["command", name, "config_file", `runner:${runner}`],
           rawQuote: `package.json scripts.${name}: ${body}`,
           git: anchor(ctx, ["package.json"]),
         }),
@@ -58,6 +61,30 @@ export const packageScriptsExtractor: Extractor = {
     return facts;
   },
 };
+
+function detectScriptRunner(ctx: ExtractContext, pkg: PackageJson): ScriptRunner {
+  const declared = parseDeclaredPackageManager(pkg.packageManager);
+  if (declared) return declared;
+  if (existsSync(join(ctx.workspaceDir, "pnpm-lock.yaml"))) return "pnpm";
+  if (existsSync(join(ctx.workspaceDir, "yarn.lock"))) return "yarn";
+  if (
+    existsSync(join(ctx.workspaceDir, "bun.lock")) ||
+    existsSync(join(ctx.workspaceDir, "bun.lockb"))
+  ) {
+    return "bun";
+  }
+  return "npm";
+}
+
+function parseDeclaredPackageManager(value: unknown): ScriptRunner | null {
+  if (typeof value !== "string") return null;
+  const name = value.trim().split("@")[0];
+  return name === "npm" || name === "pnpm" || name === "yarn" || name === "bun" ? name : null;
+}
+
+function scriptCommand(runner: ScriptRunner, name: string): string {
+  return `${runner} run ${name}`;
+}
 
 function packageMetadataFacts(ctx: ExtractContext, pkg: PackageJson): NewFact[] {
   const facts: NewFact[] = [];

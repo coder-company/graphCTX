@@ -2,7 +2,7 @@
   "name": "acme-monorepo: pnpm + turbo, generated schema",
   "plan": "Add a resolver in packages/core, run the workspace tests via turbo, leave generated schema alone.",
   "needs": [
-    { "task": "run workspace tests", "predicate": "test_command", "correct": "npm run test", "wrong": "npm test" },
+    { "task": "run workspace tests", "predicate": "test_command", "correct": "pnpm run test", "wrong": "npm run test" },
     { "task": "use the monorepo package manager", "predicate": "package_manager", "correct": "pnpm", "wrong": "npm" },
     { "task": "do not hand-edit generated schema", "predicate": "do_not_edit", "correct": "packages/core/src/schema.gen.ts", "wrong": "edit packages/core/src/schema.gen.ts" }
   ],

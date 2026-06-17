@@ -2,7 +2,7 @@
   "name": "acme-lib: bun + prose conventions",
   "plan": "Add a debounce util, write a bun test, follow the repo conventions in AGENTS.md.",
   "needs": [
-    { "task": "run the test suite", "predicate": "test_command", "correct": "npm run test", "wrong": "npm test" },
+    { "task": "run the test suite", "predicate": "test_command", "correct": "bun run test", "wrong": "npm run test" },
     { "task": "use the right runtime/package manager", "predicate": "package_manager", "correct": "bun", "wrong": "npm" }
   ],
   "recall_compliance": [false, false]
