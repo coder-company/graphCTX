@@ -9,6 +9,8 @@ export interface PromotionCase {
   shouldPromote: boolean;
   // Cross-session observation proxy (drives the "repeated" gate) when relevant.
   evidenceCount?: number;
+  // Procedure table successes (drives the verified_procedure gate) when relevant.
+  procedureSuccesses?: number;
 }
 
 const scope = { user_id: "eval-user", workspace_id: "ws-eval" } as const;
@@ -71,17 +73,14 @@ export const PROMOTION_CASES: PromotionCase[] = [
     }),
   },
   {
-    label: "verified procedure (>= successes handled via proc table; here user-stated)",
+    label: "verified procedure via procedures table (>= successes)",
     shouldPromote: true,
+    procedureSuccesses: 2,
     fact: f({
-      predicate: "release_step",
+      predicate: "release_procedure",
       object: "bump version then tag",
-      fact_kind: "decision",
-      source: {
-        asserted_by: "user",
-        event_ids: [],
-        raw_quote: "for this project, release by bump+tag",
-      },
+      fact_kind: "procedural",
+      source: { asserted_by: "agent", event_ids: [] },
     }),
   },
   {
@@ -290,6 +289,18 @@ export const PROMOTION_CASES: PromotionCase[] = [
       object: "auth team probably owns this",
       fact_kind: "semantic",
       source: { asserted_by: "agent", event_ids: [] },
+    }),
+  },
+  {
+    label: "perishable missing-target fact held by probation",
+    shouldPromote: false,
+    fact: f({
+      predicate: "script_path",
+      object: "missing-script.sh",
+      fact_kind: "procedural",
+      trust_tier: "high",
+      source: { asserted_by: "deterministic_parser", event_ids: [] },
+      git: { path_globs: ["missing-script.sh"] },
     }),
   },
 ];

@@ -5,8 +5,14 @@ describe("workspace-promotion precision (M1 exit gate)", () => {
   it("achieves >= 90% precision with zero secret/task_state leakage", async () => {
     const r = await runPromotionEval();
     expect(r.precision).toBeGreaterThanOrEqual(0.9);
+    expect(r.recall).toBeGreaterThanOrEqual(0.9);
     expect(r.secretLeaks).toBe(0);
     expect(r.taskStateLeaks).toBe(0);
+    expect(r.heldUnverified).toBeGreaterThanOrEqual(1);
+    expect(r.rows.find((row) => row.label.includes("verified procedure"))?.gate).toBe(
+      "verified_procedure",
+    );
+    expect(r.rows.find((row) => row.label.includes("missing-target"))?.gate).toBe("unverified");
     expect(r.pass).toBe(true);
   }, 20000);
 });

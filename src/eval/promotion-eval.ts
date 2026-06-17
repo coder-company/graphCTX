@@ -13,9 +13,12 @@ export interface PromotionEvalReport {
   falseNegatives: number; // shouldPromote BUT not promoted
   precision: number; // TP / (TP + FP)
   recall: number; // TP / (TP + FN)
+  precisionFloor: number;
+  recallFloor: number;
   secretLeaks: number; // promoted secrets (must be 0)
   taskStateLeaks: number; // promoted task_state (must be 0)
-  pass: boolean; // precision >= 0.9 AND zero leaks
+  heldUnverified: number; // perishable facts held by probation (must be >= 1)
+  pass: boolean; // precision/recall >= 0.9 AND zero leaks AND probation evidence
   rows: Array<{
     label: string;
     expected: boolean;
@@ -26,6 +29,7 @@ export interface PromotionEvalReport {
 }
 
 const PRECISION_GATE = 0.9;
+const RECALL_GATE = 0.9;
 
 // M1 exit gate: workspace-promotion precision >= 90% with zero secret/task_state
 // leakage. Inserts a labeled fact set, runs the real probation sweep, and scores.
@@ -42,6 +46,17 @@ export async function runPromotionEval(): Promise<PromotionEvalReport> {
         scope,
         evidence_count: c.evidenceCount ?? 1,
       });
+      if (c.procedureSuccesses) {
+        const proc = rt.procedures.insert({
+          fact_id: fact.fact_id,
+          name: `${c.label} procedure`,
+          steps: [{ description: "Run the verified procedure", command: String(c.fact.object) }],
+          verifier: { command: "npm test", expected_exit_code: 0 },
+        });
+        for (let i = 0; i < c.procedureSuccesses; i++) {
+          rt.procedures.recordSuccess(proc.procedure_id);
+        }
+      }
       return { c, factId: fact.fact_id };
     });
 
@@ -54,6 +69,7 @@ export async function runPromotionEval(): Promise<PromotionEvalReport> {
     let fn = 0;
     let secretLeaks = 0;
     let taskStateLeaks = 0;
+    let heldUnverified = 0;
 
     for (const { c, factId } of inserted) {
       const after = rt.facts.get(factId)!;
@@ -66,6 +82,7 @@ export async function runPromotionEval(): Promise<PromotionEvalReport> {
 
       if (promoted && c.fact.sensitivity === "secret") secretLeaks += 1;
       if (promoted && c.fact.fact_kind === "task_state") taskStateLeaks += 1;
+      if (!promoted && decision?.gate === "unverified") heldUnverified += 1;
 
       rows.push({
         label: c.label,
@@ -81,7 +98,12 @@ export async function runPromotionEval(): Promise<PromotionEvalReport> {
     const promoted = tp + fp;
     const precision = promoted > 0 ? tp / promoted : 1;
     const recall = tp + fn > 0 ? tp / (tp + fn) : 1;
-    const pass = precision >= PRECISION_GATE && secretLeaks === 0 && taskStateLeaks === 0;
+    const pass =
+      precision >= PRECISION_GATE &&
+      recall >= RECALL_GATE &&
+      secretLeaks === 0 &&
+      taskStateLeaks === 0 &&
+      heldUnverified >= 1;
 
     return {
       total: PROMOTION_CASES.length,
@@ -92,8 +114,11 @@ export async function runPromotionEval(): Promise<PromotionEvalReport> {
       falseNegatives: fn,
       precision,
       recall,
+      precisionFloor: PRECISION_GATE,
+      recallFloor: RECALL_GATE,
       secretLeaks,
       taskStateLeaks,
+      heldUnverified,
       pass,
       rows,
     };
@@ -126,11 +151,12 @@ export function formatPromotionReport(r: PromotionEvalReport): string {
   );
   lines.push(`  secret leaks:     ${r.secretLeaks}  (must be 0)`);
   lines.push(`  task_state leaks: ${r.taskStateLeaks}  (must be 0)`);
+  lines.push(`  held unverified:  ${r.heldUnverified}  (must be >= 1)`);
   lines.push("");
   lines.push(
     r.pass
-      ? `  VERDICT: ✅ M1 GATE PASS — precision ${pct(r.precision)} >= 90%, zero leakage.`
-      : `  VERDICT: ❌ M1 GATE FAIL — precision ${pct(r.precision)} or leakage > 0.`,
+      ? `  VERDICT: ✅ M1 GATE PASS — precision ${pct(r.precision)} >= 90%, zero leakage; recall ${pct(r.recall)} >= 90%, probation holds.`
+      : `  VERDICT: ❌ M1 GATE FAIL — precision ${pct(r.precision)}, recall ${pct(r.recall)}, leakage/probation check failed.`,
   );
   lines.push("");
   return `${lines.join("\n")}\n`;
