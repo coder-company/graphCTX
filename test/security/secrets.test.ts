@@ -45,6 +45,15 @@ describe("secret scanning (I3)", () => {
     expect(JSON.stringify(value)).not.toContain(secret);
     expect(value).toEqual({ token: "[REDACTED:openai]", safe: "npm test" });
   });
+
+  it("redacts high-entropy tokens that contain regex metacharacters", () => {
+    const token =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgN3P4JvMNHl0w5N";
+    expect(containsSecret(`auth ${token}`)).toBe(true);
+    const redacted = redactSecrets(`auth ${token}`);
+    expect(redacted).not.toContain(token);
+    expect(redacted).toContain("[REDACTED:high_entropy]");
+  });
 });
 
 describe("send-edge directive classifier", () => {

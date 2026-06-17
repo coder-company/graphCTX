@@ -85,7 +85,7 @@ export function redactSecrets(text: string): string {
       /[A-Za-z]/.test(tok) &&
       /[0-9]/.test(tok)
     ) {
-      redacted = redacted.replace(escapeRegExp(tok), "[REDACTED:high_entropy]");
+      redacted = redacted.replace(new RegExp(escapeRegExp(tok), "g"), "[REDACTED:high_entropy]");
     }
   }
   return redacted;
