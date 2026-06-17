@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Capsule, InjectionContext } from "../../core/types.js";
 import type { Adapter, Capability, ChannelTier, InstallOptions } from "../adapter.js";
@@ -55,6 +55,9 @@ export class CursorAdapter implements Adapter {
   }
 
   async uninstall(): Promise<void> {
+    const rulePath = join(this.workspaceDir, ".cursor", "rules", "graphctx.mdc");
+    if (existsSync(rulePath)) rmSync(rulePath, { force: true });
+
     const mcpPath = join(this.workspaceDir, ".cursor", "mcp.json");
     if (!existsSync(mcpPath)) return;
     try {

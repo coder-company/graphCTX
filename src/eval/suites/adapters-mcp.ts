@@ -1,5 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -75,6 +84,13 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       rmSync(join(d, ".graphctx"), { recursive: true, force: true });
     }
 
+    mkdirSync(join(cursorDir, ".cursor"), { recursive: true });
+    writeFileSync(
+      join(cursorDir, ".cursor", "mcp.json"),
+      `${JSON.stringify({ mcpServers: { other: { command: "other-tool" } } }, null, 2)}\n`,
+      "utf8",
+    );
+
     const cursor = makeAdapter("cursor", cursorDir);
     await cursor.install({ workspaceDir: cursorDir, binPath: "graphctx" });
     check(
@@ -84,6 +100,20 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
     );
     const cursorMcp = JSON.parse(readFileSync(join(cursorDir, ".cursor", "mcp.json"), "utf8"));
     check("cursor mcp.json registers graphctx server", !!cursorMcp.mcpServers?.graphctx);
+    check(
+      "cursor install preserves unrelated MCP servers",
+      cursorMcp.mcpServers?.other?.command === "other-tool",
+    );
+    await cursor.uninstall();
+    const cursorMcpAfterUninstall = JSON.parse(
+      readFileSync(join(cursorDir, ".cursor", "mcp.json"), "utf8"),
+    );
+    check(
+      "cursor uninstall removes graphctx rule/MCP entry without deleting unrelated MCP servers",
+      !existsSync(join(cursorDir, ".cursor", "rules", "graphctx.mdc")) &&
+        cursorMcpAfterUninstall.mcpServers?.graphctx === undefined &&
+        cursorMcpAfterUninstall.mcpServers?.other?.command === "other-tool",
+    );
 
     const opencode = makeAdapter("opencode", opencodeDir);
     await opencode.install({ workspaceDir: opencodeDir, binPath: "graphctx" });
