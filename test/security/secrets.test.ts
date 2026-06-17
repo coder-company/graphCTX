@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Fact } from "../../src/core/types.js";
+import { assertSafeExplicitMemoryWrite } from "../../src/security/intake.js";
 import { isDangerousDirective } from "../../src/security/sanitize.js";
 import {
   containsSecret,
@@ -65,6 +66,19 @@ describe("secret scanning (I3)", () => {
     const redacted = redactSecrets(`auth ${token}`);
     expect(redacted).not.toContain(token);
     expect(redacted).toContain("[REDACTED:high_entropy]");
+  });
+});
+
+describe("explicit memory intake safety", () => {
+  it("rejects secret-bearing memory metadata before storage", () => {
+    expect(() =>
+      assertSafeExplicitMemoryWrite({
+        text: "store safe guidance only",
+        subject: "Authorization: Bearer plainlowentropytoken123",
+        predicate: "note",
+        kind: "decision",
+      }),
+    ).toThrow("refusing to store secret-bearing memory");
   });
 });
 

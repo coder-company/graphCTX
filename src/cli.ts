@@ -21,7 +21,11 @@ import {
 import { evalReportPass, formatReport } from "./eval/report.js";
 import { renderCard } from "./render/cards.js";
 import { Runtime } from "./runtime.js";
-import { assertSafeMemoryWrite, formatMemoryWriteError } from "./security/intake.js";
+import {
+  assertSafeExplicitMemoryWrite,
+  assertSafeMemoryWrite,
+  formatMemoryWriteError,
+} from "./security/intake.js";
 import { safeForSend } from "./security/send-edge.js";
 import { bootstrapVec0 } from "./store/vec0-bootstrap.js";
 import { VERSION } from "./version.js";
@@ -174,7 +178,12 @@ program
   .option("--kind <k>", "fact kind", "decision")
   .action(async (text, opts) => {
     try {
-      assertSafeMemoryWrite(text);
+      assertSafeExplicitMemoryWrite({
+        text,
+        subject: opts.subject,
+        predicate: opts.predicate,
+        kind: opts.kind,
+      });
     } catch (e) {
       fail(formatMemoryWriteError(e));
     }

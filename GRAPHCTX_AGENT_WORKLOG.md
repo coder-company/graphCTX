@@ -222,3 +222,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval run --arms A,B,C,N,S`
   - `npx tsx src/cli.ts eval quality`
   - `npx tsx src/cli.ts eval cli-docs-demo`
+
+### Iteration 51 - explicit memory metadata secret refusal
+
+- Centralized explicit memory intake checks across text and metadata fields so
+  CLI/MCP `remember` refuses secret-shaped `subject`, `predicate`, `kind`, and
+  MCP `session_id` values before Runtime or DB writes.
+- Added unit, CLI lifecycle, and MCP regressions proving metadata-carried
+  credentials are refused and not echoed.
+- Updated README/STATUS/DEMO counters to 205 Vitest tests and 75/75 MCP checks.
+- Verification:
+  - `npx vitest run test/security/secrets.test.ts`
+  - `npx tsx src/cli.ts eval memory`
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx biome check src/security/intake.ts src/cli.ts src/mcp/tools.ts src/eval/suites/core-memory-lifecycle.ts src/eval/suites/adapters-mcp.ts test/security/secrets.test.ts`
+- Recoverable failures:
+  - Initial file-shaped eval commands `npx tsx src/cli.ts eval core-memory-lifecycle`
+    and `npx tsx src/cli.ts eval adapters-mcp` failed because the CLI exposes
+    grouped gate names; reran the correct `memory` and `mcp` gates successfully.

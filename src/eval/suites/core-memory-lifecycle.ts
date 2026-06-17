@@ -240,6 +240,33 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     `rememberStatus=${secretRecall.remembered.status} remember=${JSON.stringify(secretRecall.remembered.stderr.trim())} recall=${JSON.stringify(secretRecall.recall.stdout.trim())}`,
   );
 
+  const secretMetadataRecall = withRepo((dir) => {
+    const secret = "Authorization: Bearer plainlowentropytoken123";
+    const remembered = cli([
+      "remember",
+      "store safe guidance only",
+      "--subject",
+      secret,
+      "--predicate",
+      "note",
+      "-C",
+      dir,
+    ]);
+    const recall = cli(["recall", "safe guidance", "-C", dir]);
+    return { secret, remembered, recall };
+  });
+  if (secretMetadataRecall.recall.status !== 0) cliFailures += 1;
+  check(
+    "secret-bearing remember metadata is refused before storage and never echoed",
+    secretMetadataRecall.remembered.status !== 0 &&
+      secretMetadataRecall.recall.status === 0 &&
+      !secretMetadataRecall.remembered.stdout.includes(secretMetadataRecall.secret) &&
+      !secretMetadataRecall.remembered.stderr.includes(secretMetadataRecall.secret) &&
+      secretMetadataRecall.remembered.stderr.includes("refusing to store secret-bearing memory") &&
+      secretMetadataRecall.recall.stdout.trim() === "(no matching memory)",
+    `rememberStatus=${secretMetadataRecall.remembered.status} remember=${JSON.stringify(secretMetadataRecall.remembered.stderr.trim())} recall=${JSON.stringify(secretMetadataRecall.recall.stdout.trim())}`,
+  );
+
   const secretLoop = withRepo((dir) => {
     const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
     const loop = cli(["loop", `finish deploy with token ${secret}`, "-C", dir]);

@@ -472,6 +472,20 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
           JSON.stringify(rejectedSecret).includes("refusing to store secret-bearing memory") &&
           !JSON.stringify(rejectedSecret).includes(secret),
       );
+      const metadataSecret = "Authorization: Bearer plainlowentropytoken123";
+      const rejectedMetadataSecret = await callTool(server, requestId++, "remember", {
+        text: "store safe guidance only",
+        subject: metadataSecret,
+        predicate: "note",
+      });
+      check(
+        "MCP remember refuses secret-bearing metadata without echoing the secret",
+        rejectedMetadataSecret.result?.isError === true &&
+          JSON.stringify(rejectedMetadataSecret).includes(
+            "refusing to store secret-bearing memory",
+          ) &&
+          !JSON.stringify(rejectedMetadataSecret).includes(metadataSecret),
+      );
       const invalidSecretKind = await callTool(server, requestId++, "remember", {
         text: "store safe guidance only",
         kind: secret,
