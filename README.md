@@ -131,7 +131,7 @@ npx tsx src/cli.ts bench
 
 Expected current state:
 
-- `npx vitest run`: 179 tests pass.
+- `npx vitest run`: 181 tests pass.
 - `npm run pack:smoke`: packed tarball installs, runs the demo, and serves MCP from a clean temp app.
 - `npx tsx src/cli.ts eval all`: 19 gate suites pass.
 - `npx tsx src/cli.ts bench`: hook hot-path p95 is below 150ms.
@@ -141,7 +141,8 @@ Expected current state:
 graphCTX is deliberately local-first. Missing LLM keys, missing git metadata,
 bad config, or corrupt stores degrade to no memory rather than a broken agent.
 Live LLM extraction is opt-in; deterministic extraction and all default gates run
-offline.
+offline. Provider-backed extraction uses bounded, cancellable requests and fails
+soft to deterministic-only behavior.
 
 The product thesis is measured by the offline ablation:
 

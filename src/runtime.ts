@@ -86,6 +86,7 @@ export class Runtime {
       embedModel: l.embed_model,
       apiKeyEnv: l.api_key_env,
       baseUrl: l.base_url || undefined,
+      timeoutMs: l.timeout_ms,
     };
   }
 

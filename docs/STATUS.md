@@ -47,7 +47,7 @@
 | adapters/claude-code | §17 | ✅ | install/hooks/templates; all lifecycle events wired (Tier 2) |
 | adapters/cursor, opencode, generic, proxy | §17 | ✅ | cursor (rules+MCP, T0-1), opencode (MCP, T0-1-3), generic (T0-1 floor), proxy (T4 opt-in + secret-refusing) |
 | mcp/server + tools | §18 | ✅ | stdio JSON-RPC (no SDK dep); MCP 2025-11-25 handshake; EXACTLY 8 tools (I8); input/output schemas; structuredContent; bounded Tier-1 rider |
-| llm/provider + openai/anthropic/local | §10 | ✅ | lazy + async-only + fail-soft; fetch-based (no SDK deps); null provider = deterministic-only |
+| llm/provider + openai/anthropic/local | §10 | ✅ | lazy + async-only + fail-soft; bounded/cancellable fetch-based calls (no SDK deps); null provider = deterministic-only |
 | security/secrets | §20 | ✅ | explicit-memory refusal + extraction/send-edge scans (I3); sensitivity stamping |
 | security/trust | §20 | ✅ | trust tiers enforced via extractors + gates + precedence; LLM facts capped to low |
 | security/sanitize | §20 | ✅ | prose kept low-trust + non-executable; proxy refuses secret capsules at the send edge |
@@ -76,9 +76,9 @@
 |---|---|---|
 | `hook <event>` p95 | < 150ms | 26.74ms ✅ |
 
-_Last updated: conflict precedence invalidation guard. 179 tests, 19 gate suites green, all I1-I9 hold._
+_Last updated: bounded LLM provider calls. 181 tests, 19 gate suites green, all I1-I9 hold._
 
-_Quality counters: Tests: 179. Gate suites: 19._
+_Quality counters: Tests: 181. Gate suites: 19._
 
 ---
 
@@ -95,7 +95,7 @@ _Quality counters: Tests: 179. Gate suites: 19._
 | Relevance gate precision | ✅ | utility-grounded gate suite: P/R/F1=1.0 on 28 labeled cases, near-threshold drift discrimination, selective PreToolUse with harmless shell negatives, failure-only PostToolUse, 0 harmful injections, 0 dupes. Guarded in `eval gate` + `eval drift` |
 | Invalidation & temporal | ✅ | real-git temporal-correctness suite: 9/9 gated scenarios over throwaway repos. Deterministic extraction now expires facts when structured evidence disappears while preserving why() history; patch-id equivalence keeps cherry-picked branch facts valid and same-branch rebase false positives remain blocked. `eval temporal` guards it |
 | Conflict & precedence | ✅ | comprehensive eval: 62-case ladder/determinism/resolve/reconcile/invalidation-precedence gate remains 62/62 with silentWrongWinners=0, plus real Runtime concurrent-writer stress over a shared store reports 3/3 races and `silentOverwrites: 0`. `eval conflict` guards it |
-| LLM extraction & procedures | ✅ | default Anthropic model updated to `claude-haiku-4-5`; hermetic `eval procedure` passes 6/6 with 0 leaks/high-trust/hallucinated evidence, and opt-in live gate reports 1 schema-valid fact with precision/recall 1.0/1.0 |
+| LLM extraction & procedures | ✅ | default Anthropic model updated to `claude-haiku-4-5`; provider calls are bounded/cancellable and fail-soft; hermetic `eval procedure` passes 6/6 with 0 leaks/high-trust/hallucinated evidence, and opt-in live gate reports 1 schema-valid fact with precision/recall 1.0/1.0 |
 | Promotion engine | ✅ | `eval promote` now gates hard boolean admission with real probation: precision/recall 100%/100%, 0 secret/task_state leaks, verified-procedure succeeds through the procedures table, and missing-target perishable facts are held (`held unverified: 1`) |
 | Adapters & channel ladder | ✅ | `eval mcp` now covers 28/28 adapter/channel checks: marked client detection, highest-tier selection, Tier 0/1/2 transport-only capsule invariance, parseable cursor/opencode installs, secure opt-in proxy, and Claude hook Tier-2/fail-soft behavior |
 | MCP server & 8-tool surface | ✅ | `eval mcp` now covers 61/61 adapter/MCP checks: MCP 2025-11-25 initialize shape, exact 8-tool live/static surface with count-drift hard error, per-tool zod input + output-shape contracts, JSON-RPC -32602/-32601 errors, bounded anti-repetition rider, last-8 provenance lookup, telemetry precedence, real `serve --mcp` stdio initialize/tools-list, Claude adapter detection, static-floor secret refusal, and MCP `remember` secret refusal |
@@ -110,4 +110,4 @@ _Quality counters: Tests: 179. Gate suites: 19._
 | Code quality | ✅ | new `eval quality` passes 6/6: full-repo Biome, strict TS config/scripts, CLI help/docs/README reachability, eval-suite runner/test coverage, final README docs-as-code, and generated migration packaging guard |
 
 _Loop note: composite metric = (failing_gates × 100) + (un-perfected aspects); within-aspect
-measured gains are recorded in the `memory` graph. Tests: 179, gate suites: 19 (`eval all` includes run/memory/promote/drift/retrieval/gate/security/branch/temporal/conflict/procedure/mcp/storage/telemetry/provenance/resilience/benchmarks/cli-docs-demo/quality)._
+measured gains are recorded in the `memory` graph. Tests: 181, gate suites: 19 (`eval all` includes run/memory/promote/drift/retrieval/gate/security/branch/temporal/conflict/procedure/mcp/storage/telemetry/provenance/resilience/benchmarks/cli-docs-demo/quality)._

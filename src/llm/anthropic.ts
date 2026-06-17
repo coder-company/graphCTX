@@ -1,4 +1,10 @@
-import type { ChatRequest, ChatResponse, LlmProvider, ProviderConfig } from "./provider.js";
+import {
+  type ChatRequest,
+  type ChatResponse,
+  type LlmProvider,
+  type ProviderConfig,
+  requestAbort,
+} from "./provider.js";
 
 // Anthropic (Claude) provider over fetch (no SDK dependency). Async + fail-soft:
 // any error resolves to empty output (the extraction/invalidation worker is off
@@ -17,6 +23,7 @@ export function createAnthropicProvider(cfg: ProviderConfig, key?: string): LlmP
     id: "anthropic",
     available: true,
     async chat(req: ChatRequest): Promise<ChatResponse> {
+      const abort = requestAbort(req.timeoutMs ?? cfg.timeoutMs, req.signal);
       try {
         const outputConfig = req.jsonSchema
           ? { format: { type: "json_schema", schema: req.jsonSchema } }
@@ -31,6 +38,7 @@ export function createAnthropicProvider(cfg: ProviderConfig, key?: string): LlmP
         const res = await fetch(`${baseUrl}/v1/messages`, {
           method: "POST",
           headers,
+          signal: abort.signal,
           body: JSON.stringify({
             model: cfg.chatModel,
             max_tokens: req.maxTokens ?? 1024,
@@ -45,6 +53,8 @@ export function createAnthropicProvider(cfg: ProviderConfig, key?: string): LlmP
         return { text: data.content?.map((c) => c.text ?? "").join("") ?? "" };
       } catch {
         return { text: "" };
+      } finally {
+        abort.cleanup();
       }
     },
     async embed(texts: string[]): Promise<number[][]> {

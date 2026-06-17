@@ -241,7 +241,8 @@ Resolution order (later overrides earlier): built-in defaults → `~/.config/gra
     "chat_model": "claude-haiku-4-5",
     "embed_model": "text-embedding-3-small",
     "api_key_env": "ANTHROPIC_API_KEY",
-    "base_url": ""
+    "base_url": "",
+    "timeout_ms": 8000
   },
   "inject": {
     "total_budget_tokens": 2500,

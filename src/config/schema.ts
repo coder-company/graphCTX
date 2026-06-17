@@ -15,6 +15,7 @@ export const llmSchema = z.object({
   embed_model: z.string(),
   api_key_env: z.string(),
   base_url: z.string(),
+  timeout_ms: z.number().int().positive(),
 });
 
 export const injectSchema = z.object({

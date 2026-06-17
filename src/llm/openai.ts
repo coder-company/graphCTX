@@ -1,4 +1,10 @@
-import type { ChatRequest, ChatResponse, LlmProvider, ProviderConfig } from "./provider.js";
+import {
+  type ChatRequest,
+  type ChatResponse,
+  type LlmProvider,
+  type ProviderConfig,
+  requestAbort,
+} from "./provider.js";
 
 // OpenAI / OpenAI-compatible (incl. local: ollama, vLLM, LM Studio) provider.
 // Implemented over fetch (no SDK dependency) so it works for any
@@ -13,11 +19,13 @@ export function createOpenAiProvider(cfg: ProviderConfig, key?: string): LlmProv
     id: cfg.provider === "local" ? "local(openai-compatible)" : "openai",
     available: true,
     async chat(req: ChatRequest): Promise<ChatResponse> {
+      const abort = requestAbort(req.timeoutMs ?? cfg.timeoutMs, req.signal);
       try {
         const responseFormat = openAiResponseFormat(req, cfg.provider);
         const res = await fetch(`${baseUrl}/chat/completions`, {
           method: "POST",
           headers,
+          signal: abort.signal,
           body: JSON.stringify({
             model: cfg.chatModel,
             messages: req.messages,
@@ -33,14 +41,18 @@ export function createOpenAiProvider(cfg: ProviderConfig, key?: string): LlmProv
         return { text: data.choices?.[0]?.message?.content ?? "" };
       } catch {
         return { text: "" };
+      } finally {
+        abort.cleanup();
       }
     },
     async embed(texts: string[]): Promise<number[][]> {
       if (texts.length === 0) return [];
+      const abort = requestAbort(cfg.timeoutMs);
       try {
         const res = await fetch(`${baseUrl}/embeddings`, {
           method: "POST",
           headers,
+          signal: abort.signal,
           body: JSON.stringify({ model: cfg.embedModel, input: texts }),
         });
         if (!res.ok) return texts.map(() => []);
@@ -48,6 +60,8 @@ export function createOpenAiProvider(cfg: ProviderConfig, key?: string): LlmProv
         return texts.map((_, i) => data.data?.[i]?.embedding ?? []);
       } catch {
         return texts.map(() => []);
+      } finally {
+        abort.cleanup();
       }
     },
   };

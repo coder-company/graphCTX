@@ -25,6 +25,7 @@ export function defaultConfig(): Config {
       embed_model: "text-embedding-3-small",
       api_key_env: "ANTHROPIC_API_KEY",
       base_url: "",
+      timeout_ms: 8000,
     },
     inject: {
       total_budget_tokens: 2500,

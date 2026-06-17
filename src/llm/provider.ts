@@ -15,6 +15,8 @@ export interface ChatRequest {
   jsonSchema?: Record<string, unknown>;
   maxTokens?: number;
   temperature?: number;
+  timeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 export interface ChatResponse {
@@ -34,6 +36,12 @@ export interface ProviderConfig {
   embedModel: string;
   apiKeyEnv: string;
   baseUrl?: string;
+  timeoutMs?: number;
+}
+
+export interface RequestAbort {
+  signal?: AbortSignal;
+  cleanup(): void;
 }
 
 // The null provider — used whenever no key is present. NEVER throws; callers
@@ -93,6 +101,40 @@ export function parseJsonResponse<T>(text: string): T | null {
     }
   }
   return null;
+}
+
+export function requestAbort(timeoutMs?: number, parent?: AbortSignal): RequestAbort {
+  const timeout = timeoutMs && Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : undefined;
+  if (!timeout && !parent) return { cleanup() {} };
+
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let parentListener: (() => void) | undefined;
+
+  if (parent) {
+    if (parent.aborted) {
+      controller.abort(parent.reason);
+    } else {
+      parentListener = () => controller.abort(parent.reason);
+      parent.addEventListener("abort", parentListener, { once: true });
+    }
+  }
+
+  if (timeout) {
+    timer = setTimeout(
+      () => controller.abort(new Error("graphCTX LLM request timed out")),
+      timeout,
+    );
+    timer.unref?.();
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup() {
+      if (timer) clearTimeout(timer);
+      if (parent && parentListener) parent.removeEventListener("abort", parentListener);
+    },
+  };
 }
 
 function firstJsonBlock(s: string): string | null {
