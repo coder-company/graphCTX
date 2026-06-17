@@ -155,3 +155,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval retrieval`
   - `npx tsx src/cli.ts eval temporal`
   - `npx tsx src/cli.ts eval quality`
+
+### Iteration 46 - MCP error redaction
+
+- Redacted MCP JSON-RPC error messages and tool error text through the existing
+  secret scanner before any server response reaches stdout.
+- Added adapter/MCP gate checks for secret-shaped validation arguments and
+  unknown tool names, raising the MCP gate to 74/74 checks.
+- Verification:
+  - `npx biome check src/mcp/server.ts src/eval/suites/adapters-mcp.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/eval/adapters-mcp.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval quality`

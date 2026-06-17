@@ -2,6 +2,7 @@ import { createInterface } from "node:readline";
 import { buildRider } from "../adapters/channel.js";
 import type { Capsule } from "../core/types.js";
 import { Runtime } from "../runtime.js";
+import { redactSecrets } from "../security/secrets.js";
 import { VERSION } from "../version.js";
 import { MCP_TOOLS } from "./tools.js";
 
@@ -75,7 +76,7 @@ export class McpServer {
           return this.err(req.id, -32601, `method not found: ${req.method}`);
       }
     } catch (e) {
-      return this.err(req.id, -32603, `internal error: ${(e as Error).message}`);
+      return this.err(req.id, -32603, `internal error: ${messageOf(e)}`);
     }
   }
 
@@ -92,7 +93,7 @@ export class McpServer {
       return this.ok(req.id, { content, structuredContent: result, isError: false });
     } catch (e) {
       return this.ok(req.id, {
-        content: [{ type: "text", text: `error: ${(e as Error).message}` }],
+        content: [{ type: "text", text: `error: ${messageOf(e)}` }],
         isError: true,
       });
     }
@@ -139,6 +140,10 @@ export class McpServer {
   }
 
   private err(id: JsonRpcRequest["id"], code: number, message: string) {
-    return { jsonrpc: "2.0", id: id ?? null, error: { code, message } };
+    return { jsonrpc: "2.0", id: id ?? null, error: { code, message: redactSecrets(message) } };
   }
+}
+
+function messageOf(error: unknown): string {
+  return redactSecrets(error instanceof Error ? error.message : String(error));
 }

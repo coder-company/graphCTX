@@ -472,6 +472,15 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
           JSON.stringify(rejectedSecret).includes("refusing to store secret-bearing memory") &&
           !JSON.stringify(rejectedSecret).includes(secret),
       );
+      const invalidSecretKind = await callTool(server, requestId++, "remember", {
+        text: "store safe guidance only",
+        kind: secret,
+      });
+      check(
+        "MCP validation errors redact secret-shaped arguments",
+        invalidSecretKind.result?.isError === true &&
+          !JSON.stringify(invalidSecretKind).includes(secret),
+      );
 
       const recalled = await callTool(server, requestId++, "recall", { query: "vitest" });
       const recalledPayload = payloadObject(recalled);
@@ -485,6 +494,12 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
 
       const unknown = await callTool(server, requestId++, "does_not_exist", {});
       check("MCP rejects unknown tool", unknown.error?.code === -32602);
+      const unknownSecretTool = await callTool(server, requestId++, secret, {});
+      check(
+        "MCP JSON-RPC errors redact secret-shaped tool names",
+        unknownSecretTool.error?.code === -32602 &&
+          !JSON.stringify(unknownSecretTool).includes(secret),
+      );
       const forgetMissing = await callTool(server, requestId++, "forget", {
         fact_id: "DOESNOTEXIST",
       });
