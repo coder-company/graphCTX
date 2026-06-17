@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { AdapterError } from "../../core/errors.js";
 import type { Capsule, InjectionContext } from "../../core/types.js";
 import type { Adapter, Capability, ChannelTier, InstallOptions } from "../adapter.js";
 import { factsFromCapsule, writeAgentsCapsuleFacts } from "../boot-capsule.js";
@@ -33,8 +34,11 @@ export class OpenCodeAdapter implements Adapter {
     if (existsSync(cfgPath)) {
       try {
         cfg = JSON.parse(readFileSync(cfgPath, "utf8"));
-      } catch {
-        cfg = {};
+      } catch (e) {
+        throw new AdapterError(
+          `cannot parse ${cfgPath}: ${(e as Error).message}`,
+          "fix or remove the file",
+        );
       }
     }
     cfg.mcp = cfg.mcp ?? {};

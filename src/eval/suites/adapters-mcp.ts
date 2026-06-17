@@ -115,12 +115,59 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
         cursorMcpAfterUninstall.mcpServers?.other?.command === "other-tool",
     );
 
+    const badCursorDir = mkdtempSync(join(tmpdir(), "gctx-cursor-bad-"));
+    try {
+      cpSync(fixture, badCursorDir, { recursive: true });
+      mkdirSync(join(badCursorDir, ".cursor"), { recursive: true });
+      const badMcpPath = join(badCursorDir, ".cursor", "mcp.json");
+      const badMcp = "{ not json";
+      writeFileSync(badMcpPath, badMcp, "utf8");
+      let threw = false;
+      try {
+        await makeAdapter("cursor", badCursorDir).install({
+          workspaceDir: badCursorDir,
+          binPath: "graphctx",
+        });
+      } catch {
+        threw = true;
+      }
+      check(
+        "cursor install refuses malformed existing mcp.json without overwriting it",
+        threw && readFileSync(badMcpPath, "utf8") === badMcp,
+      );
+    } finally {
+      rmSync(badCursorDir, { recursive: true, force: true });
+    }
+
     const opencode = makeAdapter("opencode", opencodeDir);
     await opencode.install({ workspaceDir: opencodeDir, binPath: "graphctx" });
     check(
       "opencode install writes opencode.json with mcp",
       existsSync(join(opencodeDir, "opencode.json")),
     );
+
+    const badOpenCodeDir = mkdtempSync(join(tmpdir(), "gctx-opencode-bad-"));
+    try {
+      cpSync(fixture, badOpenCodeDir, { recursive: true });
+      const badConfigPath = join(badOpenCodeDir, "opencode.json");
+      const badConfig = "{ not json";
+      writeFileSync(badConfigPath, badConfig, "utf8");
+      let threw = false;
+      try {
+        await makeAdapter("opencode", badOpenCodeDir).install({
+          workspaceDir: badOpenCodeDir,
+          binPath: "graphctx",
+        });
+      } catch {
+        threw = true;
+      }
+      check(
+        "opencode install refuses malformed existing opencode.json without overwriting it",
+        threw && readFileSync(badConfigPath, "utf8") === badConfig,
+      );
+    } finally {
+      rmSync(badOpenCodeDir, { recursive: true, force: true });
+    }
 
     check("detectClient classifies cursor workspace", detectClient(cursorDir) === "cursor");
     check("detectClient classifies opencode workspace", detectClient(opencodeDir) === "opencode");

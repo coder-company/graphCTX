@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { AdapterError } from "../../core/errors.js";
 import type { Capsule, InjectionContext } from "../../core/types.js";
 import type { Adapter, Capability, ChannelTier, InstallOptions } from "../adapter.js";
 import { factsFromCapsule, writeAgentsCapsuleFacts } from "../boot-capsule.js";
@@ -45,8 +46,11 @@ export class CursorAdapter implements Adapter {
     if (existsSync(mcpPath)) {
       try {
         mcp = JSON.parse(readFileSync(mcpPath, "utf8"));
-      } catch {
-        mcp = {};
+      } catch (e) {
+        throw new AdapterError(
+          `cannot parse ${mcpPath}: ${(e as Error).message}`,
+          "fix or remove the file",
+        );
       }
     }
     mcp.mcpServers = mcp.mcpServers ?? {};
