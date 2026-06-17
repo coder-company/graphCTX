@@ -426,7 +426,7 @@ program
   .command("eval")
   .argument(
     "<sub>",
-    "subcommand: run | promote | drift | retrieval | gate | security | branch | temporal | conflict | procedure | mcp | all",
+    "subcommand: run | memory | promote | drift | retrieval | gate | security | branch | temporal | conflict | procedure | mcp | all",
   )
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
@@ -466,6 +466,14 @@ program
       const report = await runEval({ suite: opts.suite, arms, baseDir: opts.cwd });
       process.stdout.write(formatReport(report));
       return true;
+    };
+    const runMemory = async () => {
+      const { runCoreMemoryLifecycleEval, formatCoreMemoryLifecycleReport } = await import(
+        "./eval/suites/core-memory-lifecycle.js"
+      );
+      const r = runCoreMemoryLifecycleEval();
+      process.stdout.write(formatCoreMemoryLifecycleReport(r));
+      return r.pass;
     };
     const runGate = async () => {
       const { runGatePrecisionEval, formatGatePrecisionReport } = await import(
@@ -536,6 +544,10 @@ program
       if (!(await runRetrieval())) process.exitCode = 1;
       return;
     }
+    if (sub === "memory") {
+      if (!(await runMemory())) process.exitCode = 1;
+      return;
+    }
     if (sub === "gate") {
       if (!(await runGate())) process.exitCode = 1;
       return;
@@ -566,6 +578,7 @@ program
     }
     if (sub === "all") {
       const a = await runArms();
+      const mem = await runMemory();
       const p = await runPromote();
       const d = await runDrift();
       const rq = await runRetrieval();
@@ -576,7 +589,7 @@ program
       const c = await runConflict();
       const pr = await runProcedure();
       const m = await runMcp();
-      if (!(a && p && d && rq && g && sec && b && t && c && pr && m)) process.exitCode = 1;
+      if (!(a && mem && p && d && rq && g && sec && b && t && c && pr && m)) process.exitCode = 1;
       return;
     }
     if (sub !== "run") fail(`unknown eval subcommand "${sub}"`);
