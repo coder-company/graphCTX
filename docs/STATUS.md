@@ -74,9 +74,9 @@
 
 | Metric | Budget | Latest |
 |---|---|---|
-| `hook <event>` p95 | < 150ms | 26.74ms ✅ |
+| `hook <event>` p95 | < 150ms | 15.78ms ✅ |
 
-_Last updated: fail-closed adapter install/uninstall and typed CLI error formatting for malformed client JSON. 192 tests, 19 gate suites green, all I1-I9 hold._
+_Last updated: measured hook latency plus fail-closed adapter install/uninstall and typed CLI error formatting for malformed client JSON. 192 tests, 19 gate suites green, all I1-I9 hold._
 
 _Quality counters: Tests: 192. Gate suites: 19._
 

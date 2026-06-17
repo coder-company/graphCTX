@@ -118,7 +118,8 @@ npm run bench            # hook hot-path latency
 - **Resilience (I9):** with a corrupt DB, invalid/schema-bad config, or missing
   git, the hook exits `0` and emits **nothing** — a broken graphCTX degrades to
   *no memory*, never a *broken agent*.
-- **Latency (SPEC §24):** retrieval + render **p95 ≈ 5ms** (budget < 150ms).
+- **Latency (SPEC §24):** retrieval + render **p95 15.78ms** in the latest
+  local bench run (budget < 150ms).
 
 ---
 
