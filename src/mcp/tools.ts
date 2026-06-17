@@ -3,6 +3,7 @@ import { writeAgentsCapsule } from "../adapters/boot-capsule.js";
 import { redactWhyReport } from "../provenance/why.js";
 import { resolveConflicts } from "../resolve/conflicts.js";
 import type { Runtime } from "../runtime.js";
+import { assertSafeMemoryWrite } from "../security/intake.js";
 
 // The EXACTLY 8 MCP tools (SPEC §18, I8). One handler each; each validates input
 // with zod and returns structured output. The MCP server enforces the count.
@@ -79,6 +80,7 @@ export const MCP_TOOLS: McpTool[] = [
     outputSchema: s({ fact_id: str, status: str }, ["fact_id", "status"]),
     async handler(rt, args) {
       const a = rememberInput.parse(args);
+      assertSafeMemoryWrite(a.text);
       const fact = await rt.learn({
         subject: a.subject,
         predicate: a.predicate,

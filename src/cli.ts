@@ -21,6 +21,7 @@ import {
 import { evalReportPass, formatReport } from "./eval/report.js";
 import { renderCard } from "./render/cards.js";
 import { Runtime } from "./runtime.js";
+import { assertSafeMemoryWrite, formatMemoryWriteError } from "./security/intake.js";
 import { safeForSend } from "./security/send-edge.js";
 import { bootstrapVec0 } from "./store/vec0-bootstrap.js";
 import { VERSION } from "./version.js";
@@ -171,6 +172,11 @@ program
   .option("--predicate <p>", "fact predicate", "note")
   .option("--kind <k>", "fact kind", "decision")
   .action(async (text, opts) => {
+    try {
+      assertSafeMemoryWrite(text);
+    } catch (e) {
+      fail(formatMemoryWriteError(e));
+    }
     const rt = new Runtime({ workspaceDir: opts.cwd });
     let head: string | undefined;
     let branch: string | undefined;
@@ -210,6 +216,11 @@ program
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
   .option("--session <id>", "session id (session-scoped by default)")
   .action(async (text, opts) => {
+    try {
+      assertSafeMemoryWrite(text);
+    } catch (e) {
+      fail(formatMemoryWriteError(e));
+    }
     const rt = new Runtime({ workspaceDir: opts.cwd });
     const fact = rt.noteOpenLoop(text, opts.session);
     refreshAgentsCapsule(rt);

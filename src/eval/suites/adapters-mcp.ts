@@ -260,6 +260,19 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
         agentsAfterRemember.includes("use vitest"),
       );
 
+      const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+      const rejectedSecret = await callTool(server, requestId++, "remember", {
+        text: `deploy token ${secret}`,
+        subject: "repo",
+        predicate: "deploy_token",
+      });
+      check(
+        "MCP remember refuses secret-bearing memory without echoing the secret",
+        rejectedSecret.result?.isError === true &&
+          JSON.stringify(rejectedSecret).includes("refusing to store secret-bearing memory") &&
+          !JSON.stringify(rejectedSecret).includes(secret),
+      );
+
       const recalled = await callTool(server, requestId++, "recall", { query: "vitest" });
       const recalledPayload = payloadObject(recalled);
       check(

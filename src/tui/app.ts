@@ -4,6 +4,7 @@
 
 import { renderCard } from "../render/cards.js";
 import { Runtime } from "../runtime.js";
+import { assertSafeMemoryWrite } from "../security/intake.js";
 import { padEnd, style, term, truncate } from "./ansi.js";
 import { badge, bar, kv, panel, table } from "./box.js";
 import { type FactView, type MemoryStats, factViews, memoryStats } from "./data.js";
@@ -137,6 +138,12 @@ export class TuiApp {
     const sel = views[this.state.cursor];
     if (k.name === "n") {
       this.ask("New fact (remember)", (v) => {
+        try {
+          assertSafeMemoryWrite(v);
+        } catch {
+          this.refresh("refused secret-bearing memory");
+          return;
+        }
         const f = this.rt.facts.insert({
           subject: "repo",
           predicate: "note",
@@ -154,6 +161,12 @@ export class TuiApp {
       });
     } else if (k.name === "o") {
       this.ask("New open loop", (v) => {
+        try {
+          assertSafeMemoryWrite(v);
+        } catch {
+          this.refresh("refused secret-bearing open loop");
+          return;
+        }
         const f = this.rt.noteOpenLoop(v);
         this.refresh(`open loop ${f.fact_id.slice(-8)}`);
       });

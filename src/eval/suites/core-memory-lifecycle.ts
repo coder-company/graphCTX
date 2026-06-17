@@ -174,18 +174,37 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     const recall = cli(["recall", "deploy token", "-C", dir]);
     return { secret, remembered, recall };
   });
-  if (secretRecall.remembered.status !== 0 || secretRecall.recall.status !== 0) {
-    cliFailures += 1;
-  }
+  if (secretRecall.recall.status !== 0) cliFailures += 1;
   check(
-    "secret-bearing memories are redacted on remember and suppressed from recall",
-    secretRecall.remembered.status === 0 &&
+    "secret-bearing remember writes are refused before storage and remain absent from recall",
+    secretRecall.remembered.status !== 0 &&
       secretRecall.recall.status === 0 &&
       !secretRecall.remembered.stdout.includes(secretRecall.secret) &&
-      secretRecall.remembered.stdout.includes("[REDACTED:openai]") &&
+      !secretRecall.remembered.stderr.includes(secretRecall.secret) &&
+      secretRecall.remembered.stderr.includes("refusing to store secret-bearing memory") &&
       !secretRecall.recall.stdout.includes(secretRecall.secret) &&
       secretRecall.recall.stdout.trim() === "(no matching memory)",
-    `remember=${JSON.stringify(secretRecall.remembered.stdout.trim())} recall=${JSON.stringify(secretRecall.recall.stdout.trim())}`,
+    `rememberStatus=${secretRecall.remembered.status} remember=${JSON.stringify(secretRecall.remembered.stderr.trim())} recall=${JSON.stringify(secretRecall.recall.stdout.trim())}`,
+  );
+
+  const secretLoop = withRepo((dir) => {
+    const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+    const loop = cli(["loop", `finish deploy with token ${secret}`, "-C", dir]);
+    const payload = JSON.stringify({ session_id: "default-session", cwd: dir });
+    const compact = cli(["hook", "PostCompact", "-C", dir], payload);
+    return { secret, loop, compact };
+  }, true);
+  if (secretLoop.compact.status !== 0) cliFailures += 1;
+  check(
+    "secret-bearing open loops are refused before storage and never resurface",
+    secretLoop.loop.status !== 0 &&
+      secretLoop.compact.status === 0 &&
+      !secretLoop.loop.stdout.includes(secretLoop.secret) &&
+      !secretLoop.loop.stderr.includes(secretLoop.secret) &&
+      secretLoop.loop.stderr.includes("refusing to store secret-bearing memory") &&
+      !secretLoop.compact.stdout.includes(secretLoop.secret) &&
+      !secretLoop.compact.stdout.includes("finish deploy with token"),
+    `loopStatus=${secretLoop.loop.status} stderr=${JSON.stringify(secretLoop.loop.stderr.trim())} compact=${JSON.stringify(secretLoop.compact.stdout.trim())}`,
   );
 
   const why = withRepo((dir) => {
