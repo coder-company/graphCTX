@@ -678,10 +678,18 @@ program
 
 // Extract the embedded sqlite-vec extension (compiled binary only; no-op under
 // Node) before any command opens a DB, then dispatch.
-bootstrapVec0();
-program.parseAsync(process.argv);
+void main();
 
 // ---- helpers ----
+
+async function main(): Promise<void> {
+  try {
+    bootstrapVec0();
+    await program.parseAsync(process.argv);
+  } catch (e) {
+    handleCliError(e);
+  }
+}
 
 function refreshAgentsCapsule(rt: Runtime): void {
   try {
@@ -779,6 +787,20 @@ function parsePositiveNumberOption(raw: string, flag: string): number {
 
 function fail(msg: string): never {
   process.stderr.write(`error: ${msg}\n`);
+  process.exit(1);
+}
+
+function handleCliError(e: unknown): never {
+  if (e instanceof GraphCtxError) {
+    process.stderr.write(`error: [${e.code}] ${e.message}\n`);
+    if (e.action) process.stderr.write(`action: ${e.action}\n`);
+  } else {
+    const message = (e as Error)?.message ?? String(e);
+    process.stderr.write(`error: ${message}\n`);
+    if (process.env.GRAPHCTX_DEBUG_ERRORS === "1" && (e as Error)?.stack) {
+      process.stderr.write(`${(e as Error).stack}\n`);
+    }
+  }
   process.exit(1);
 }
 

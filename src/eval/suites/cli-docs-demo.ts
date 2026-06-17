@@ -2,11 +2,13 @@ import { execFileSync } from "node:child_process";
 import {
   cpSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -34,6 +36,7 @@ export interface CliDocsDemoReport {
   networkCalls: number;
   pipeFailures: number;
   argValidationFailures: number;
+  cliErrorFormattingFailures: number;
   pass: boolean;
 }
 
@@ -231,6 +234,13 @@ export async function runCliDocsDemoEval(): Promise<CliDocsDemoReport> {
     numericArgs.detail,
   );
 
+  const errorFormatting = evaluateTypedCliErrorFormatting();
+  check(
+    "typed CLI errors are action-oriented and stack-free",
+    errorFormatting.failures === 0,
+    errorFormatting.detail,
+  );
+
   const checks = detail.length;
   const report: CliDocsDemoReport = {
     checks,
@@ -244,11 +254,13 @@ export async function runCliDocsDemoEval(): Promise<CliDocsDemoReport> {
     networkCalls: demo.networkCalls,
     pipeFailures,
     argValidationFailures: numericArgs.failures,
+    cliErrorFormattingFailures: errorFormatting.failures,
     pass:
       passed === checks &&
       demo.networkCalls === 0 &&
       pipeFailures === 0 &&
-      numericArgs.failures === 0,
+      numericArgs.failures === 0 &&
+      errorFormatting.failures === 0,
   };
   return report;
 }
@@ -265,7 +277,7 @@ export function formatCliDocsDemoReport(r: CliDocsDemoReport): string {
     `  checks: ${r.passed}/${r.checks}   commands: ${r.commandCount}   tests: ${r.testCount}   suites: ${r.suiteCount}`,
   );
   lines.push(
-    `  demo facts: ${r.demoFacts}   MCP tools: ${r.mcpTools}   network calls: ${r.networkCalls}   pipe failures: ${r.pipeFailures}   arg validation failures: ${r.argValidationFailures}`,
+    `  demo facts: ${r.demoFacts}   MCP tools: ${r.mcpTools}   network calls: ${r.networkCalls}   pipe failures: ${r.pipeFailures}   arg validation failures: ${r.argValidationFailures}   CLI error formatting failures: ${r.cliErrorFormattingFailures}`,
   );
   lines.push(
     r.pass
@@ -495,6 +507,41 @@ function evaluateNumericArgValidation(): { failures: number; detail: string } {
       c.result.stdout.trim() !== "" ||
       !c.result.stderr.includes(c.expected),
   );
+  return {
+    failures: failed.length,
+    detail: cases.map((c) => `${c.label}=${c.result.status}`).join(" "),
+  };
+}
+
+function evaluateTypedCliErrorFormatting(): { failures: number; detail: string } {
+  const cases = [
+    withTempDir("graphctx-cli-cursor-malformed-", (dir) => {
+      const cursorDir = join(dir, ".cursor");
+      mkdirSync(cursorDir, { recursive: true });
+      writeFileSync(join(cursorDir, "mcp.json"), "{bad json\n", "utf8");
+      return {
+        label: "install cursor malformed JSON",
+        result: cli(["install", "cursor", "-C", dir]),
+      };
+    }),
+    withTempDir("graphctx-cli-opencode-malformed-", (dir) => {
+      writeFileSync(join(dir, "opencode.json"), "{bad json\n", "utf8");
+      return {
+        label: "install opencode malformed JSON",
+        result: cli(["install", "opencode", "-C", dir]),
+      };
+    }),
+  ];
+  const failed = cases.filter((c) => {
+    const stderr = c.result.stderr;
+    return (
+      c.result.status !== 1 ||
+      c.result.stdout.trim() !== "" ||
+      !stderr.includes("error: [ADAPTER] cannot parse") ||
+      !stderr.includes("action: fix or remove the file") ||
+      /AdapterError|at Command\.|Node\.js|Unhandled|Trace/.test(stderr)
+    );
+  });
   return {
     failures: failed.length,
     detail: cases.map((c) => `${c.label}=${c.result.status}`).join(" "),
