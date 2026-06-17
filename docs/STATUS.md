@@ -89,7 +89,7 @@ _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 ho
 | Aspect | Status | Latest measurement / note |
 |---|---|---|
 | Green tree (5 gates) | ✅ perfected | all 5 gates green; biome format errors fixed (iter1) |
-| Retrieval & ranking | 🟡 in-progress | RRF fusion (iter3): recall@1 0.44, recall@5 0.83, recall@10 0.83, MRR 0.59 (was 0.33/0.50/0.67/0.43). New `eval retrieval` suite + regression gate |
+| Retrieval & ranking | 🟡 in-progress | RRF fusion (iter3) + stopword filter (iter8): recall@1 0.61, recall@5 0.94, recall@10 1.00, MRR 0.76 (was 0.33/0.50/0.67/0.43). `eval retrieval` regression gate |
 | Relevance gate precision | 🟡 in-progress | gate-precision suite (iter4): P/R/F1=1.0 on 26 labeled cases, all 4 branches (TP15 FP0 FN0 TN11). Guarded in `eval gate`. To perfect: adversarial + utility-labeled dataset |
 | Invalidation & temporal | ⬜ untouched | git-DAG events working; patch-id depth + bi-temporal SOTA compare pending |
 | Conflict & precedence | ⬜ untouched | 0 silent LWW; concurrency stress scale pending |
@@ -98,7 +98,7 @@ _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 ho
 | Adapters & channel ladder | ⬜ untouched | 20/20 smoke; real-client integration pending |
 | MCP server & 8-tool surface | ⬜ untouched | exactly 8 tools; latest-spec compliance pending |
 | Security (injection/secrets/trust) | 🟡 in-progress | adversarial benchmark (iter5-6): secret recall 1.0/precision 1.0; 0/13 poison promoted; 0 harmful capsule cards. `eval security` guards it. To perfect: more attack classes, fuzzing |
-| Performance (latency/scale) | ⬜ untouched | p95 ~5ms; 10k–1M scale gate + footprint pending |
+| Performance (latency/scale) | 🟡 in-progress | hot path flattened to O(1) (iter8): p95 50k 240→1.7ms, 100k 470→2.1ms. `bench --scale` + 10k CI gate. To perfect: footprint/startup, 1M-fact run |
 | Storage & migrations | ⬜ untouched | append-only; corruption-recovery breadth pending |
 | Telemetry & outcome learning | ⬜ untouched | classification accuracy + learned scoring pending |
 | Provenance / why() | ⬜ untouched | completeness audit across fact kinds pending |
