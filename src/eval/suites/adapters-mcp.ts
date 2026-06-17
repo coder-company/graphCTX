@@ -141,6 +141,31 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       rmSync(badCursorDir, { recursive: true, force: true });
     }
 
+    const badCursorUninstallDir = mkdtempSync(join(tmpdir(), "gctx-cursor-uninstall-bad-"));
+    try {
+      cpSync(fixture, badCursorUninstallDir, { recursive: true });
+      const cursorRuleDir = join(badCursorUninstallDir, ".cursor", "rules");
+      mkdirSync(cursorRuleDir, { recursive: true });
+      const badMcpPath = join(badCursorUninstallDir, ".cursor", "mcp.json");
+      const badMcp = "{ not json";
+      writeFileSync(join(cursorRuleDir, "graphctx.mdc"), "graphctx rule\n", "utf8");
+      writeFileSync(badMcpPath, badMcp, "utf8");
+      let threw = false;
+      try {
+        await makeAdapter("cursor", badCursorUninstallDir).uninstall();
+      } catch {
+        threw = true;
+      }
+      check(
+        "cursor uninstall refuses malformed mcp.json without removing partial config",
+        threw &&
+          readFileSync(badMcpPath, "utf8") === badMcp &&
+          existsSync(join(cursorRuleDir, "graphctx.mdc")),
+      );
+    } finally {
+      rmSync(badCursorUninstallDir, { recursive: true, force: true });
+    }
+
     const opencode = makeAdapter("opencode", opencodeDir);
     await opencode.install({ workspaceDir: opencodeDir, binPath: "graphctx" });
     check(
@@ -169,6 +194,26 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       );
     } finally {
       rmSync(badOpenCodeDir, { recursive: true, force: true });
+    }
+
+    const badOpenCodeUninstallDir = mkdtempSync(join(tmpdir(), "gctx-opencode-uninstall-bad-"));
+    try {
+      cpSync(fixture, badOpenCodeUninstallDir, { recursive: true });
+      const badConfigPath = join(badOpenCodeUninstallDir, "opencode.json");
+      const badConfig = "{ not json";
+      writeFileSync(badConfigPath, badConfig, "utf8");
+      let threw = false;
+      try {
+        await makeAdapter("opencode", badOpenCodeUninstallDir).uninstall();
+      } catch {
+        threw = true;
+      }
+      check(
+        "opencode uninstall refuses malformed opencode.json without overwriting it",
+        threw && readFileSync(badConfigPath, "utf8") === badConfig,
+      );
+    } finally {
+      rmSync(badOpenCodeUninstallDir, { recursive: true, force: true });
     }
 
     check("detectClient classifies cursor workspace", detectClient(cursorDir) === "cursor");

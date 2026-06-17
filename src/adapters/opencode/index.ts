@@ -49,13 +49,17 @@ export class OpenCodeAdapter implements Adapter {
   async uninstall(): Promise<void> {
     const cfgPath = join(this.workspaceDir, "opencode.json");
     if (!existsSync(cfgPath)) return;
+    let cfg: { mcp?: Record<string, unknown> };
     try {
-      const cfg = JSON.parse(readFileSync(cfgPath, "utf8")) as { mcp?: Record<string, unknown> };
-      if (cfg.mcp) cfg.mcp.graphctx = undefined;
-      writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`, "utf8");
-    } catch {
-      // best-effort
+      cfg = JSON.parse(readFileSync(cfgPath, "utf8"));
+    } catch (e) {
+      throw new AdapterError(
+        `cannot parse ${cfgPath}: ${(e as Error).message}`,
+        "fix or remove the file",
+      );
     }
+    if (cfg.mcp) cfg.mcp.graphctx = undefined;
+    writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`, "utf8");
   }
 
   async deliver(capsule: Capsule, _ctx: InjectionContext, _tier: ChannelTier): Promise<void> {

@@ -63,19 +63,21 @@ export class CursorAdapter implements Adapter {
 
   async uninstall(): Promise<void> {
     const rulePath = join(this.workspaceDir, ".cursor", "rules", "graphctx.mdc");
-    if (existsSync(rulePath)) rmSync(rulePath, { force: true });
-
     const mcpPath = join(this.workspaceDir, ".cursor", "mcp.json");
-    if (!existsSync(mcpPath)) return;
-    try {
-      const mcp = JSON.parse(readFileSync(mcpPath, "utf8")) as {
-        mcpServers?: Record<string, unknown>;
-      };
+    if (existsSync(mcpPath)) {
+      let mcp: { mcpServers?: Record<string, unknown> };
+      try {
+        mcp = JSON.parse(readFileSync(mcpPath, "utf8"));
+      } catch (e) {
+        throw new AdapterError(
+          `cannot parse ${mcpPath}: ${(e as Error).message}`,
+          "fix or remove the file",
+        );
+      }
       if (mcp.mcpServers) mcp.mcpServers.graphctx = undefined;
       writeFileSync(mcpPath, `${JSON.stringify(mcp, null, 2)}\n`, "utf8");
-    } catch {
-      // best-effort
     }
+    if (existsSync(rulePath)) rmSync(rulePath, { force: true });
   }
 
   async deliver(capsule: Capsule, _ctx: InjectionContext, _tier: ChannelTier): Promise<void> {
