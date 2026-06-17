@@ -63,8 +63,9 @@ function hasAnyEntities(ctx: InjectionContext): boolean {
   return (ctx.current_files?.length ?? 0) + (ctx.mentioned_symbols?.length ?? 0) > 0;
 }
 
-// PreToolUse selectivity: Bash with a command we may have facts about, or an
-// Edit/Write touching a path that may carry constraints. NOT every tool call.
+// PreToolUse selectivity: Bash with a command family we may have facts or
+// guardrails about, or an Edit/Write touching a path that may carry constraints.
+// NOT every tool call.
 function planPlausiblyHasMemory(ctx: InjectionContext): boolean {
   const name = ctx.planned_tool?.name?.toLowerCase() ?? "";
   if (!name) return false;
@@ -73,7 +74,18 @@ function planPlausiblyHasMemory(ctx: InjectionContext): boolean {
   if (!isBash && !isEdit) return false;
   // Require some concrete handle in the args so we don't fire on empty tool use.
   const args = ctx.planned_tool?.args ? JSON.stringify(ctx.planned_tool.args) : "";
-  return args.length > 2 || (ctx.current_files?.length ?? 0) > 0;
+  if (isEdit) return args.length > 2 || (ctx.current_files?.length ?? 0) > 0;
+  return shellCommandLikelyUsesMemory(args);
+}
+
+function shellCommandLikelyUsesMemory(argsJson: string): boolean {
+  if (argsJson.length <= 2) return false;
+  const args = argsJson.toLowerCase();
+  return (
+    /\b(npm|pnpm|yarn|bun|node|tsx|tsc|vitest|jest|mocha|pytest|ruff|mypy|biome|eslint|prettier|cargo|go\s+test|make|cmake|docker|docker-compose|git)\b/.test(
+      args,
+    ) || /\b(rm|mv|cp|chmod|chown|ln)\b/.test(args)
+  );
 }
 
 export const ALWAYS_FIRE_EVENTS: Event[] = ["SessionStart", "PostCompact"];

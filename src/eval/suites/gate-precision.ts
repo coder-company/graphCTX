@@ -178,6 +178,18 @@ export const GATE_CASES: GateCase[] = [
     shouldFire: false,
     planned_tool: { name: "Bash" },
   },
+  {
+    label: "bash echo (harmless shell)",
+    event: "PreToolUse",
+    shouldFire: false,
+    planned_tool: { name: "Bash", args: { command: "echo ok" } },
+  },
+  {
+    label: "bash pwd (harmless shell)",
+    event: "PreToolUse",
+    shouldFire: false,
+    planned_tool: { name: "Bash", args: { command: "pwd" } },
+  },
 
   // --- PostToolUse: fire only on failure (recovery hand-off) ---
   {

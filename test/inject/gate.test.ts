@@ -58,6 +58,13 @@ describe("relevance gate (M0)", () => {
     expect(shouldFire(ctx({ event: "PreToolUse", planned_tool: { name: "Bash" } }), cfg)).toBe(
       false,
     );
+    // Harmless shell commands with no repo-memory or safety relevance stay quiet.
+    expect(
+      shouldFire(
+        ctx({ event: "PreToolUse", planned_tool: { name: "Bash", args: { command: "echo ok" } } }),
+        cfg,
+      ),
+    ).toBe(false);
   });
 
   it("disabled events never fire", () => {
