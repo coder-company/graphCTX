@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { InjectionContext, NewFact } from "../../src/core/types.js";
 import { InjectionPlanner } from "../../src/inject/planner.js";
@@ -112,6 +115,38 @@ describe("injection planner (core loop)", () => {
     });
     const capsule = await planner.plan(ctx("PostCompact"));
     expect(capsule.cards.find((c) => c.fact_id)).toBeUndefined();
+  });
+
+  it("I4: concrete path anchors that escape the workspace are not injected", async () => {
+    const parent = mkdtempSync(join(tmpdir(), "gctx-stale-"));
+    const workspace = join(parent, "repo");
+    mkdirSync(workspace);
+    writeFileSync(join(parent, "outside.txt"), "outside evidence exists\n");
+    try {
+      const db = openDb(":memory:");
+      const facts = new FactsRepo(db);
+      facts.insert(
+        activeFact({
+          subject: "../outside.txt",
+          predicate: "do_not_edit",
+          object: true,
+          fact_kind: "constraint",
+          git: { path_globs: ["../outside.txt"] },
+        }),
+      );
+      const planner = new InjectionPlanner({
+        facts,
+        git: null,
+        workspaceDir: workspace,
+        gateConfig,
+        budgetConfig,
+      });
+      const capsule = await planner.plan(ctx("PostCompact"));
+      expect(capsule.cards).toHaveLength(0);
+      expect(capsule.markdown).toBe("");
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
   });
 
   it("SessionStart includes explicit user-scoped preferences in the broad push pass", async () => {

@@ -86,3 +86,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx tsx src/cli.ts eval quality`
   - `npx tsx src/cli.ts eval cli-docs-demo`
+
+### Iteration 41 - workspace-confined staleness paths
+
+- Hardened injection staleness verification so concrete fact path anchors must
+  resolve inside the workspace before they can prove a fact is still valid.
+- Added a regression test with a real parent-directory file proving
+  `../outside.txt` anchors are not injected even when the outside file exists.
+- Updated README and STATUS counters from 198 to 199 Vitest tests.
+- Verification:
+  - `npx biome check src/inject/staleness.ts test/inject/planner.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/inject/planner.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`

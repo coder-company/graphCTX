@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import type { Fact } from "../core/types.js";
 
 // Synchronous perishable-fact verification before injection (I4, SPEC §11).
@@ -23,5 +23,17 @@ export function verifyBeforeInject(fact: Fact, workspaceDir: string): boolean {
     paths.push(fact.subject);
   }
   if (paths.length === 0) return true; // nothing concrete to verify
-  return paths.every((p) => existsSync(join(workspaceDir, p)));
+  return paths.every((p) => {
+    const fullPath = resolveWorkspacePath(workspaceDir, p);
+    return !!fullPath && existsSync(fullPath);
+  });
+}
+
+function resolveWorkspacePath(workspaceDir: string, path: string): string | undefined {
+  if (!path || path.includes("\0")) return undefined;
+  const root = resolve(workspaceDir);
+  const fullPath = resolve(root, path);
+  const rel = relative(root, fullPath);
+  if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) return fullPath;
+  return undefined;
 }
