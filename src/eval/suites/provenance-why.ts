@@ -115,6 +115,11 @@ export function runProvenanceWhyEval(): ProvenanceWhyReport {
     storeCase.surfaceOk,
     compactWhy(storeCase.surfaceText),
   );
+  check(
+    "why renders observed and recorded times as distinct temporal provenance",
+    storeCase.observedOk,
+    storeCase.observedText,
+  );
 
   const checks = detail.length;
   const pass =
@@ -146,9 +151,11 @@ function evaluateStoreProvenance(db: DB): {
   cleanComplete: boolean;
   danglingIncomplete: boolean;
   surfaceOk: boolean;
+  observedOk: boolean;
   cleanVerdict: string;
   danglingVerdict: string;
   surfaceText: string;
+  observedText: string;
 } {
   const facts = new FactsRepo(db, clock);
   const episodes = new EpisodesRepo(db, clock);
@@ -170,6 +177,7 @@ function evaluateStoreProvenance(db: DB): {
         event_ids: [event.event_id],
         raw_quote: "use pnpm test",
       },
+      observed_at: "2025-12-31T23:58:00.000Z",
       git: {
         branch: "main",
         valid_from_commit: "aaaaaaaa11111111",
@@ -203,6 +211,7 @@ function evaluateStoreProvenance(db: DB): {
   const danglingReport = why(dangling.fact_id, deps)!;
   const cleanText = formatWhy(cleanReport);
   const danglingText = formatWhy(danglingReport);
+  const observedLine = lineContaining(cleanText, "observed:");
   return {
     cleanComplete: cleanReport.complete && cleanText.includes("provenance chain: ✅ complete"),
     danglingIncomplete:
@@ -215,9 +224,13 @@ function evaluateStoreProvenance(db: DB): {
       cleanText.includes("edges:") &&
       cleanText.includes("gate=user_explicit") &&
       cleanText.includes("SUPERSEDES"),
+    observedOk:
+      observedLine.includes("2025-12-31T23:58:00.000Z") &&
+      observedLine.includes("recorded=2026-01-01T00:00:00.000Z"),
     cleanVerdict: verdictLine(cleanText),
     danglingVerdict: verdictLine(danglingText),
     surfaceText: cleanText,
+    observedText: observedLine,
   };
 }
 
@@ -321,5 +334,14 @@ function verdictLine(out: string): string {
       .split("\n")
       .map((l) => l.trim())
       .find((l) => l.startsWith("provenance chain:")) ?? ""
+  );
+}
+
+function lineContaining(out: string, needle: string): string {
+  return (
+    out
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.includes(needle)) ?? ""
   );
 }
