@@ -255,3 +255,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check --write src/runtime.ts src/cli.ts src/eval/suites/core-memory-lifecycle.ts test/inject/open-loops.test.ts`
   - `npx vitest run test/inject/open-loops.test.ts`
   - `npx tsx src/cli.ts eval memory`
+
+### Iteration 53 - MCP session-reference secret refusal
+
+- Added MCP session-reference intake validation for `recall`, `inject_context`,
+  `checkpoint_session`, `promote`, and `resolve_conflict` so secret-shaped
+  session ids are refused before retrieval, planning, promotion, conflict
+  resolution, injection logging, or ledger writes.
+- Added an MCP recall regression proving secret-bearing session metadata is
+  rejected and not echoed.
+- Updated STATUS/DEMO MCP gate counters to 76/76 checks.
+- Verification:
+  - `npx biome check --write src/mcp/tools.ts src/eval/suites/adapters-mcp.ts`
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx biome check src test`

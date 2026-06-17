@@ -505,6 +505,19 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
           recalledPayload.cards.length > 0 &&
           recalledPayload.markdown.includes("vitest"),
       );
+      const sessionSecret = "Authorization: Bearer plainlowentropytoken123";
+      const rejectedSessionRecall = await callTool(server, requestId++, "recall", {
+        query: "vitest",
+        session_id: sessionSecret,
+      });
+      check(
+        "MCP recall refuses secret-bearing session metadata without echoing the secret",
+        rejectedSessionRecall.result?.isError === true &&
+          JSON.stringify(rejectedSessionRecall).includes(
+            "refusing to store secret-bearing memory",
+          ) &&
+          !JSON.stringify(rejectedSessionRecall).includes(sessionSecret),
+      );
 
       const unknown = await callTool(server, requestId++, "does_not_exist", {});
       check("MCP rejects unknown tool", unknown.error?.code === -32602);

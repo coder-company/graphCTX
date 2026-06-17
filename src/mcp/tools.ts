@@ -134,6 +134,7 @@ export const MCP_TOOLS: McpTool[] = [
     ]),
     async handler(rt, args) {
       const a = recallInput.parse(args);
+      assertSafeSessionReference(a.session_id);
       const ctx = await rt.injectionContext("UserPromptSubmit", a.session_id ?? "mcp-session", {
         user_prompt: a.query,
         budget_tokens: a.budget_tokens,
@@ -153,6 +154,7 @@ export const MCP_TOOLS: McpTool[] = [
     ]),
     async handler(rt, args) {
       const a = injectInput.parse(args);
+      assertSafeSessionReference(a.session_id);
       const ctx = await rt.injectionContext(a.event, a.session_id, {
         user_prompt: a.user_prompt,
       });
@@ -167,6 +169,7 @@ export const MCP_TOOLS: McpTool[] = [
     outputSchema: s({ promoted: obj }, ["promoted"]),
     async handler(rt, args) {
       const a = checkpointInput.parse(args);
+      assertSafeSessionReference(a.session_id);
       const swept = await rt.runPromotionSweep(a.session_id);
       refreshAgentsCapsule(rt);
       return { promoted: swept };
@@ -179,6 +182,7 @@ export const MCP_TOOLS: McpTool[] = [
     outputSchema: s({ dry_run: bool, candidate_count: num, promoted: obj }),
     async handler(rt, args) {
       const a = promoteInput.parse(args);
+      assertSafeSessionReference(a.session_id);
       if (a.dry_run) {
         const candidates = rt.facts.candidates(rt.scope(a.session_id));
         return { dry_run: true, candidate_count: candidates.length };
@@ -221,6 +225,7 @@ export const MCP_TOOLS: McpTool[] = [
     outputSchema: s({ winners: arr(str), conflicts: arr(obj) }, ["winners", "conflicts"]),
     async handler(rt, args) {
       const a = resolveInput.parse(args);
+      assertSafeSessionReference(a.session_id);
       const active = rt.facts.activeAsOf(rt.scope(a.session_id));
       const { resolved, conflicts } = resolveConflicts(
         active.map((f) => ({ fact: f, score: 1 })),
@@ -230,6 +235,10 @@ export const MCP_TOOLS: McpTool[] = [
     },
   },
 ];
+
+function assertSafeSessionReference(sessionId: string | undefined): void {
+  assertSafeExplicitMemoryWrite({ text: "session reference", session_id: sessionId });
+}
 
 function refreshAgentsCapsule(rt: Runtime): void {
   try {
