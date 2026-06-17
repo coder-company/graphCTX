@@ -239,6 +239,42 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       rmSync(claudeDir, { recursive: true, force: true });
     }
 
+    const badClaudeDir = mkdtempSync(join(tmpdir(), "gctx-claude-bad-"));
+    try {
+      cpSync(fixture, badClaudeDir, { recursive: true });
+      const claudeConfigDir = join(badClaudeDir, ".claude");
+      mkdirSync(claudeConfigDir, { recursive: true });
+      const settingsPath = join(claudeConfigDir, "settings.json");
+      const badSettings = "{ not json";
+      writeFileSync(settingsPath, badSettings, "utf8");
+      let installThrew = false;
+      try {
+        await makeAdapter("claude", badClaudeDir).install({
+          workspaceDir: badClaudeDir,
+          binPath: "graphctx",
+        });
+      } catch {
+        installThrew = true;
+      }
+      check(
+        "claude install refuses malformed settings.json without overwriting it",
+        installThrew && readFileSync(settingsPath, "utf8") === badSettings,
+      );
+
+      let uninstallThrew = false;
+      try {
+        await makeAdapter("claude", badClaudeDir).uninstall();
+      } catch {
+        uninstallThrew = true;
+      }
+      check(
+        "claude uninstall refuses malformed settings.json without overwriting it",
+        uninstallThrew && readFileSync(settingsPath, "utf8") === badSettings,
+      );
+    } finally {
+      rmSync(badClaudeDir, { recursive: true, force: true });
+    }
+
     // auto-detect falls back to generic on a bare repo
     check("detectClient falls back to generic", detectClient(genericDir) === "generic");
 

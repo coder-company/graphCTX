@@ -61,19 +61,23 @@ export function uninstallClaudeHooks(opts: InstallOptions): void {
     : join(opts.workspaceDir, ".claude");
   const settingsPath = join(dir, "settings.json");
   if (!existsSync(settingsPath)) return;
+  let settings: ClaudeSettings;
   try {
-    const settings: ClaudeSettings = JSON.parse(readFileSync(settingsPath, "utf8"));
-    if (settings.hooks) {
-      for (const event of HOOK_EVENTS) {
-        const kept = withoutGraphctxHooks(settings.hooks[event], event);
-        if (kept.length > 0) settings.hooks[event] = kept;
-        else settings.hooks[event] = [];
-      }
-    }
-    writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
-  } catch {
-    // best-effort
+    settings = JSON.parse(readFileSync(settingsPath, "utf8"));
+  } catch (e) {
+    throw new AdapterError(
+      `cannot parse ${settingsPath}: ${(e as Error).message}`,
+      "fix or remove the file",
+    );
   }
+  if (settings.hooks) {
+    for (const event of HOOK_EVENTS) {
+      const kept = withoutGraphctxHooks(settings.hooks[event], event);
+      if (kept.length > 0) settings.hooks[event] = kept;
+      else settings.hooks[event] = [];
+    }
+  }
+  writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
 }
 
 export function hasClaudeGraphctxHooks(opts: InstallOptions): boolean {
