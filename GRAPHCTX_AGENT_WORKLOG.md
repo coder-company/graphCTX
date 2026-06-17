@@ -296,3 +296,24 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check --write src/cli.ts src/eval/suites/core-memory-lifecycle.ts`
   - `npx tsx src/cli.ts eval memory`
   - `npx tsc --noEmit`
+
+### Iteration 56 - extraction subject secret scanning
+
+- Extended deterministic and LLM extraction secret checks to include fact
+  subjects, preventing secret-shaped paths or model-proposed subjects from
+  becoming stored facts.
+- Added deterministic generated-file subject coverage and a focused LLM
+  extractor regression with a fake provider.
+- Updated README/STATUS counters to 209 Vitest tests.
+- Verification:
+  - `npx biome check --write src/extract/pipeline.ts src/extract/llm/fact-extractor.ts test/extract/extractors.test.ts test/extract/llm-fact-extractor.test.ts`
+  - `npx vitest run test/extract/extractors.test.ts test/extract/llm-fact-extractor.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`
+  - `npx tsx src/cli.ts eval procedure`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+- Recoverable failures:
+  - Initial `npx tsx src/cli.ts eval cli-docs-demo` caught stale docs counters
+    at 208/209 tests; updated README/STATUS to the live 209 count.

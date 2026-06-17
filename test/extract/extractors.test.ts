@@ -302,6 +302,15 @@ describe("deterministic extractors", () => {
     expect(String(g!.subject)).toContain("g.ts");
   });
 
+  it("I3: secret-bearing extracted subjects are skipped before storage", () => {
+    mkdirSync(join(dir, "src"), { recursive: true });
+    const secretPath = "src/ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE.ts";
+    writeFileSync(join(dir, secretPath), "// @generated DO NOT EDIT\nexport const x = 1;\n");
+    const { res } = extract();
+    expect(res.skippedSecret).toBe(1);
+    expect(res.inserted.find((f) => f.predicate === "do_not_edit")).toBeUndefined();
+  });
+
   it("I2: agent-files prose is LOW trust and candidate (never auto-promoted)", () => {
     writeFileSync(
       join(dir, "AGENTS.md"),

@@ -94,7 +94,7 @@ export async function extractFactsFromEpisodes(
     for (const f of batch.data.facts) {
       const objStr = typeof f.object === "string" ? f.object : JSON.stringify(f.object);
       // I3: never store secret-bearing LLM output.
-      if (containsSecret(`${f.predicate} ${objStr} ${f.raw_quote ?? ""}`)) continue;
+      if (containsSecret(`${f.subject} ${f.predicate} ${objStr} ${f.raw_quote ?? ""}`)) continue;
       // Only keep evidence ids that actually exist (no hallucinated provenance).
       const evidence = f.evidence_ids.filter((id) => validEventIds.has(id));
       out.push({

@@ -55,7 +55,7 @@ export function runDeterministicExtraction(repo: FactsRepo, ctx: ExtractContext)
 
   for (const f of candidates) {
     const objStr = typeof f.object === "string" ? f.object : JSON.stringify(f.object);
-    if (containsSecret(`${f.predicate} ${objStr} ${f.source.raw_quote ?? ""}`)) {
+    if (containsSecret(extractedFactSecretScanText(f, objStr))) {
       skippedSecret++;
       continue;
     }
@@ -70,6 +70,10 @@ export function runDeterministicExtraction(repo: FactsRepo, ctx: ExtractContext)
   const expiredStale = expireStaleDeterministicFacts(repo, ctx, currentEvidenceKeys);
 
   return { inserted, skippedSecret, skippedDuplicate, expiredStale };
+}
+
+function extractedFactSecretScanText(f: NewFact, objectString: string): string {
+  return `${f.subject} ${f.predicate} ${objectString} ${f.source.raw_quote ?? ""}`;
 }
 
 function isDuplicate(repo: FactsRepo, f: NewFact, objStr: string): boolean {
