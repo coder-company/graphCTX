@@ -90,15 +90,15 @@ Arm                     Solve rate    Correct cmds  Repeated-fail Tokens
 ------------------------------------------------------------------------
 A · no memory           0% (0/14)     0             11            0
 B · pull-only (recall)  21% (3/14)    2             9             0
-C · push (graphCTX)     100% (14/14)  11            0             727
+C · push (graphCTX)     93% (13/14)   10            1             724
 
 Integrity controls (guard against a tautological eval):
   N · negative-control   5/5 repos → PASS   (push delivers an unfindable fact)
   S · stale-fact         5/5 repos → PASS   (graphCTX suppresses an invalid fact)
 
 M0 GATE — does C (push) beat B (pull)?
-  post-compaction solve rate:  C 100% vs B 21%  → PASS
-  repeated failed commands:    C 0 vs B 9       → PASS
+  post-compaction solve rate:  C 93% vs B 21%   → PASS
+  repeated failed commands:    C 1 vs B 9       → PASS
   VERDICT: ✅ PUSH BEATS PULL — M0 thesis validated.
 ```
 
@@ -253,7 +253,7 @@ graphctx eval mcp            # install per client + MCP 8-tool smoke + secure pr
 ```
   ✓ MCP exposes EXACTLY 8 tools (I8) — got 8
   ✓ proxy (enabled) refuses a capsule that trips the secret scanner (I3)
-  checks: 20/20   MCP tools: 8 (must be 8)   proxy leaks: 0 (must be 0)
+  checks: 55/55   MCP tools: 8 (must be 8)   proxy leaks: 0 (must be 0)
   VERDICT: ✅ M4 GATE PASS — multi-client install, MCP 8-tool surface, secure proxy, telemetry classifies.
 ```
 
@@ -265,7 +265,7 @@ only** and refuses to inject any capsule that trips the secret scanner.
 ## 4f. Run every gate at once
 
 ```bash
-graphctx eval all     # M0 A/B/C/N/S + promotion + drift + branch + conflict + procedure + mcp
+graphctx eval all     # 18 suites: A/B/C/N/S, memory, promote, drift, retrieval, gate, security, branch, temporal, conflict, procedure, mcp, storage, telemetry, provenance, resilience, benchmarks, cli-docs-demo
 ```
 
 ---

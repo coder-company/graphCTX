@@ -24,6 +24,9 @@ import { renderCard } from "./render/cards.js";
 import { Runtime } from "./runtime.js";
 import { bootstrapVec0 } from "./store/vec0-bootstrap.js";
 
+exitOnBrokenPipe(process.stdout);
+exitOnBrokenPipe(process.stderr);
+
 const program = new Command();
 program
   .name("graphctx")
@@ -589,6 +592,14 @@ program
       process.stdout.write(formatEvalBenchmarksReport(r));
       return r.pass;
     };
+    const runCliDocsDemo = async () => {
+      const { runCliDocsDemoEval, formatCliDocsDemoReport } = await import(
+        "./eval/suites/cli-docs-demo.js"
+      );
+      const r = await runCliDocsDemoEval();
+      process.stdout.write(formatCliDocsDemoReport(r));
+      return r.pass;
+    };
 
     const runners: Record<EvalGateSuite, () => Promise<boolean>> = {
       run: runArms,
@@ -614,6 +625,7 @@ program
       provenance: runProvenance,
       resilience: runResilience,
       benchmarks: runBenchmarks,
+      "cli-docs-demo": runCliDocsDemo,
     };
 
     if (isEvalGateSuite(sub)) {
@@ -701,4 +713,11 @@ function logError(e: unknown): void {
   } catch {
     // give up silently — never surface to the agent
   }
+}
+
+function exitOnBrokenPipe(stream: NodeJS.WriteStream): void {
+  stream.on("error", (e: NodeJS.ErrnoException) => {
+    if (e.code === "EPIPE") process.exit(0);
+    throw e;
+  });
 }

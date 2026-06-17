@@ -53,8 +53,8 @@
 | security/sanitize | §20 | ✅ | prose kept low-trust + non-executable; proxy refuses secret capsules at the send edge |
 | telemetry/metrics + outcomes | §21 | ✅ | local-only outcome classification + summary + learned ranking from injection outcomes |
 | provenance/why | §11 | ✅ | full evidence chain reader + CLI; provenance gate covers complete/incomplete chains and rendered surfaces |
-| eval/harness + suites | §22 | ✅ | compaction-recovery (A/B/C/N/S), promotion-precision, drift-gate, branch-truth, parallel-conflict, procedure-memory, adapters-mcp, storage-migrations, telemetry-learning, provenance-why, resilience-failsoft, eval-benchmarks; `eval all` runs benchmarks |
-| cli.ts | §19 | ✅ | init/install(claude\|cursor\|opencode\|generic\|auto)/uninstall/hook/serve --mcp/recall/remember/extract/why/loop/resolve/doctor/demo/bench/eval; profile/time-travel are nice-to-have, deferred |
+| eval/harness + suites | §22 | ✅ | compaction-recovery (A/B/C/N/S), core-memory-lifecycle, promotion-precision, drift-gate, retrieval-quality, gate-precision, security-adversarial, branch-truth, temporal-correctness, parallel-conflict, procedure-memory, adapters-mcp, storage-migrations, telemetry-learning, provenance-why, resilience-failsoft, eval-benchmarks, cli-docs-demo; `eval all` runs all 18 suites |
+| cli.ts | §19 | ✅ | init/install(claude\|cursor\|opencode\|generic\|auto)/uninstall/hook/recall/remember/loop/resolve/extract/serve --mcp/why/doctor/demo/tui/compare/bench/eval |
 
 ## Invariants (enforced throughout)
 
@@ -76,7 +76,9 @@
 |---|---|---|
 | `hook <event>` p95 | < 150ms | ~8.8ms ✅ |
 
-_Last updated: eval-benchmarks parity. 168 tests, 17 gate suites green, all I1-I9 hold._
+_Last updated: cli-ux-docs-demo parity. 169 tests, 18 gate suites green, all I1-I9 hold._
+
+_Quality counters: Tests: 169. Gate suites: 18._
 
 ---
 
@@ -103,9 +105,9 @@ _Last updated: eval-benchmarks parity. 168 tests, 17 gate suites green, all I1-I
 | Telemetry & outcome learning | ✅ | new `eval telemetry` passes 8/8: classifier accuracy 1.00>=0.90 with harmful-over-helped precedence, local-only recording with 0 network calls and disabled-write=0, fail-soft missing-table handling, malformed summary rows skipped, learned ranking lift +1.00, and DB-backed ledger cross-channel/open_loop behavior |
 | Provenance / why() | ✅ | new `eval provenance` passes 5/5: deterministic extract→why chain complete, last-8 suffix equals full-id report, unknown id exits cleanly with `no fact found`, clean vs dangling evidence reports complete/incomplete, and git anchor/promotions/edges sections render when present |
 | Resilience & fail-soft (I9) | ✅ | new `eval resilience` passes 9/9: no-key deterministic-only capsule emits with exit 0, corrupt DB and bad config degrade to empty output, missing git and planner crashes never propagate, provider resolution returns `nullProvider`, no-key extraction is a deterministic no-op, and SessionStart/SessionEnd lifecycle hooks run fail-soft |
-| Eval harness & benchmarks | ✅ | new `eval benchmarks` passes 5/5: centralized 17-suite registry, A/B/C/N/S ablation confirms push 93% > pull 21% with N/S 5/5 controls, offline graphCTX-vs-Supermemory scorecard renders, live bake-off skips without key, 1k/10k scale p95 stays under budget, and trapped offline network calls remain 0 |
-| CLI / UX / docs / demo | ⬜ untouched | docs drift fixed (test count); demo repro pending |
+| Eval harness & benchmarks | ✅ | `eval benchmarks` passes 5/5: centralized 18-suite registry, A/B/C/N/S ablation confirms push 93% > pull 21% with N/S 5/5 controls, offline graphCTX-vs-Supermemory scorecard renders, live bake-off skips without key, 1k/10k scale p95 stays under budget, and trapped offline network calls remain 0 |
+| CLI / UX / docs / demo | ✅ | new `eval cli-docs-demo` passes 9/9: help/docs command surface aligned, SPEC §15/§17 hook event drift fixed, demo facts stay memory-only/offline, doctor prints READY/NOT READY remediation, MCP advertises exactly 8 tools, Claude install round-trip and piped auto-detect hold |
 | Code quality | ⬜ untouched | coverage % + dead-code audit pending |
 
 _Loop note: composite metric = (failing_gates × 100) + (un-perfected aspects); within-aspect
-measured gains are recorded in the `memory` graph. Tests: 168, gate suites: 17 (`eval all` includes retrieval/gate/security/temporal/conflict/procedure/promotion/mcp/storage/telemetry/provenance/resilience/benchmarks)._
+measured gains are recorded in the `memory` graph. Tests: 169, gate suites: 18 (`eval all` includes run/memory/promote/drift/retrieval/gate/security/branch/temporal/conflict/procedure/mcp/storage/telemetry/provenance/resilience/benchmarks/cli-docs-demo)._

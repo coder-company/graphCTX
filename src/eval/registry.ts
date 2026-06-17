@@ -16,6 +16,7 @@ export const EVAL_GATE_SUITES = [
   "provenance",
   "resilience",
   "benchmarks",
+  "cli-docs-demo",
 ] as const;
 
 export type EvalGateSuite = (typeof EVAL_GATE_SUITES)[number];

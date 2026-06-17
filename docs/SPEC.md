@@ -238,7 +238,7 @@ episodes  = ".graphctx/episodes.jsonl"
 
 [llm]
 provider  = "anthropic"          # anthropic | openai | local
-chat_model = "claude-haiku"      # small model for extraction/invalidation
+chat_model = "claude-haiku-4-5"  # small model for extraction/invalidation
 embed_model = "text-embedding-3-small"
 api_key_env = "ANTHROPIC_API_KEY"
 base_url  = ""                   # for local/openai-compatible
@@ -249,7 +249,7 @@ budget_fraction = 0.015          # min(total_budget_tokens, fraction * ctx_windo
 max_cards = 15
 max_cards_pretool = 5
 gate_drift_threshold = 0.35      # centroid cosine distance to fire on UserPromptSubmit
-enabled_events = ["SessionStart","UserPromptSubmit","PreToolUse","PostCompact"]
+enabled_events = ["SessionStart","UserPromptSubmit","PreToolUse","PostToolUse","PostCompact"]
 
 [promote]
 session_to_workspace = true
@@ -725,7 +725,7 @@ type ChannelTier = 0 | 1 | 2 | 3 | 4;          // GAMEPLAN §5.1 ladder
 ```
 
 **Claude Code adapter (reference, M0):**
-- `install.ts` writes hook entries (`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PreCompact`, `PostCompact`, `SessionEnd`) that call `graphctx hook <event>` with the event payload on stdin.
+- `install.ts` writes hook entries (`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionEnd`) that call `graphctx hook <event>` with the event payload on stdin.
 - `hooks.ts` parses the payload → builds `InjectionContext` → calls `planner.plan()` → emits the capsule markdown on stdout (Tier 2 push). For `SessionStart` it also refreshes the `AGENTS.md` capsule (Tier 0).
 - `templates/AGENTS.md.hbs` — boot capsule + a recall directive (Tier 0 floor).
 
@@ -760,25 +760,25 @@ Every tool **response** may carry a parasitic rider (Tier 1) with a tiny fresh-c
 
 ```
 graphctx init                          # create stores, write AGENTS.md, detect client
-graphctx serve --mcp                   # run MCP server (stdio)
+graphctx install <claude|cursor|opencode|generic|auto>
+graphctx uninstall claude
 graphctx hook <event>                  # internal: called by client hooks (reads stdin)
-graphctx install <claude|cursor|opencode>
-graphctx uninstall <client>
-graphctx remember "<text>" [--scope ..] [--kind ..]
-graphctx recall "<query>" [--workspace .] [--budget N] [--as-of <sha>]
-graphctx inject --event <E> --session <id>
-graphctx checkpoint --session <id>
-graphctx promote (pending|fact <id>) [--to workspace|user-static|user-dynamic] [--dry-run]
-graphctx forget <id> (--expire|--hard) --reason "..."
-graphctx profile (show|edit|diff)
-graphctx conflicts (list|resolve <id>)
-graphctx why (fact <id>|injection <id>)
-graphctx time-travel --commit <sha> recall "<query>"
-graphctx doctor                        # health: db, git, llm key, hooks installed
-graphctx eval run --suite <name> [--arms A,B,C]
+graphctx recall "<query>" [-C <dir>] [--budget N] [--session <id>]
+graphctx remember "<text>" [-C <dir>] [--subject s] [--predicate p] [--kind k]
+graphctx loop "<text>" [-C <dir>] [--session <id>]
+graphctx resolve <fact_id|last8> [-C <dir>]
+graphctx extract [-C <dir>]
+graphctx serve --mcp [-C <dir>]        # run MCP server (stdio, exactly 8 tools)
+graphctx why <fact_id|last8> [-C <dir>]
+graphctx doctor [-C <dir>]             # health: db, git, hooks, fact count, verdict
+graphctx demo [--dir <dir>]            # one-command offline reproducible demo
+graphctx tui [-C <dir>] [--tab dashboard|control|monitor]
+graphctx compare [--live] [--deep] [--json] [-C <dir>]
+graphctx bench [--scale|--footprint] [--sizes list] [--budget-ms N]
+graphctx eval <run|memory|promote|drift|retrieval|gate|security|branch|temporal|conflict|procedure|mcp|storage|telemetry|provenance|resilience|benchmarks|cli-docs-demo|all>
 ```
 
-`doctor` validates: DB migration state, git availability, LLM provider reachability, hook installation, config validity. Returns actionable diagnostics.
+`doctor` validates: DB availability, git availability, hook installation, and fact count. It returns a single `READY` / `NOT READY` verdict plus the next command to run.
 
 ---
 
@@ -806,16 +806,20 @@ These run on **both** the write path (extraction) and the read path (pre-injecti
 `eval/harness.ts` runs the decisive ablation (PRD §14):
 
 ```
-arms = { A: noMemory, B: pullOnly, C: pushNoGraph, D: graphNoPush,
-         E: pushGraphNoPromotion, F: noCommitAnchors, G: noProcedural, H: full }
+arms = { A: noMemory, B: pullOnly, C: push, N: negativeControl, S: staleSuppressed }
 ```
 
 `eval/suites/`:
-- `repo-drift.ts` — command changes across commits.
+- `core-memory-lifecycle.ts` — shipped CLI remember/recall/why/open-loop lifecycle.
+- `drift-gate.ts` / `gate-precision.ts` — utility-grounded event firing and injection quality.
+- `retrieval-quality.ts` — recall@k / MRR / semantic + diversity probes.
+- `security-adversarial.ts` — poisoning, secret, and send-edge adversarial families.
 - `branch-truth.ts` — main npm vs branch pnpm.
 - `compaction-recovery.ts` — long session + forced compaction (**the M0 decisive suite**).
 - `parallel-conflict.ts` — two sessions, contradictory facts.
 - `procedure-memory.ts` — repeated workflows.
+- `adapters-mcp.ts` — client installs plus the exact 8-tool MCP surface.
+- `storage-migrations.ts`, `telemetry-learning.ts`, `provenance-why.ts`, `resilience-failsoft.ts`, `eval-benchmarks.ts`, `cli-docs-demo.ts` — storage, learning, provenance, fail-soft, harness, and CLI/docs/demo drift gates.
 
 `eval/report.ts` aggregates metrics per arm × suite and emits a table. **Gate: C must beat B** on repeated-failed-commands and post-compaction solve rate (M0 exit).
 
