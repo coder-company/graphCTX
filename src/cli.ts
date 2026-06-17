@@ -440,7 +440,7 @@ program
   .command("eval")
   .argument(
     "<sub>",
-    "subcommand: run | memory | promote | drift | retrieval | gate | security | branch | temporal | conflict | procedure | mcp | storage | telemetry | provenance | all",
+    "subcommand: run | memory | promote | drift | retrieval | gate | security | branch | temporal | conflict | procedure | mcp | storage | telemetry | provenance | resilience | all",
   )
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
@@ -570,6 +570,14 @@ program
       process.stdout.write(formatProvenanceWhyReport(r));
       return r.pass;
     };
+    const runResilience = async () => {
+      const { runResilienceFailsoftEval, formatResilienceFailsoftReport } = await import(
+        "./eval/suites/resilience-failsoft.js"
+      );
+      const r = await runResilienceFailsoftEval();
+      process.stdout.write(formatResilienceFailsoftReport(r));
+      return r.pass;
+    };
 
     if (sub === "promote") {
       if (!(await runPromote())) process.exitCode = 1;
@@ -631,6 +639,10 @@ program
       if (!(await runProvenance())) process.exitCode = 1;
       return;
     }
+    if (sub === "resilience") {
+      if (!(await runResilience())) process.exitCode = 1;
+      return;
+    }
     if (sub === "all") {
       const a = await runArms();
       const mem = await runMemory();
@@ -647,6 +659,7 @@ program
       const storage = await runStorage();
       const telemetry = await runTelemetry();
       const provenance = await runProvenance();
+      const resilience = await runResilience();
       if (
         !(
           a &&
@@ -663,7 +676,8 @@ program
           m &&
           storage &&
           telemetry &&
-          provenance
+          provenance &&
+          resilience
         )
       )
         process.exitCode = 1;

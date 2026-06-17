@@ -53,7 +53,7 @@
 | security/sanitize | §20 | ✅ | prose kept low-trust + non-executable; proxy refuses secret capsules at the send edge |
 | telemetry/metrics + outcomes | §21 | ✅ | local-only outcome classification + summary + learned ranking from injection outcomes |
 | provenance/why | §11 | ✅ | full evidence chain reader + CLI; provenance gate covers complete/incomplete chains and rendered surfaces |
-| eval/harness + suites | §22 | ✅ | compaction-recovery (A/B/C/N/S), promotion-precision, drift-gate, branch-truth, parallel-conflict, procedure-memory, adapters-mcp, storage-migrations, telemetry-learning, provenance-why; `eval all` runs provenance |
+| eval/harness + suites | §22 | ✅ | compaction-recovery (A/B/C/N/S), promotion-precision, drift-gate, branch-truth, parallel-conflict, procedure-memory, adapters-mcp, storage-migrations, telemetry-learning, provenance-why, resilience-failsoft; `eval all` runs resilience |
 | cli.ts | §19 | ✅ | init/install(claude\|cursor\|opencode\|generic\|auto)/uninstall/hook/serve --mcp/recall/remember/extract/why/loop/resolve/doctor/demo/bench/eval; profile/time-travel are nice-to-have, deferred |
 
 ## Invariants (enforced throughout)
@@ -76,7 +76,7 @@
 |---|---|---|
 | `hook <event>` p95 | < 150ms | ~8.8ms ✅ |
 
-_Last updated: provenance-why parity. 166 tests, 15 gate suites green, all I1-I9 hold._
+_Last updated: resilience-failsoft parity. 167 tests, 16 gate suites green, all I1-I9 hold._
 
 ---
 
@@ -102,10 +102,10 @@ _Last updated: provenance-why parity. 166 tests, 15 gate suites green, all I1-I9
 | Storage & migrations | ✅ | new `eval storage` passes 10/10: schema_version 3, reopen migrations 0, v1→v3 rows preserved 3/3, append-only expire tombstones retained, malformed rows skipped, missing optional ledger table degrades, WAL/FK/busy_timeout enforced, cascades/edge trail consistent |
 | Telemetry & outcome learning | ✅ | new `eval telemetry` passes 8/8: classifier accuracy 1.00>=0.90 with harmful-over-helped precedence, local-only recording with 0 network calls and disabled-write=0, fail-soft missing-table handling, malformed summary rows skipped, learned ranking lift +1.00, and DB-backed ledger cross-channel/open_loop behavior |
 | Provenance / why() | ✅ | new `eval provenance` passes 5/5: deterministic extract→why chain complete, last-8 suffix equals full-id report, unknown id exits cleanly with `no fact found`, clean vs dangling evidence reports complete/incomplete, and git anchor/promotions/edges sections render when present |
-| Resilience & fail-soft (I9) | ⬜ untouched | 5 tests pass; fault-injection breadth pending |
+| Resilience & fail-soft (I9) | ✅ | new `eval resilience` passes 9/9: no-key deterministic-only capsule emits with exit 0, corrupt DB and bad config degrade to empty output, missing git and planner crashes never propagate, provider resolution returns `nullProvider`, no-key extraction is a deterministic no-op, and SessionStart/SessionEnd lifecycle hooks run fail-soft |
 | Eval harness & benchmarks | ⬜ untouched | 8 suites green; competitor head-to-head pending |
 | CLI / UX / docs / demo | ⬜ untouched | docs drift fixed (test count); demo repro pending |
 | Code quality | ⬜ untouched | coverage % + dead-code audit pending |
 
 _Loop note: composite metric = (failing_gates × 100) + (un-perfected aspects); within-aspect
-measured gains are recorded in the `memory` graph. Tests: 166, gate suites: 15 (`eval all` includes retrieval/gate/security/temporal/conflict/procedure/promotion/mcp/storage/telemetry/provenance)._
+measured gains are recorded in the `memory` graph. Tests: 167, gate suites: 16 (`eval all` includes retrieval/gate/security/temporal/conflict/procedure/promotion/mcp/storage/telemetry/provenance/resilience)._
