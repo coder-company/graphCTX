@@ -58,3 +58,19 @@ export class OpenCodeAdapter implements Adapter {
     writeAgentsCapsuleFacts(this.workspaceDir, factsFromCapsule(capsule));
   }
 }
+
+export function hasOpenCodeGraphctxInstall(workspaceDir: string): boolean {
+  const cfgPath = join(workspaceDir, "opencode.json");
+  if (!existsSync(cfgPath)) return false;
+  try {
+    const cfg = JSON.parse(readFileSync(cfgPath, "utf8")) as { mcp?: Record<string, unknown> };
+    const entry = cfg.mcp?.graphctx;
+    return isRecord(entry) && entry.enabled === true;
+  } catch {
+    return false;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}

@@ -184,6 +184,47 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     compactWhy(why.stdout),
   );
 
+  const replacement = withRepo((dir) => {
+    const first = cli([
+      "remember",
+      "deploy with ./scripts/old.sh",
+      "--subject",
+      "repo",
+      "--predicate",
+      "deploy_command",
+      "-C",
+      dir,
+    ]);
+    const second = cli([
+      "remember",
+      "deploy with ./scripts/new.sh",
+      "--subject",
+      "repo",
+      "--predicate",
+      "deploy_command",
+      "-C",
+      dir,
+    ]);
+    const recall = cli(["recall", "deploy command", "-C", dir]);
+    return { first, second, recall };
+  });
+  if (
+    replacement.first.status !== 0 ||
+    replacement.second.status !== 0 ||
+    replacement.recall.status !== 0
+  ) {
+    cliFailures += 1;
+  }
+  check(
+    "remember routes through invalidation so newer same-key facts supersede older values",
+    replacement.first.status === 0 &&
+      replacement.second.status === 0 &&
+      replacement.recall.status === 0 &&
+      replacement.recall.stdout.includes("deploy with ./scripts/new.sh") &&
+      !replacement.recall.stdout.includes("deploy with ./scripts/old.sh"),
+    compactRecall(replacement.recall.stdout),
+  );
+
   const loop = withRepo((dir) => {
     const out = cli(["loop", "finish the retry backoff", "-C", dir]);
     const id = out.stdout.match(/Open loop ([A-Z0-9]+):/)?.[1] ?? "";
@@ -191,9 +232,15 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     const before = cli(["hook", "PostCompact", "-C", dir], payload);
     const resolved = cli(["resolve", id, "-C", dir]);
     const after = cli(["hook", "PostCompact", "-C", dir], payload);
-    return { out, id, before, resolved, after };
+    const why = cli(["why", id, "-C", dir]);
+    return { out, id, before, resolved, after, why };
   }, true);
-  if (loop.out.status !== 0 || loop.before.status !== 0 || loop.resolved.status !== 0) {
+  if (
+    loop.out.status !== 0 ||
+    loop.before.status !== 0 ||
+    loop.resolved.status !== 0 ||
+    loop.why.status !== 0
+  ) {
     cliFailures += 1;
   }
   if (loop.after.stdout.includes("finish the retry backoff")) openLoopLeaksAfterResolve += 1;
@@ -205,8 +252,10 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
       loop.before.stdout.includes("finish the retry backoff") &&
       loop.resolved.status === 0 &&
       loop.after.status === 0 &&
-      !loop.after.stdout.includes("finish the retry backoff"),
-    `before=${JSON.stringify(loop.before.stdout.trim())} after=${JSON.stringify(loop.after.stdout.trim())}`,
+      !loop.after.stdout.includes("finish the retry backoff") &&
+      loop.why.status === 0 &&
+      !loop.why.stdout.includes("SUPERSEDED_BY"),
+    `before=${JSON.stringify(loop.before.stdout.trim())} after=${JSON.stringify(loop.after.stdout.trim())} whyEdges=${loop.why.stdout.includes("SUPERSEDED_BY") ? "self-edge" : "none"}`,
   );
 
   const missing = withRepo((dir) => cli(["resolve", "ZZZZZZZZ", "-C", dir]));
@@ -218,7 +267,7 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     `status=${missing.status} stdout=${JSON.stringify(missing.stdout.trim())}`,
   );
 
-  const checks = 7;
+  const checks = detail.length;
   const pass = passed === checks && cliFailures === 0 && openLoopLeaksAfterResolve === 0;
   return { checks, passed, detail, cliFailures, openLoopLeaksAfterResolve, pass };
 }
@@ -249,4 +298,12 @@ function compactWhy(out: string): string {
     .map((l) => l.trim())
     .filter((l) => l.includes("asserted by") || l.includes("raw quote") || l.includes("chain"));
   return lines.join(" | ");
+}
+
+function compactRecall(out: string): string {
+  return out
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join(" | ");
 }

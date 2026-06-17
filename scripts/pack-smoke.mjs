@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,11 +12,12 @@ mkdirSync(app);
 
 try {
   const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
-  const tarballName = run("npm", ["pack", "--pack-destination", tmp, "--silent"], repoRoot)
-    .trim()
-    .split(/\r?\n/)
-    .pop();
-  if (!tarballName) throw new Error("npm pack did not print a tarball name");
+  const [pack] = JSON.parse(
+    run("npm", ["pack", "--pack-destination", tmp, "--json", "--silent"], repoRoot),
+  );
+  assert(pack?.filename, "npm pack did not report a tarball filename");
+  assertPackContents(pack);
+  const tarballName = pack.filename;
 
   run("git", ["init", "-q"], app);
   run("npm", ["init", "-y", "--silent"], app);
@@ -38,7 +39,34 @@ try {
   const doctor = run(bin, ["doctor"], app);
   assert(doctor.includes("graphctx doctor"), "doctor output missing header");
 
-  run(bin, ["install", "auto", "--bin", "graphctx"], app);
+  writeFileSync(join(app, "CLAUDE.md"), "# Claude package smoke\n", "utf8");
+  const autoInstall = run(bin, ["install", "auto", "--bin", "graphctx"], app);
+  assert(
+    autoInstall.includes("auto-detected client: claude"),
+    "install auto did not detect claude",
+  );
+  assert(autoInstall.includes("Installed claude adapter"), "install auto did not install claude");
+  const readyDoctor = run(bin, ["doctor"], app);
+  assert(
+    readyDoctor.includes("claude hooks: installed") && readyDoctor.includes("READY"),
+    "doctor did not report ready after installed claude hooks",
+  );
+  run(bin, ["uninstall", "claude"], app);
+  const afterUninstallDoctor = run(bin, ["doctor"], app);
+  assert(
+    afterUninstallDoctor.includes("claude hooks: not installed") &&
+      afterUninstallDoctor.includes("NOT READY"),
+    "doctor did not report not-ready after uninstall",
+  );
+
+  const demoDir = join(tmp, "installed-demo");
+  const demo = run(bin, ["demo", "--dir", demoDir], app);
+  assert(demo.includes("graphctx demo"), "installed demo did not print demo header");
+  assert(demo.includes("facts in memory:"), "installed demo did not seed memory facts");
+  assert(
+    existsSync(join(demoDir, ".graphctx", "workspace.db")),
+    "installed demo did not create a graphCTX store",
+  );
 
   const remembered = "package smoke remembers the launch readiness note";
   run(bin, ["remember", remembered], app);
@@ -81,6 +109,8 @@ try {
     "dist/extract/llm/prompts/fact_extract.v1.md",
     "dist/extract/llm/prompts/invalidation.v1.md",
     "dist/extract/llm/prompts/procedure_mine.v1.md",
+    "dist/fixtures/repo-pnpm-web/package.json",
+    "dist/fixtures/repo-pnpm-web/scenario.json",
   ];
   for (const rel of requiredAssets) {
     assert(existsSync(join(pkgRoot, rel)), `missing installed asset: ${rel}`);
@@ -92,8 +122,10 @@ try {
         smoke: "pass",
         package: `${pkg.name}@${pkg.version}`,
         tarball: tarballName,
+        entries: pack.entryCount,
         mcpTools: list.result.tools.length,
         assets: requiredAssets.length,
+        demo: "pass",
       },
       null,
       2,
@@ -133,6 +165,43 @@ function run(cmd, args, cwd, input) {
     );
   }
   return result.stdout;
+}
+
+function assertPackContents(pack) {
+  const paths = new Set(pack.files.map((file) => file.path));
+  const required = [
+    "dist/cli.js",
+    "dist/index.d.ts",
+    "dist/store/migrations/0001_init.sql",
+    "dist/store/migrations/0002_m1.sql",
+    "dist/store/migrations/0003_m2.sql",
+    "dist/extract/llm/prompts/fact_extract.v1.md",
+    "dist/extract/llm/prompts/invalidation.v1.md",
+    "dist/extract/llm/prompts/procedure_mine.v1.md",
+    "dist/fixtures/repo-pnpm-web/package.json",
+    "dist/fixtures/repo-pnpm-web/scenario.json",
+    "README.md",
+    "DEMO.md",
+    "LICENSE",
+    "package.json",
+  ];
+  for (const rel of required) {
+    assert(paths.has(rel), `tarball missing required file: ${rel}`);
+  }
+
+  const forbiddenPrefixes = [
+    "src/",
+    "test/",
+    "fixtures/",
+    "docs/",
+    "scripts/",
+    ".codex-autoresearch/",
+    "autoresearch-results/",
+  ];
+  const forbidden = [...paths].filter((path) =>
+    forbiddenPrefixes.some((prefix) => path.startsWith(prefix)),
+  );
+  assert(forbidden.length === 0, `tarball contains forbidden files: ${forbidden.join(", ")}`);
 }
 
 function assert(condition, message) {

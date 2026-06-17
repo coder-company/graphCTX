@@ -15,9 +15,8 @@ coverage/
 .vscode/
 *.tsbuildinfo
 
-# Binary build outputs and generated files
+# Binary build outputs
 dist-bin/
-src/store/migrations.generated.ts
 
 # autoresearch run artifacts (never committed)
 autoresearch-results/

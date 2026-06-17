@@ -105,6 +105,14 @@ export class Runtime {
     return { user_id: this.userId, workspace_id: this.workspaceId, session_id: sessionId };
   }
 
+  resolveFactId(fullOrSuffix: string): string | null {
+    if (this.facts.get(fullOrSuffix)) return fullOrSuffix;
+    const match = this.facts
+      .all({ user_id: this.userId, workspace_id: this.workspaceId })
+      .find((f) => f.fact_id.endsWith(fullOrSuffix));
+    return match?.fact_id ?? null;
+  }
+
   gateConfig(): GateConfig {
     return {
       enabledEvents: this.loaded.config.inject.enabled_events,
@@ -296,10 +304,10 @@ export class Runtime {
     });
   }
 
-  // Resolve an open loop so it stops resurfacing (links SUPERSEDED_BY, M1 §7).
+  // Resolve an open loop so it stops resurfacing (M1 §7).
   async resolveOpenLoop(loopFactId: string, byFactId?: string): Promise<void> {
     const inv = await this.invalidator();
-    inv.resolve(loopFactId, byFactId ?? loopFactId);
+    inv.resolve(loopFactId, byFactId);
   }
 
   // Handle a HEAD move (BranchSwitch / FileChanged after commit). Classifies the

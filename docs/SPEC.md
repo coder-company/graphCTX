@@ -227,44 +227,52 @@ graphCTX runs as **three cooperating roles** over a shared SQLite store:
 
 ## 5. Configuration
 
-Resolution order (later overrides earlier): built-in defaults → `~/.config/graphctx/config.toml` → `<workspace>/.graphctx/config.toml` → env vars (`GRAPHCTX_*`) → CLI flags.
+Resolution order (later overrides earlier): built-in defaults → `~/.config/graphctx/config.json` → `<workspace>/.graphctx/config.json` → env vars (`GRAPHCTX_*`) → CLI flags.
 
-```toml
-# .graphctx/config.toml
-[storage]
-user_db   = "~/.local/share/graphctx/user.db"
-workspace_db = ".graphctx/workspace.db"   # or "global" → hashed under ~/.local/share
-episodes  = ".graphctx/episodes.jsonl"
-
-[llm]
-provider  = "anthropic"          # anthropic | openai | local
-chat_model = "claude-haiku-4-5"  # small model for extraction/invalidation
-embed_model = "text-embedding-3-small"
-api_key_env = "ANTHROPIC_API_KEY"
-base_url  = ""                   # for local/openai-compatible
-
-[inject]
-total_budget_tokens = 2500
-budget_fraction = 0.015          # min(total_budget_tokens, fraction * ctx_window)
-max_cards = 15
-max_cards_pretool = 5
-gate_drift_threshold = 0.35      # centroid cosine distance to fire on UserPromptSubmit
-enabled_events = ["SessionStart","UserPromptSubmit","PreToolUse","PostToolUse","PostCompact"]
-
-[promote]
-session_to_workspace = true
-workspace_to_user = "explicit_only"   # explicit_only | inferred (v2)
-min_procedure_successes = 2
-min_failure_repeats = 2
-
-[security]
-secret_scan = true
-prose_trust = "low"              # never "high"
-allow_executable_procedures = false   # I2/I4 — locked off in v1
-
-[telemetry]
-enabled = true
-local_only = true                # never leaves the machine
+```json
+{
+  "storage": {
+    "user_db": "~/.local/share/graphctx/user.db",
+    "workspace_db": ".graphctx/workspace.db",
+    "episodes": ".graphctx/episodes.jsonl"
+  },
+  "llm": {
+    "provider": "anthropic",
+    "chat_model": "claude-haiku-4-5",
+    "embed_model": "text-embedding-3-small",
+    "api_key_env": "ANTHROPIC_API_KEY",
+    "base_url": ""
+  },
+  "inject": {
+    "total_budget_tokens": 2500,
+    "budget_fraction": 0.015,
+    "max_cards": 15,
+    "max_cards_pretool": 5,
+    "gate_drift_threshold": 0.35,
+    "enabled_events": [
+      "SessionStart",
+      "UserPromptSubmit",
+      "PreToolUse",
+      "PostToolUse",
+      "PostCompact"
+    ]
+  },
+  "promote": {
+    "session_to_workspace": true,
+    "workspace_to_user": "explicit_only",
+    "min_procedure_successes": 2,
+    "min_failure_repeats": 2
+  },
+  "security": {
+    "secret_scan": true,
+    "prose_trust": "low",
+    "allow_executable_procedures": false
+  },
+  "telemetry": {
+    "enabled": true,
+    "local_only": true
+  }
+}
 ```
 
 Config is validated by `config/schema.ts` (zod); invalid config fails fast with a clear error.
@@ -761,7 +769,7 @@ Every tool **response** may carry a parasitic rider (Tier 1) with a tiny fresh-c
 ```
 graphctx init                          # create stores, write AGENTS.md, detect client
 graphctx install <claude|cursor|opencode|generic|auto>
-graphctx uninstall claude
+graphctx uninstall <claude|cursor|opencode|generic>
 graphctx hook <event>                  # internal: called by client hooks (reads stdin)
 graphctx recall "<query>" [-C <dir>] [--budget N] [--session <id>]
 graphctx remember "<text>" [-C <dir>] [--subject s] [--predicate p] [--kind k]
@@ -778,7 +786,7 @@ graphctx bench [--scale|--footprint] [--sizes list] [--budget-ms N]
 graphctx eval <run|memory|promote|drift|retrieval|gate|security|branch|temporal|conflict|procedure|mcp|storage|telemetry|provenance|resilience|benchmarks|cli-docs-demo|quality|all>
 ```
 
-`doctor` validates: DB availability, git availability, hook installation, and fact count. It returns a single `READY` / `NOT READY` verdict plus the next command to run.
+`doctor` validates: DB availability, git availability, adapter installation, Claude hook installation, Cursor/OpenCode MCP registration, generic grounding marker, and fact count. It returns a `READY` / `NOT READY` verdict that distinguishes Claude lifecycle push from static grounding plus MCP recall.
 
 ---
 

@@ -35,10 +35,16 @@ export function resolveBinInvocation(): string {
 function fixtureRepo(): string {
   const self = fileURLToPath(import.meta.url);
   const isCompiled = self.endsWith(".js");
-  // dist/adapters/claude-code/ → repo root is 4 up; src/... is also 4 up.
+  // src/... resolves to the repo root. dist/... resolves to the package root,
+  // with fixture assets copied under dist/fixtures by scripts/copy-assets.mjs.
   const root = join(self, "..", "..", "..", "..");
+  const distRoot = join(self, "..", "..", "..");
   const candidates = isCompiled
-    ? [join(root, "fixtures", "repo-pnpm-web"), join(root, "..", "fixtures", "repo-pnpm-web")]
+    ? [
+        join(distRoot, "fixtures", "repo-pnpm-web"),
+        join(root, "fixtures", "repo-pnpm-web"),
+        join(root, "..", "fixtures", "repo-pnpm-web"),
+      ]
     : [join(root, "fixtures", "repo-pnpm-web")];
   for (const c of candidates) {
     if (existsSync(join(c, "package.json"))) return c;

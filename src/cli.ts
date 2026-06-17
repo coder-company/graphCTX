@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { Command } from "commander";
 import { writeAgentsCapsule } from "./adapters/boot-capsule.js";
 import { handleHook } from "./adapters/claude-code/hooks.js";
 import { hasClaudeGraphctxHooks, uninstallClaudeHooks } from "./adapters/claude-code/install.js";
+import { hasCursorGraphctxInstall } from "./adapters/cursor/index.js";
+import { hasGenericGraphctxInstall } from "./adapters/generic/index.js";
+import { hasOpenCodeGraphctxInstall } from "./adapters/opencode/index.js";
 import { isoNow } from "./core/clock.js";
 import { GraphCtxError } from "./core/errors.js";
 import { runEval } from "./eval/harness.js";
@@ -50,7 +53,7 @@ program
   .description("wire a client to graphctx (hooks for claude; rules+MCP for others)")
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
   .option("--global", "install to user-level config", false)
-  .option("--bin <path>", "command used to invoke graphctx", "graphctx")
+  .option("--bin <path>", "command used to invoke graphctx")
   .action(async (client, opts) => {
     const rt = new Runtime({ workspaceDir: opts.cwd });
     let resolved = client;
@@ -72,16 +75,12 @@ program
       await adapter.install({
         workspaceDir: rt.workspaceDir,
         global: opts.global,
-        binPath: opts.bin,
+        binPath: resolveInstallBin(opts.bin),
       });
       await rt.extract();
       writeAgentsCapsule(rt);
-      const next =
-        resolved === "claude"
-          ? "graphctx will push memory at SessionStart and PostCompact."
-          : "Registered MCP server + AGENTS.md grounding. Run `graphctx serve --mcp` from the client.";
       process.stdout.write(
-        `Installed ${resolved} adapter (tiers ${cap.tiers.join(",")}; highest T${cap.highest}).\n${next}\n`,
+        `Installed ${resolved} adapter (tiers ${cap.tiers.join(",")}; highest T${cap.highest}).\n${installNextStep(resolved)}\n`,
       );
       rt.close();
       return;
@@ -93,13 +92,23 @@ program
 
 program
   .command("uninstall")
-  .argument("<client>", "client to remove hooks for (claude)")
+  .argument("<client>", "client to remove config for (claude | cursor | opencode | generic)")
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
   .option("--global", "remove from user-level config", false)
-  .action((client, opts) => {
-    if (client !== "claude") fail(`unknown client "${client}"`);
-    uninstallClaudeHooks({ workspaceDir: opts.cwd, global: opts.global });
-    process.stdout.write("Removed graphctx Claude Code hooks.\n");
+  .action(async (client, opts) => {
+    if (client === "claude") {
+      uninstallClaudeHooks({ workspaceDir: opts.cwd, global: opts.global });
+      process.stdout.write("Removed graphctx Claude Code hooks.\n");
+      return;
+    }
+    if (client === "cursor" || client === "opencode" || client === "generic") {
+      const { makeAdapter } = await import("./adapters/registry.js");
+      const adapter = makeAdapter(client, resolve(opts.cwd));
+      await adapter.uninstall();
+      process.stdout.write(`Removed graphctx ${client} adapter config.\n`);
+      return;
+    }
+    fail(`unknown client "${client}" (supported: claude, cursor, opencode, generic)`);
   });
 
 program
@@ -172,7 +181,7 @@ program
         // degrade without anchors
       }
     }
-    const fact = rt.facts.insert({
+    const fact = await rt.learn({
       subject: opts.subject,
       predicate: opts.predicate,
       object: text,
@@ -212,14 +221,8 @@ program
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
   .action(async (factArg, opts) => {
     const rt = new Runtime({ workspaceDir: opts.cwd });
-    let id = factArg as string;
-    if (!rt.facts.get(id)) {
-      const match = rt.facts
-        .all({ user_id: rt.userId, workspace_id: rt.workspaceId })
-        .find((f) => f.fact_id.endsWith(factArg));
-      if (match) id = match.fact_id;
-    }
-    if (!rt.facts.get(id)) {
+    const id = rt.resolveFactId(factArg);
+    if (!id) {
       process.stdout.write(`no fact found for "${factArg}"\n`);
       process.exitCode = 1;
     } else {
@@ -257,8 +260,25 @@ program
     }
     const { McpServer } = await import("./mcp/server.js");
     const server = new McpServer({ workspaceDir: opts.cwd });
-    await server.serve();
-    server.close();
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      server.close();
+    };
+    const onSignal = () => {
+      close();
+      process.exit(0);
+    };
+    process.once("SIGINT", onSignal);
+    process.once("SIGTERM", onSignal);
+    try {
+      await server.serve();
+    } finally {
+      process.off("SIGINT", onSignal);
+      process.off("SIGTERM", onSignal);
+      close();
+    }
   });
 
 program
@@ -270,14 +290,8 @@ program
     const { formatWhy } = await import("./provenance/why.js");
     const rt = new Runtime({ workspaceDir: opts.cwd });
     // Accept a last-8 suffix as a convenience (matches the [mem:id] tag).
-    let id = factArg as string;
-    if (!rt.facts.get(id)) {
-      const match = rt.facts
-        .all({ user_id: rt.userId, workspace_id: rt.workspaceId })
-        .find((f) => f.fact_id.endsWith(factArg));
-      if (match) id = match.fact_id;
-    }
-    const report = rt.why(id);
+    const id = rt.resolveFactId(factArg);
+    const report = id ? rt.why(id) : null;
     if (!report) {
       process.stdout.write(`no fact found for "${factArg}"\n`);
       process.exitCode = 1;
@@ -295,15 +309,10 @@ program
     const rt = new Runtime({ workspaceDir: opts.cwd });
     const isRepo = await rt.git.isRepo();
     const factCount = rt.facts.all({ user_id: rt.userId, workspace_id: rt.workspaceId }).length;
-    const hooks = hasClaudeGraphctxHooks({ workspaceDir: rt.workspaceDir });
-    const ready = hooks && factCount > 0;
-    const verdict = ready
-      ? "READY ✅ — hooks installed and memory populated; push is live."
-      : !hooks
-        ? "NOT READY ❌ — run `graphctx install` to wire the hooks."
-        : "NOT READY ❌ — no facts yet; run `graphctx extract`.";
+    const readiness = adapterReadiness(rt.workspaceDir);
+    const verdict = doctorVerdict(readiness, factCount);
     process.stdout.write(
-      `graphctx doctor\n  workspace: ${rt.workspaceDir}\n  db: ${rt.loaded.paths.workspaceDb} (ok)\n  git repo: ${isRepo ? "yes" : "no (anchors degrade gracefully)"}\n  facts stored: ${factCount}\n  claude hooks: ${hooks ? "installed" : "not installed"}\n\n  ${verdict}\n`,
+      `graphctx doctor\n  workspace: ${rt.workspaceDir}\n  db: ${rt.loaded.paths.workspaceDb} (ok)\n  git repo: ${isRepo ? "yes" : "no (anchors degrade gracefully)"}\n  facts stored: ${factCount}\n  claude hooks: ${readiness.claude ? "installed" : "not installed"}\n  cursor MCP: ${readiness.cursor ? "installed" : "not installed"}\n  opencode MCP: ${readiness.opencode ? "installed" : "not installed"}\n  generic grounding: ${readiness.generic ? "installed" : "not installed"}\n\n  ${verdict}\n`,
     );
     rt.close();
   });
@@ -660,6 +669,61 @@ function refreshAgentsCapsule(rt: Runtime): void {
   } catch (e) {
     logError(e);
   }
+}
+
+function resolveInstallBin(explicit?: string): string {
+  if (explicit) return explicit;
+  const argvScript = process.argv[1] ? resolve(process.argv[1]) : "";
+  if (argvScript.endsWith("src/cli.ts")) return `npx tsx ${quote(argvScript)}`;
+  if (argvScript.endsWith("dist/cli.js")) return `node ${quote(argvScript)}`;
+  return "graphctx";
+}
+
+function installNextStep(client: string): string {
+  switch (client) {
+    case "claude":
+      return "Claude Code hooks are installed; lifecycle push is active at SessionStart and PostCompact.";
+    case "cursor":
+      return "Cursor rule + MCP config installed; Cursor gets refreshed AGENTS.md grounding plus MCP recall.";
+    case "opencode":
+      return "OpenCode MCP config installed; OpenCode gets refreshed AGENTS.md grounding plus MCP recall.";
+    default:
+      return "Generic AGENTS.md grounding installed. Configure your client to run `graphctx serve --mcp` for recall.";
+  }
+}
+
+interface AdapterReadiness {
+  claude: boolean;
+  cursor: boolean;
+  opencode: boolean;
+  generic: boolean;
+}
+
+function adapterReadiness(workspaceDir: string): AdapterReadiness {
+  return {
+    claude: hasClaudeGraphctxHooks({ workspaceDir }),
+    cursor: hasCursorGraphctxInstall(workspaceDir),
+    opencode: hasOpenCodeGraphctxInstall(workspaceDir),
+    generic: hasGenericGraphctxInstall(workspaceDir),
+  };
+}
+
+function doctorVerdict(readiness: AdapterReadiness, factCount: number): string {
+  if (factCount === 0) return "NOT READY ❌ — no facts yet; run `graphctx extract`.";
+  if (readiness.claude) {
+    return "READY ✅ — Claude Code hooks installed and memory populated; lifecycle push is live.";
+  }
+  if (readiness.cursor || readiness.opencode) {
+    return "READY ✅ — MCP recall and refreshed static grounding are installed; Claude-only lifecycle push is not active.";
+  }
+  if (readiness.generic) {
+    return "READY ✅ — generic AGENTS.md grounding is installed; configure MCP or Claude hooks for live recall/push.";
+  }
+  return "NOT READY ❌ — run `graphctx install auto` to wire an adapter.";
+}
+
+function quote(path: string): string {
+  return path.includes(" ") ? JSON.stringify(path) : path;
 }
 
 function safeParse(s: string): Record<string, unknown> {

@@ -1,7 +1,7 @@
 {
   "name": "graphctx",
   "version": "0.1.0",
-  "description": "A local-first memory control plane for coding agents — pushes commit-valid, scope-aware context into AI coding agents at the moments they drift.",
+  "description": "A local-first memory control plane for coding agents — lifecycle push for Claude Code, refreshed grounding and MCP recall for other clients.",
   "license": "MIT",
   "type": "module",
   "repository": {

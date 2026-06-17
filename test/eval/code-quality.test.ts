@@ -10,7 +10,7 @@ describe("code quality eval", () => {
     expect(r.evalSuiteCount).toBe(EVAL_GATE_SUITES.length);
     expect(r.evalSuiteCount).toBeGreaterThanOrEqual(19);
     expect(r.coveredEvalSuites).toBe(r.evalSuiteCount);
-    expect(r.staleReadmeCommands).toEqual([]);
+    expect(r.staleDocCommands).toEqual([]);
     expect(r.unexpectedCommands).toEqual([]);
     expect(r.pass).toBe(true);
   }, 30000);

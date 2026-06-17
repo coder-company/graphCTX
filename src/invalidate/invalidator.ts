@@ -142,10 +142,15 @@ export class Invalidator {
     }
   }
 
-  // Resolve an open loop (or any fact) by linking it SUPERSEDED_BY a resolving
-  // fact and marking it superseded so it stops being injected (SPEC §11, item 7).
-  resolve(resolvedFactId: string, byFactId: string): void {
-    this.deps.edges.add(resolvedFactId, "SUPERSEDED_BY", byFactId, byFactId);
-    this.deps.facts.update(resolvedFactId, { status: "superseded", invalidated_by: byFactId });
+  // Resolve an open loop (or any fact) so it stops being injected. When a
+  // separate resolving fact exists, link provenance with SUPERSEDED_BY; a plain
+  // user resolution has no new fact to point at, so do not create a self-edge.
+  resolve(resolvedFactId: string, byFactId?: string): void {
+    if (byFactId) {
+      this.deps.edges.add(resolvedFactId, "SUPERSEDED_BY", byFactId, byFactId);
+      this.deps.facts.update(resolvedFactId, { status: "superseded", invalidated_by: byFactId });
+      return;
+    }
+    this.deps.facts.update(resolvedFactId, { status: "superseded" });
   }
 }

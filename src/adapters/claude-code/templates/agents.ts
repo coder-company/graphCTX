@@ -10,15 +10,16 @@ export function renderAgentsCapsule(opts: {
   return `<!-- graphctx:begin -->
 ## graphCTX memory (boot grounding)
 
-This project is tracked by **graphCTX** — a local-first memory layer that pushes
-commit-valid context at lifecycle moments. The durable facts below are grounding;
-live recall is pushed automatically at SessionStart and after compaction.
+This project is tracked by **graphCTX** — a local-first memory layer for
+commit-valid project context. The durable facts below are static grounding;
+Claude Code hooks can push fresher context at lifecycle moments, while MCP
+clients can call recall for live memory.
 
 **Known durable facts (as of ${opts.generatedAt}):**
 ${bullets}
 
-> If you need more, you may call the \`recall\` tool — but graphCTX will also push
-> the relevant memory to you proactively, so you should not need to ask.
+> If you need more, call the \`recall\` tool. Claude Code hook installs also
+> receive lifecycle push context automatically.
 <!-- graphctx:end -->`;
 }
 

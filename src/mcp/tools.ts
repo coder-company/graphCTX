@@ -167,9 +167,11 @@ export const MCP_TOOLS: McpTool[] = [
     outputSchema: s({ fact_id: str, status: str }, ["fact_id", "status"]),
     async handler(rt, args) {
       const a = forgetInput.parse(args);
-      rt.facts.expire(a.fact_id, a.fact_id);
+      const id = rt.resolveFactId(a.fact_id);
+      if (!id) throw new Error(`fact not found: ${a.fact_id}`);
+      rt.facts.expire(id, id);
       refreshAgentsCapsule(rt);
-      return { fact_id: a.fact_id, status: "expired" };
+      return { fact_id: id, status: "expired" };
     },
   },
   {
@@ -179,7 +181,8 @@ export const MCP_TOOLS: McpTool[] = [
     outputSchema: s({ fact: obj, error: str }),
     async handler(rt, args) {
       const a = whyInput.parse(args);
-      const report = rt.why(a.fact_id);
+      const id = rt.resolveFactId(a.fact_id);
+      const report = id ? rt.why(id) : null;
       return report ?? { error: "fact not found" };
     },
   },

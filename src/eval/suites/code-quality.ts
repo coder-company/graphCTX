@@ -17,6 +17,7 @@ export interface CodeQualityReport {
   commandCount: number;
   evalSuiteCount: number;
   coveredEvalSuites: number;
+  staleDocCommands: string[];
   staleReadmeCommands: string[];
   unexpectedCommands: string[];
   pass: boolean;
@@ -49,14 +50,24 @@ const EXPECTED_COMMANDS = [
 ] as const;
 const EXPECTED_COMMAND_SET = new Set<string>(EXPECTED_COMMANDS);
 
-const STALE_README_PATTERNS = [
-  /graphctx inject\b/,
-  /graphctx time-travel\b/,
-  /graphctx why fact\b/,
-  /graphctx profile\b/,
-  /graphctx conflicts\b/,
-  /graphctx checkpoint\b/,
-];
+const DOC_COMMAND_SURFACE_FILES = [
+  "README.md",
+  "DEMO.md",
+  "docs/SPEC.md",
+  "docs/STATUS.md",
+  "docs/PRD.md",
+  "docs/GAMEPLAN.md",
+] as const;
+
+const STALE_DOC_PATTERNS = [
+  { label: "graphctx inject", re: /graphctx inject\b/ },
+  { label: "graphctx time-travel", re: /graphctx time-travel\b/ },
+  { label: "graphctx why fact", re: /graphctx why fact\b/ },
+  { label: "graphctx profile", re: /graphctx profile\b/ },
+  { label: "graphctx conflicts", re: /graphctx conflicts\b/ },
+  { label: "graphctx checkpoint", re: /graphctx checkpoint\b/ },
+  { label: "CLI time-travel", re: /CLI[^\n]*time-travel/ },
+] as const;
 
 const EXPECTED_EVAL_TESTS: Record<EvalGateSuite, string> = {
   run: "test/eval/harness.test.ts",
@@ -142,22 +153,21 @@ export function runCodeQualityEval(): CodeQualityReport {
   const helpCommands = commandsFromHelp(help.stdout);
   const statusRow = tableRow(readRepo("docs/STATUS.md"), "cli.ts");
   const readme = readRepo("README.md");
+  const launchDocs = readLaunchDocs();
   const missingHelp = EXPECTED_COMMANDS.filter((cmd) => !helpCommands.includes(cmd));
   const unexpectedCommands = helpCommands.filter((cmd) => !EXPECTED_COMMAND_SET.has(cmd));
   const missingStatus = EXPECTED_COMMANDS.filter((cmd) => !statusRow.includes(cmd));
   const missingReadme = EXPECTED_COMMANDS.filter((cmd) => !readme.includes(`graphctx ${cmd}`));
-  const staleReadmeCommands = STALE_README_PATTERNS.filter((p) => p.test(readme)).map((p) =>
-    p.source.replaceAll("\\b", ""),
-  );
+  const staleDocCommands = staleCommandsInDocs(launchDocs);
   check(
-    "CLI command surface is documented, reachable, and free of stale README commands",
+    "CLI command surface is documented, reachable, and free of stale launch-doc commands",
     help.status === 0 &&
       missingHelp.length === 0 &&
       unexpectedCommands.length === 0 &&
       missingStatus.length === 0 &&
       missingReadme.length === 0 &&
-      staleReadmeCommands.length === 0,
-    `missingHelp=${missingHelp.join(",") || "-"} unexpected=${unexpectedCommands.join(",") || "-"} missingStatus=${missingStatus.join(",") || "-"} missingReadme=${missingReadme.join(",") || "-"} stale=${staleReadmeCommands.join(",") || "-"}`,
+      staleDocCommands.length === 0,
+    `missingHelp=${missingHelp.join(",") || "-"} unexpected=${unexpectedCommands.join(",") || "-"} missingStatus=${missingStatus.join(",") || "-"} missingReadme=${missingReadme.join(",") || "-"} stale=${staleDocCommands.join(",") || "-"}`,
   );
 
   const cliSource = readRepo("src/cli.ts");
@@ -186,6 +196,16 @@ export function runCodeQualityEval(): CodeQualityReport {
     "requires setup/run/test instructions and no stale pre-MVP framing",
   );
 
+  const generatedMigration = "src/store/migrations.generated.ts";
+  const generatedMigrationIgnored = command("git", ["check-ignore", generatedMigration]);
+  check(
+    "generated migration import target exists and is not gitignored",
+    existsSync(join(repoRoot, generatedMigration)) && generatedMigrationIgnored.status !== 0,
+    `exists=${String(existsSync(join(repoRoot, generatedMigration)))} gitignored=${String(
+      generatedMigrationIgnored.status === 0,
+    )}`,
+  );
+
   const checks = detail.length;
   const coveredEvalSuites = EVAL_GATE_SUITES.filter((suite) =>
     existsSync(join(repoRoot, EXPECTED_EVAL_TESTS[suite])),
@@ -199,7 +219,8 @@ export function runCodeQualityEval(): CodeQualityReport {
     commandCount: helpCommands.length,
     evalSuiteCount: EVAL_GATE_SUITES.length,
     coveredEvalSuites,
-    staleReadmeCommands,
+    staleDocCommands,
+    staleReadmeCommands: staleDocCommands,
     unexpectedCommands,
     pass,
   };
@@ -217,7 +238,7 @@ export function formatCodeQualityReport(r: CodeQualityReport): string {
     `  checks: ${r.passed}/${r.checks}   full biome exit: ${r.fullBiomeExit}   commands: ${r.commandCount}   unexpected commands: ${r.unexpectedCommands.length}`,
   );
   lines.push(
-    `  eval suites: ${r.evalSuiteCount}   covered suites: ${r.coveredEvalSuites}   stale README commands: ${r.staleReadmeCommands.length}`,
+    `  eval suites: ${r.evalSuiteCount}   covered suites: ${r.coveredEvalSuites}   stale doc commands: ${r.staleDocCommands.length}`,
   );
   lines.push(
     r.pass
@@ -274,6 +295,20 @@ function hasEvalRunner(cliSource: string, suite: EvalGateSuite): boolean {
 
 function readRepo(path: string): string {
   return readFileSync(join(repoRoot, path), "utf8");
+}
+
+function readLaunchDocs(): Array<{ path: string; text: string }> {
+  return DOC_COMMAND_SURFACE_FILES.map((path) => ({ path, text: readRepo(path) }));
+}
+
+function staleCommandsInDocs(docs: Array<{ path: string; text: string }>): string[] {
+  const hits: string[] = [];
+  for (const doc of docs) {
+    for (const pattern of STALE_DOC_PATTERNS) {
+      if (pattern.re.test(doc.text)) hits.push(`${doc.path}:${pattern.label}`);
+    }
+  }
+  return hits;
 }
 
 function firstDiagnostic(result: CommandResult): string {

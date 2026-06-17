@@ -203,7 +203,7 @@ export async function runCliDocsDemoEval(): Promise<CliDocsDemoReport> {
     doctor.notReady.status === 0 &&
       doctor.ready.status === 0 &&
       doctor.notReady.stdout.includes("NOT READY") &&
-      doctor.notReady.stdout.includes("graphctx install") &&
+      /graphctx (install|extract)/.test(doctor.notReady.stdout) &&
       doctor.ready.stdout.includes("READY") &&
       doctor.ready.stdout.includes("push is live") &&
       doctor.afterUninstall.stdout.includes("NOT READY") &&
@@ -224,9 +224,9 @@ export async function runCliDocsDemoEval(): Promise<CliDocsDemoReport> {
     install.installed.status === 0 &&
       install.uninstalled.status === 0 &&
       install.settingsPresent &&
-      install.graphctxAfterInstall > 0 &&
-      install.graphctxAfterUninstall === 0,
-    `settings=${install.settingsPresent} matches=${install.graphctxAfterInstall}->${install.graphctxAfterUninstall}`,
+      install.hooksAfterInstall > 0 &&
+      install.hooksAfterUninstall === 0,
+    `settings=${install.settingsPresent} hooks=${install.hooksAfterInstall}->${install.hooksAfterUninstall}`,
   );
 
   const auto = evaluateInstallAutoAndUnknown();
@@ -335,7 +335,7 @@ function commandsFromHelp(help: string): string[] {
 }
 
 function parseQuotedArrayAssignment(text: string, key: string): string[] {
-  const m = text.match(new RegExp(`${key}\\s*=\\s*\\[([^\\]]*)\\]`));
+  const m = text.match(new RegExp(`["']?${key}["']?\\s*[:=]\\s*\\[([^\\]]*)\\]`));
   return m?.[1] ? quotedStrings(m[1]) : [];
 }
 
@@ -452,8 +452,8 @@ function evaluateInstallRoundTrip(): {
   installed: CliResult;
   uninstalled: CliResult;
   settingsPresent: boolean;
-  graphctxAfterInstall: number;
-  graphctxAfterUninstall: number;
+  hooksAfterInstall: number;
+  hooksAfterUninstall: number;
 } {
   return withTempDir("graphctx-cli-install-", (dir) => {
     initGitRepo(dir);
@@ -466,8 +466,11 @@ function evaluateInstallRoundTrip(): {
       installed,
       uninstalled,
       settingsPresent: existsSync(settingsPath),
-      graphctxAfterInstall: countMatches(installedText, /graphctx/g),
-      graphctxAfterUninstall: countMatches(uninstalledText, /graphctx/g),
+      hooksAfterInstall: countMatches(installedText, /hook (SessionStart|PostCompact|SessionEnd)/g),
+      hooksAfterUninstall: countMatches(
+        uninstalledText,
+        /hook (SessionStart|PostCompact|SessionEnd)/g,
+      ),
     };
   });
 }

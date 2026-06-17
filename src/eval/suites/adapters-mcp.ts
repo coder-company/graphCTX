@@ -272,6 +272,17 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
 
       const unknown = await callTool(server, requestId++, "does_not_exist", {});
       check("MCP rejects unknown tool", unknown.error?.code === -32602);
+      const forgetMissing = await callTool(server, requestId++, "forget", {
+        fact_id: "DOESNOTEXIST",
+      });
+      check("MCP forget rejects a missing fact", forgetMissing.result?.isError === true);
+      const whySuffix = await callTool(server, requestId++, "why", {
+        fact_id: rememberedFactId.slice(-8),
+      });
+      check(
+        "MCP why accepts a last-8 fact id suffix",
+        whySuffix.result?.isError === false && isRecord(payloadObject(whySuffix)?.fact),
+      );
 
       const badMethod = (await server.handle({
         jsonrpc: "2.0",

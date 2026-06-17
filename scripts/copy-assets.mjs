@@ -7,6 +7,7 @@ const root = join(here, "..");
 
 copyDir("src/store/migrations", "dist/store/migrations");
 copyDir("src/extract/llm/prompts", "dist/extract/llm/prompts");
+copyDir("fixtures/repo-pnpm-web", "dist/fixtures/repo-pnpm-web");
 
 function copyDir(fromRel, toRel) {
   const from = join(root, fromRel);

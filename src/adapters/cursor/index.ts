@@ -73,3 +73,21 @@ export class CursorAdapter implements Adapter {
     writeAgentsCapsuleFacts(this.workspaceDir, factsFromCapsule(capsule));
   }
 }
+
+export function hasCursorGraphctxInstall(workspaceDir: string): boolean {
+  const rulePath = join(workspaceDir, ".cursor", "rules", "graphctx.mdc");
+  const mcpPath = join(workspaceDir, ".cursor", "mcp.json");
+  if (!existsSync(rulePath) || !existsSync(mcpPath)) return false;
+  try {
+    const mcp = JSON.parse(readFileSync(mcpPath, "utf8")) as {
+      mcpServers?: Record<string, unknown>;
+    };
+    return isRecord(mcp.mcpServers?.graphctx);
+  } catch {
+    return false;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}

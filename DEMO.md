@@ -232,12 +232,13 @@ blocks the agent. Extracted facts are capped to low trust (I2), secret-scrubbed
 
 ## 4e. Any client + the MCP surface (M4)
 
-graphCTX is not Claude-only. One command wires whichever client you use; hookless
-clients still get the Tier-0 `AGENTS.md` floor + Tier-1 MCP riders.
+graphCTX is not Claude-only, but the channels are not equivalent. Claude Code is
+the true lifecycle-push path today; hookless clients get the Tier-0 `AGENTS.md`
+floor plus Tier-1 MCP recall/riders.
 
 ```bash
-graphctx install cursor      # writes .cursor/rules + registers the MCP server
-graphctx install opencode    # registers the MCP server in opencode.json
+graphctx install cursor      # writes .cursor/rules + registers MCP recall
+graphctx install opencode    # registers MCP recall in opencode.json
 graphctx install auto        # auto-detect the client in this workspace
 
 # the long-lived MCP server (stdio JSON-RPC) exposes EXACTLY 8 tools (I8):
@@ -253,7 +254,7 @@ graphctx eval mcp            # install per client + MCP 8-tool smoke + secure pr
 ```
   ✓ MCP exposes EXACTLY 8 tools (I8) — got 8
   ✓ proxy (enabled) refuses a capsule that trips the secret scanner (I3)
-  checks: 55/55   MCP tools: 8 (must be 8)   proxy leaks: 0 (must be 0)
+  checks: 60/60   MCP tools: 8 (must be 8)   proxy leaks: 0 (must be 0)
   VERDICT: ✅ M4 GATE PASS — multi-client install, MCP 8-tool surface, secure proxy, telemetry classifies.
 ```
 

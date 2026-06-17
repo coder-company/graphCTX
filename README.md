@@ -1,8 +1,8 @@
 # graphCTX
 
-Local-first memory for coding agents. graphCTX pushes commit-valid, scope-aware
-context into AI coding agents at lifecycle moments where pull-based memory is
-least reliable: session start, tool use, failure recovery, and compaction.
+Local-first memory for coding agents. graphCTX gives Claude Code lifecycle-hook
+push for commit-valid, scope-aware context, and gives Cursor, OpenCode, and
+generic clients refreshed static grounding plus MCP/recall fallback.
 
 Everything runs on your machine: CLI, embedded SQLite, git anchoring, eval
 harness, benchmarks, and MCP stdio server. There is no required web service and
@@ -16,8 +16,8 @@ no required network call for normal operation.
   signals, and commit-valid filtering.
 - Injection planner with lifecycle gate, token budgeting, anti-repetition
   ledger, open-loop resurfacing, send-edge security checks, and provenance tags.
-- Claude Code hook adapter plus Cursor, OpenCode, generic, and proxy channel
-  ladder support.
+- Claude Code hook adapter for lifecycle push, plus Cursor, OpenCode, generic,
+  and proxy channel ladder support for static grounding and MCP/recall fallback.
 - MCP stdio server exposing exactly 8 tools:
   `remember`, `recall`, `inject_context`, `checkpoint_session`, `promote`,
   `forget`, `why`, `resolve_conflict`.
@@ -82,12 +82,12 @@ graphctx demo
 
 ## CLI Reference
 
-All shipped commands are discoverable with `graphctx --help`:
+Core installed commands are discoverable with `graphctx --help`:
 
 ```bash
 graphctx init
 graphctx install <claude|cursor|opencode|generic|auto>
-graphctx uninstall claude
+graphctx uninstall <claude|cursor|opencode|generic>
 graphctx hook <event>
 graphctx recall "<query>"
 graphctx remember "<text>"
@@ -99,20 +99,21 @@ graphctx why <fact_id_or_last8>
 graphctx doctor
 graphctx demo
 graphctx tui
-graphctx compare
-graphctx bench
-graphctx eval <suite|all>
 ```
 
-Useful eval commands:
+Development-checkout gates:
 
 ```bash
-graphctx eval all
-graphctx eval quality
-graphctx eval cli-docs-demo
-graphctx eval mcp
-graphctx eval run --arms A,B,C,N,S
+npx tsx src/cli.ts eval all
+npx tsx src/cli.ts eval quality
+npx tsx src/cli.ts eval cli-docs-demo
+npx tsx src/cli.ts eval mcp
+npx tsx src/cli.ts eval run --arms A,B,C,N,S
+npx tsx src/cli.ts bench
 ```
+
+The development-only command names are still exposed by the CLI for repo
+checkouts: `graphctx eval <suite|all>`, `graphctx bench`, and `graphctx compare`.
 
 ## Testing And Quality Gates
 
@@ -126,15 +127,13 @@ npx vitest run
 npm run pack:smoke
 npx tsx src/cli.ts eval all
 npx tsx src/cli.ts bench
-node autoresearch-results/metric.mjs
 ```
 
 Expected current state:
 
 - `npx vitest run`: 170 tests pass.
-- `npm run pack:smoke`: packed tarball installs and serves MCP from a clean temp app.
+- `npm run pack:smoke`: packed tarball installs, runs the demo, and serves MCP from a clean temp app.
 - `npx tsx src/cli.ts eval all`: 19 gate suites pass.
-- `node autoresearch-results/metric.mjs`: `failingGates` is `0`.
 - `npx tsx src/cli.ts bench`: hook hot-path p95 is below 150ms.
 
 ## Design Notes

@@ -46,9 +46,8 @@ export function installClaudeHooks(opts: InstallOptions): { settingsPath: string
   for (const event of HOOK_EVENTS) {
     const command = `${bin} hook ${event}`;
     settings.hooks[event] = [
-      {
-        hooks: [{ type: "command", command }],
-      },
+      ...withoutGraphctxHooks(settings.hooks[event], event),
+      graphctxHookGroup(command),
     ];
   }
 
@@ -65,7 +64,11 @@ export function uninstallClaudeHooks(opts: InstallOptions): void {
   try {
     const settings: ClaudeSettings = JSON.parse(readFileSync(settingsPath, "utf8"));
     if (settings.hooks) {
-      for (const event of HOOK_EVENTS) delete settings.hooks[event];
+      for (const event of HOOK_EVENTS) {
+        const kept = withoutGraphctxHooks(settings.hooks[event], event);
+        if (kept.length > 0) settings.hooks[event] = kept;
+        else settings.hooks[event] = [];
+      }
     }
     writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
   } catch {
@@ -92,15 +95,48 @@ function hasGraphctxHook(value: unknown, event: string): boolean {
   if (!isRecord(value)) return false;
 
   const command = value.command;
-  if (
-    typeof command === "string" &&
-    command.includes("graphctx") &&
-    command.includes(`hook ${event}`)
-  ) {
+  if (typeof command === "string" && isGraphctxHookCommand(command, event)) {
     return true;
   }
 
   return hasGraphctxHook(value.hooks, event);
+}
+
+function withoutGraphctxHooks(value: unknown, event: string): unknown[] {
+  if (!Array.isArray(value)) return [];
+  const kept: unknown[] = [];
+  for (const item of value) {
+    if (!isRecord(item)) {
+      kept.push(item);
+      continue;
+    }
+    if (Array.isArray(item.hooks)) {
+      const hooks = item.hooks.filter((hook) => !hookMatchesGraphctx(hook, event));
+      if (hooks.length > 0) kept.push({ ...item, hooks });
+      continue;
+    }
+    if (!hasGraphctxHook(item, event)) kept.push(item);
+  }
+  return kept;
+}
+
+function hookMatchesGraphctx(value: unknown, event: string): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.command === "string" && isGraphctxHookCommand(value.command, event);
+}
+
+function isGraphctxHookCommand(command: string, event: string): boolean {
+  if (!command.includes(`hook ${event}`)) return false;
+  return (
+    /\bgraphctx\b/i.test(command) ||
+    /(?:^|\s)(?:node|tsx|npx tsx)\s+\S*\/cli\.(?:js|ts)(?:\s|$)/.test(command)
+  );
+}
+
+function graphctxHookGroup(command: string): {
+  hooks: Array<{ type: "command"; command: string }>;
+} {
+  return { hooks: [{ type: "command", command }] };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

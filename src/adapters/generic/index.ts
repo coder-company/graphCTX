@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { Capsule, InjectionContext } from "../../core/types.js";
 import type { Adapter, Capability, ChannelTier, InstallOptions } from "../adapter.js";
 import { factsFromCapsule, writeAgentsCapsuleFacts } from "../boot-capsule.js";
@@ -22,10 +24,16 @@ export class GenericAdapter implements Adapter {
   }
 
   async install(_opts: InstallOptions): Promise<void> {
-    // Nothing to wire beyond the AGENTS.md floor, written on deliver(T0).
+    // Mark the explicit generic install. The AGENTS.md floor itself is written
+    // by the CLI after extraction, but init also writes AGENTS.md; the marker
+    // lets doctor distinguish "installed generic" from "just initialized".
+    const marker = genericInstallMarker(this.workspaceDir);
+    mkdirSync(dirname(marker), { recursive: true });
+    writeFileSync(marker, `${JSON.stringify({ adapter: "generic" }, null, 2)}\n`, "utf8");
   }
 
   async uninstall(): Promise<void> {
+    rmSync(genericInstallMarker(this.workspaceDir), { force: true });
     // Leave AGENTS.md in place; it's user-visible content.
   }
 
@@ -49,4 +57,12 @@ export class GenericAdapter implements Adapter {
   rider(capsule: Capsule): string {
     return buildRider(capsule);
   }
+}
+
+export function hasGenericGraphctxInstall(workspaceDir: string): boolean {
+  return existsSync(genericInstallMarker(workspaceDir));
+}
+
+function genericInstallMarker(workspaceDir: string): string {
+  return join(workspaceDir, ".graphctx", "adapters", "generic.json");
 }

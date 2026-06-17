@@ -1,7 +1,7 @@
 # graphCTX — Product Requirements Document
 
 > **A local-first memory control plane for coding agents.**
-> graphCTX pushes commit-valid, scope-aware, procedurally useful context into AI coding agents at the exact lifecycle moments where they drift — instead of hoping the model remembers to ask.
+> graphCTX pushes commit-valid, scope-aware, procedurally useful context into Claude Code at the exact lifecycle moments where agents drift, and gives other coding clients refreshed grounding plus MCP recall instead of hoping the model remembers unaided.
 
 | | |
 |---|---|
@@ -99,7 +99,7 @@ Runs an agent on the same repo for weeks. Pain: re-teaching the agent the same t
 ## 5. Product Overview
 
 graphCTX ships as:
-1. **A CLI** (`graphctx`) — init, serve, install adapters, recall/remember/promote/forget/why, time-travel, eval.
+1. **A CLI** (`graphctx`) — init, serve, install adapters, recall/remember/loop/resolve/extract/why, bench, eval.
 2. **An MCP server** — exposes a small, deliberate tool surface (recall is *available* but not the primary path).
 3. **An adapter layer** — installs client-specific push surfaces (Claude Code hooks first) and degrades gracefully.
 4. **A local temporal store** — SQLite, commit-anchored facts + an append-only episode log.
@@ -247,7 +247,7 @@ Selection optimizes **marginal utility per token** with a diversity/redundancy p
 graphctx init                      # set up store + write AGENTS.md capsule
 graphctx serve --mcp               # run MCP server
 graphctx install claude|cursor|opencode|generic|auto
-graphctx uninstall claude
+graphctx uninstall claude|cursor|opencode|generic
 graphctx remember "<fact>" -C .
 graphctx recall "<query>" -C . --budget 1000
 graphctx loop "<unfinished work>" -C .
@@ -387,7 +387,7 @@ Validate via M0's A/B/C eval before building graph/promotion infrastructure. If 
 
 Not pitched as *"a temporal-KG memory server"* — that space exists (Mem0, Zep/Graphiti, Supermemory, MemoryGraph). graphCTX is:
 
-> **A local-first memory control plane for coding agents that pushes commit-valid, scope-aware, procedurally useful context at the exact lifecycle moments where agents drift.**
+> **A local-first memory control plane for coding agents: lifecycle push for Claude Code, refreshed grounding and MCP recall for other clients, all backed by commit-valid memory.**
 
 The moat is the **injection loop + promotion discipline**, not the storage.
 
