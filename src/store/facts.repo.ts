@@ -10,7 +10,7 @@ import type {
   ScoredFact,
 } from "../core/types.js";
 import { sensitivityForText } from "../security/secrets.js";
-import type { DB } from "./db.js";
+import { type DB, tx } from "./db.js";
 
 interface FactRow {
   fact_id: string;
@@ -164,6 +164,10 @@ export class FactsRepo {
   // Attach a vector index so writes keep the semantic index in sync (M1).
   attachVectorIndex(sink: FactVectorSink): void {
     this.vectors = sink;
+  }
+
+  transaction<T>(fn: () => T): T {
+    return tx(this.db, fn);
   }
 
   // I1: defaults to candidate / session_only unless explicitly overridden.

@@ -598,7 +598,7 @@ processIncomingFact(newFact):
 function sessionToWorkspace(f: Fact, ctx): Decision {
   if (f.sensitivity === "secret" || f.sensitivity === "credential") return Reject("secret");
   if (f.fact_kind === "task_state") return Reject("session-local");
-  if (["disputed","expired","rejected"].includes(f.status)) return Reject("bad lifecycle");
+  if (["disputed","expired","rejected","superseded"].includes(f.status)) return Reject("bad lifecycle");
   if (hasUnresolvedConflict(f)) return Candidate("needs resolution");
 
   if (f.source.asserted_by === "user" && saysRepoScoped(f)) return Promote("user_explicit");
@@ -619,7 +619,7 @@ function workspaceToUser(f: Fact, ctx): Decision {
 }
 ```
 
-`probation.ts` — candidates require: clean lifecycle, no unresolved conflict, and (for perishable) verification before becoming `active`. Promotion sweeps run periodically in the MCP worker and on `SessionEnd`.
+`probation.ts` — candidates require: clean lifecycle, no unresolved conflict, and (for perishable) verification before becoming `active`. State changes, git anchors, and promotion audit rows are written atomically so a fact cannot become active without its audit trail. Promotion sweeps run periodically in the MCP worker and on `SessionEnd`.
 
 ---
 

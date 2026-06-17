@@ -43,6 +43,14 @@ export class Probation {
     workspace_id?: string;
     session_id?: string;
   }): SweepResult {
+    return this.deps.facts.transaction(() => this.sweepSessionToWorkspaceInTransaction(scope));
+  }
+
+  private sweepSessionToWorkspaceInTransaction(scope: {
+    user_id: string;
+    workspace_id?: string;
+    session_id?: string;
+  }): SweepResult {
     const result: SweepResult = {
       considered: 0,
       promoted: 0,

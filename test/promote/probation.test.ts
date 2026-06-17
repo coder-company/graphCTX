@@ -79,4 +79,22 @@ describe("Probation sweep (session → workspace)", () => {
     probation.sweepSessionToWorkspace(scope);
     expect(facts.get(fact.fact_id)!.promotion_state).toBe("workspace_candidate");
   });
+
+  it("rolls back fact state when promotion audit recording fails", () => {
+    const fact = facts.insert(f({}));
+    const originalRecord = promotions.record.bind(promotions);
+    promotions.record = (() => {
+      throw new Error("audit failed");
+    }) as PromotionsRepo["record"];
+
+    try {
+      expect(() => probation.sweepSessionToWorkspace(scope)).toThrow("audit failed");
+      const after = facts.get(fact.fact_id)!;
+      expect(after.promotion_state).toBe("session_only");
+      expect(after.status).toBe("candidate");
+      expect(promotions.forFact(fact.fact_id)).toEqual([]);
+    } finally {
+      promotions.record = originalRecord as PromotionsRepo["record"];
+    }
+  });
 });
