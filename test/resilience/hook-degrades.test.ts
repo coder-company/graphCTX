@@ -114,4 +114,21 @@ describe("I9 resilience — agent still runs when graphCTX is broken", () => {
     expect(stored).not.toContain(secret);
     expect(stored).toContain("[REDACTED:");
   });
+
+  it("secret-bearing hook session ids are replaced before episode persistence", async () => {
+    const sessionSecret = "Authorization: Bearer plainlowentropytoken123";
+    const rt = new Runtime({ workspaceDir: dir, userId: "u" });
+    await handleHook(rt, "UserPromptSubmit", {
+      session_id: sessionSecret,
+      cwd: dir,
+      prompt: "continue the task",
+    });
+    const leakedRows = rt.episodes.bySession(sessionSecret);
+    const redactedRows = rt.episodes.bySession("redacted-session");
+    rt.close();
+
+    expect(leakedRows).toHaveLength(0);
+    expect(redactedRows).toHaveLength(1);
+    expect(JSON.stringify(redactedRows)).not.toContain(sessionSecret);
+  });
 });

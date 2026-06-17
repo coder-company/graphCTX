@@ -1,7 +1,7 @@
 import { normalizeClaudeEvent } from "../../capture/normalizers.js";
 import type { Capsule, Event } from "../../core/types.js";
 import type { Runtime } from "../../runtime.js";
-import { redactSecretValue, redactSecrets } from "../../security/secrets.js";
+import { containsSecret, redactSecretValue, redactSecrets } from "../../security/secrets.js";
 
 // Claude Code hook payload (subset we use). Field names follow Claude Code's
 // hook input schema; unknown fields are ignored.
@@ -29,6 +29,7 @@ const VALID_EVENTS = new Set<Event>([
   "PostCompact",
   "SessionEnd",
 ]);
+const REDACTED_SESSION_ID = "redacted-session";
 
 export interface HookResult {
   capsule: Capsule;
@@ -43,7 +44,7 @@ export async function handleHook(
   payload: ClaudeHookPayload,
 ): Promise<HookResult> {
   const event = eventArg as Event;
-  const sessionId = payload.session_id ?? "default-session";
+  const sessionId = safeSessionId(payload.session_id);
 
   // Resolve git state for capture context.
   let gitHead: string | undefined;
@@ -120,6 +121,11 @@ export async function handleHook(
   } catch {
     return emptyResult();
   }
+}
+
+function safeSessionId(sessionId: string | undefined): string {
+  if (!sessionId) return "default-session";
+  return containsSecret(sessionId) ? REDACTED_SESSION_ID : sessionId;
 }
 
 function emptyResult(): HookResult {

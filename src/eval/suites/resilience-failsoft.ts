@@ -129,7 +129,7 @@ export async function runResilienceFailsoftEval(): Promise<ResilienceFailsoftRep
   check(
     "secret-bearing hook payloads are redacted before episode persistence",
     hookCaptureRedaction.ok,
-    `storedSecret=${hookCaptureRedaction.secretLeaked} redacted=${hookCaptureRedaction.redacted}`,
+    `storedSecret=${hookCaptureRedaction.secretLeaked} sessionSecret=${hookCaptureRedaction.sessionSecretLeaked} redacted=${hookCaptureRedaction.redacted}`,
   );
 
   const provider = await evaluateProviderFailsoft();
@@ -240,14 +240,16 @@ function evaluateBadConfigCases(): {
 async function evaluateHookCaptureRedaction(): Promise<{
   ok: boolean;
   secretLeaked: boolean;
+  sessionSecretLeaked: boolean;
   redacted: boolean;
 }> {
   return withTempDirAsync(async (dir) => {
     const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+    const sessionSecret = "Authorization: Bearer plainlowentropytoken123";
     const rt = new Runtime({ workspaceDir: dir, userId: "resilience-eval" });
     try {
       await handleHook(rt, "UserPromptSubmit", {
-        session_id: "s-redact",
+        session_id: sessionSecret,
         cwd: dir,
         prompt: `deploy with token ${secret}`,
         tool_name: "Bash",
@@ -261,10 +263,17 @@ async function evaluateHookCaptureRedaction(): Promise<{
           stdout: `ignored stdout ${secret}`,
         },
       });
-      const stored = JSON.stringify(rt.episodes.bySession("s-redact").map((e) => e.payload));
+      const leakedSessionRows = rt.episodes.bySession(sessionSecret);
+      const stored = JSON.stringify(rt.episodes.bySession("redacted-session"));
       const secretLeaked = stored.includes(secret);
+      const sessionSecretLeaked = leakedSessionRows.length > 0 || stored.includes(sessionSecret);
       const redacted = stored.includes("[REDACTED:");
-      return { ok: !secretLeaked && redacted, secretLeaked, redacted };
+      return {
+        ok: !secretLeaked && !sessionSecretLeaked && redacted,
+        secretLeaked,
+        sessionSecretLeaked,
+        redacted,
+      };
     } finally {
       rt.close();
     }

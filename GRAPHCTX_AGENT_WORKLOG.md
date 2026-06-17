@@ -272,3 +272,16 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `npx biome check src test`
+
+### Iteration 54 - hook session-id redaction
+
+- Normalized secret-shaped Claude hook `session_id` values to
+  `redacted-session` before episode capture, promotion sweep, injection
+  planning, injection logging, or ledger writes.
+- Strengthened hook resilience tests and eval coverage so payload secrets and
+  session-id secrets are both absent from persisted episode data.
+- Updated README/STATUS counters to 207 Vitest tests.
+- Verification:
+  - `npx biome check --write src/adapters/claude-code/hooks.ts test/resilience/hook-degrades.test.ts src/eval/suites/resilience-failsoft.ts`
+  - `npx vitest run test/resilience/hook-degrades.test.ts`
+  - `npx tsx src/cli.ts eval resilience`
