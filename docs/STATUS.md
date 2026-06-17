@@ -91,7 +91,7 @@ _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 ho
 | Green tree (5 gates) | ✅ perfected | all 5 gates green; biome format errors fixed (iter1) |
 | Retrieval & ranking | 🟡 in-progress | RRF fusion (iter3) + stopword filter (iter8): recall@1 0.61, recall@5 0.94, recall@10 1.00, MRR 0.76 (was 0.33/0.50/0.67/0.43). `eval retrieval` regression gate |
 | Relevance gate precision | 🟡 in-progress | gate-precision suite (iter4): P/R/F1=1.0 on 26 labeled cases, all 4 branches (TP15 FP0 FN0 TN11). Guarded in `eval gate`. To perfect: adversarial + utility-labeled dataset |
-| Invalidation & temporal | ⬜ untouched | git-DAG events working; patch-id depth + bi-temporal SOTA compare pending |
+| Invalidation & temporal | 🟡 in-progress | real-git temporal-correctness suite (iter9): 7/7 gated scenarios over throwaway repos (fast-forward/branch-isolation/revert/merge/rebase/cherry-pick patch-id/detectEvent matrix). Fixed SEVERE `isAncestor` always-true bug + revert-trailer revalidation + patch-id `--no-commit-id`. `eval temporal` guards it. To perfect: wire patch-id equivalence into `isValidAsOf` (known gap) |
 | Conflict & precedence | ⬜ untouched | 0 silent LWW; concurrency stress scale pending |
 | LLM extraction & procedures | ⬜ untouched | safe+capped; precision/recall not quantified |
 | Promotion engine | ⬜ untouched | precision 100% on labeled set; recall on larger set pending |
@@ -108,4 +108,4 @@ _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 ho
 | Code quality | ⬜ untouched | coverage % + dead-code audit pending |
 
 _Loop note: composite metric = (failing_gates × 100) + (un-perfected aspects); within-aspect
-measured gains are recorded in the `memory` graph. Tests: 139, gate suites: 8 (added `eval retrieval`)._
+measured gains are recorded in the `memory` graph. Tests: 148, gate suites: 11 (`eval all` includes retrieval/gate/security/temporal)._
