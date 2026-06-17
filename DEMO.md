@@ -265,7 +265,7 @@ only** and refuses to inject any capsule that trips the secret scanner.
 ## 4f. Run every gate at once
 
 ```bash
-graphctx eval all     # 18 suites: A/B/C/N/S, memory, promote, drift, retrieval, gate, security, branch, temporal, conflict, procedure, mcp, storage, telemetry, provenance, resilience, benchmarks, cli-docs-demo
+graphctx eval all     # 19 suites: A/B/C/N/S, memory, promote, drift, retrieval, gate, security, branch, temporal, conflict, procedure, mcp, storage, telemetry, provenance, resilience, benchmarks, cli-docs-demo, quality
 ```
 
 ---

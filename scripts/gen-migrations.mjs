@@ -1,7 +1,7 @@
 // Inlines the SQL migration files into a TS module so the compiled single-file
 // binary (which has no filesystem access to src/store/migrations) can run them.
 // Runs in the build pipeline before tsc / bun build.
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 

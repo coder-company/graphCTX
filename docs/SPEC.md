@@ -775,7 +775,7 @@ graphctx demo [--dir <dir>]            # one-command offline reproducible demo
 graphctx tui [-C <dir>] [--tab dashboard|control|monitor]
 graphctx compare [--live] [--deep] [--json] [-C <dir>]
 graphctx bench [--scale|--footprint] [--sizes list] [--budget-ms N]
-graphctx eval <run|memory|promote|drift|retrieval|gate|security|branch|temporal|conflict|procedure|mcp|storage|telemetry|provenance|resilience|benchmarks|cli-docs-demo|all>
+graphctx eval <run|memory|promote|drift|retrieval|gate|security|branch|temporal|conflict|procedure|mcp|storage|telemetry|provenance|resilience|benchmarks|cli-docs-demo|quality|all>
 ```
 
 `doctor` validates: DB availability, git availability, hook installation, and fact count. It returns a single `READY` / `NOT READY` verdict plus the next command to run.
@@ -819,7 +819,7 @@ arms = { A: noMemory, B: pullOnly, C: push, N: negativeControl, S: staleSuppress
 - `parallel-conflict.ts` — two sessions, contradictory facts.
 - `procedure-memory.ts` — repeated workflows.
 - `adapters-mcp.ts` — client installs plus the exact 8-tool MCP surface.
-- `storage-migrations.ts`, `telemetry-learning.ts`, `provenance-why.ts`, `resilience-failsoft.ts`, `eval-benchmarks.ts`, `cli-docs-demo.ts` — storage, learning, provenance, fail-soft, harness, and CLI/docs/demo drift gates.
+- `storage-migrations.ts`, `telemetry-learning.ts`, `provenance-why.ts`, `resilience-failsoft.ts`, `eval-benchmarks.ts`, `cli-docs-demo.ts`, `code-quality.ts` — storage, learning, provenance, fail-soft, harness, CLI/docs/demo drift, and final code-quality gates.
 
 `eval/report.ts` aggregates metrics per arm × suite and emits a table. **Gate: C must beat B** on repeated-failed-commands and post-compaction solve rate (M0 exit).
 

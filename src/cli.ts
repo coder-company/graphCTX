@@ -600,6 +600,14 @@ program
       process.stdout.write(formatCliDocsDemoReport(r));
       return r.pass;
     };
+    const runQuality = async () => {
+      const { runCodeQualityEval, formatCodeQualityReport } = await import(
+        "./eval/suites/code-quality.js"
+      );
+      const r = runCodeQualityEval();
+      process.stdout.write(formatCodeQualityReport(r));
+      return r.pass;
+    };
 
     const runners: Record<EvalGateSuite, () => Promise<boolean>> = {
       run: runArms,
@@ -626,6 +634,7 @@ program
       resilience: runResilience,
       benchmarks: runBenchmarks,
       "cli-docs-demo": runCliDocsDemo,
+      quality: runQuality,
     };
 
     if (isEvalGateSuite(sub)) {

@@ -53,7 +53,7 @@
 | security/sanitize | §20 | ✅ | prose kept low-trust + non-executable; proxy refuses secret capsules at the send edge |
 | telemetry/metrics + outcomes | §21 | ✅ | local-only outcome classification + summary + learned ranking from injection outcomes |
 | provenance/why | §11 | ✅ | full evidence chain reader + CLI; provenance gate covers complete/incomplete chains and rendered surfaces |
-| eval/harness + suites | §22 | ✅ | compaction-recovery (A/B/C/N/S), core-memory-lifecycle, promotion-precision, drift-gate, retrieval-quality, gate-precision, security-adversarial, branch-truth, temporal-correctness, parallel-conflict, procedure-memory, adapters-mcp, storage-migrations, telemetry-learning, provenance-why, resilience-failsoft, eval-benchmarks, cli-docs-demo; `eval all` runs all 18 suites |
+| eval/harness + suites | §22 | ✅ | compaction-recovery (A/B/C/N/S), core-memory-lifecycle, promotion-precision, drift-gate, retrieval-quality, gate-precision, security-adversarial, branch-truth, temporal-correctness, parallel-conflict, procedure-memory, adapters-mcp, storage-migrations, telemetry-learning, provenance-why, resilience-failsoft, eval-benchmarks, cli-docs-demo, code-quality; `eval all` runs all 19 suites |
 | cli.ts | §19 | ✅ | init/install(claude\|cursor\|opencode\|generic\|auto)/uninstall/hook/recall/remember/loop/resolve/extract/serve --mcp/why/doctor/demo/tui/compare/bench/eval |
 
 ## Invariants (enforced throughout)
@@ -76,9 +76,9 @@
 |---|---|---|
 | `hook <event>` p95 | < 150ms | ~8.8ms ✅ |
 
-_Last updated: cli-ux-docs-demo parity. 169 tests, 18 gate suites green, all I1-I9 hold._
+_Last updated: code-quality parity. 170 tests, 19 gate suites green, all I1-I9 hold._
 
-_Quality counters: Tests: 169. Gate suites: 18._
+_Quality counters: Tests: 170. Gate suites: 19._
 
 ---
 
@@ -91,23 +91,23 @@ _Quality counters: Tests: 169. Gate suites: 18._
 | Aspect | Status | Latest measurement / note |
 |---|---|---|
 | Green tree (5 gates) | ✅ perfected | all 5 gates green; biome format errors fixed (iter1) |
-| Retrieval & ranking | 🟡 in-progress | RRF fusion (iter3) + stopword filter (iter8): recall@1 0.61, recall@5 0.94, recall@10 1.00, MRR 0.76 (was 0.33/0.50/0.67/0.43). `eval retrieval` regression gate |
-| Relevance gate precision | 🟡 in-progress | gate-precision suite (iter4): P/R/F1=1.0 on 26 labeled cases, all 4 branches (TP15 FP0 FN0 TN11). Guarded in `eval gate`. To perfect: adversarial + utility-labeled dataset |
+| Retrieval & ranking | ✅ | hybrid RRF + deterministic semantic features + bounded MMR diversity: recall@1 0.61, recall@5 0.94, recall@10 1.00, MRR 0.76. `eval retrieval` regression gate |
+| Relevance gate precision | ✅ | utility-grounded gate suite: P/R/F1=1.0 on 26 labeled cases, near-threshold drift discrimination, selective PreToolUse, failure-only PostToolUse, 0 harmful injections, 0 dupes. Guarded in `eval gate` + `eval drift` |
 | Invalidation & temporal | ✅ | real-git temporal-correctness suite: 8/8 gated scenarios over throwaway repos. Patch-id equivalence is now wired into `isValidAsOf`, so a branch fact anchored to X is valid on another branch after cherry-pick Y; same-branch rebase false positives remain blocked. `eval temporal` guards it |
 | Conflict & precedence | ✅ | comprehensive eval: original 60-case ladder/determinism/resolve/reconcile gate remains 60/60 with silentWrongWinners=0, plus real Runtime concurrent-writer stress over a shared store reports 3/3 races and `silentOverwrites: 0`. `eval conflict` guards it |
 | LLM extraction & procedures | ✅ | default Anthropic model updated to `claude-haiku-4-5`; hermetic `eval procedure` passes 6/6 with 0 leaks/high-trust/hallucinated evidence, and opt-in live gate reports 1 schema-valid fact with precision/recall 1.0/1.0 |
 | Promotion engine | ✅ | `eval promote` now gates hard boolean admission with real probation: precision/recall 100%/100%, 0 secret/task_state leaks, verified-procedure succeeds through the procedures table, and missing-target perishable facts are held (`held unverified: 1`) |
 | Adapters & channel ladder | ✅ | `eval mcp` now covers 28/28 adapter/channel checks: marked client detection, highest-tier selection, Tier 0/1/2 transport-only capsule invariance, parseable cursor/opencode installs, secure opt-in proxy, and Claude hook Tier-2/fail-soft behavior |
 | MCP server & 8-tool surface | ✅ | `eval mcp` now covers 55/55 checks: MCP 2025-11-25 initialize shape, exact 8-tool live/static surface with count-drift hard error, per-tool zod input + output-shape contracts, JSON-RPC -32602/-32601 errors, bounded anti-repetition rider, telemetry precedence, and real `serve --mcp` stdio initialize/tools-list |
-| Security (injection/secrets/trust) | 🟡 in-progress | adversarial benchmark (iter5-6): secret recall 1.0/precision 1.0; 0/13 poison promoted; 0 harmful capsule cards. `eval security` guards it. To perfect: more attack classes, fuzzing |
+| Security (injection/secrets/trust) | ✅ | adversarial benchmark: secret recall 1.0/precision 1.0; 0 poison promoted across expanded attack families; 0 harmful capsule cards; deterministic fuzz cases. `eval security` guards it |
 | Performance (latency/scale) | ✅ | streaming bulk scale bench: default 1k/10k/50k/100k PASS, 1M p95 ~1.4ms, finite ingest timing, `bench --footprint` startup/RSS/heap gate, and impossible-budget FAIL path |
 | Storage & migrations | ✅ | new `eval storage` passes 10/10: schema_version 3, reopen migrations 0, v1→v3 rows preserved 3/3, append-only expire tombstones retained, malformed rows skipped, missing optional ledger table degrades, WAL/FK/busy_timeout enforced, cascades/edge trail consistent |
 | Telemetry & outcome learning | ✅ | new `eval telemetry` passes 8/8: classifier accuracy 1.00>=0.90 with harmful-over-helped precedence, local-only recording with 0 network calls and disabled-write=0, fail-soft missing-table handling, malformed summary rows skipped, learned ranking lift +1.00, and DB-backed ledger cross-channel/open_loop behavior |
 | Provenance / why() | ✅ | new `eval provenance` passes 5/5: deterministic extract→why chain complete, last-8 suffix equals full-id report, unknown id exits cleanly with `no fact found`, clean vs dangling evidence reports complete/incomplete, and git anchor/promotions/edges sections render when present |
 | Resilience & fail-soft (I9) | ✅ | new `eval resilience` passes 9/9: no-key deterministic-only capsule emits with exit 0, corrupt DB and bad config degrade to empty output, missing git and planner crashes never propagate, provider resolution returns `nullProvider`, no-key extraction is a deterministic no-op, and SessionStart/SessionEnd lifecycle hooks run fail-soft |
-| Eval harness & benchmarks | ✅ | `eval benchmarks` passes 5/5: centralized 18-suite registry, A/B/C/N/S ablation confirms push 93% > pull 21% with N/S 5/5 controls, offline graphCTX-vs-Supermemory scorecard renders, live bake-off skips without key, 1k/10k scale p95 stays under budget, and trapped offline network calls remain 0 |
+| Eval harness & benchmarks | ✅ | `eval benchmarks` passes 5/5: centralized 19-suite registry, A/B/C/N/S ablation confirms push 93% > pull 21% with N/S 5/5 controls, offline graphCTX-vs-Supermemory scorecard renders, live bake-off skips without key, 1k/10k scale p95 stays under budget, and trapped offline network calls remain 0 |
 | CLI / UX / docs / demo | ✅ | new `eval cli-docs-demo` passes 9/9: help/docs command surface aligned, SPEC §15/§17 hook event drift fixed, demo facts stay memory-only/offline, doctor prints READY/NOT READY remediation, MCP advertises exactly 8 tools, Claude install round-trip and piped auto-detect hold |
-| Code quality | ⬜ untouched | coverage % + dead-code audit pending |
+| Code quality | ✅ | new `eval quality` passes 5/5: full-repo Biome, strict TS config/scripts, CLI help/docs/README reachability, eval-suite runner/test coverage, and final README docs-as-code |
 
 _Loop note: composite metric = (failing_gates × 100) + (un-perfected aspects); within-aspect
-measured gains are recorded in the `memory` graph. Tests: 169, gate suites: 18 (`eval all` includes run/memory/promote/drift/retrieval/gate/security/branch/temporal/conflict/procedure/mcp/storage/telemetry/provenance/resilience/benchmarks/cli-docs-demo)._
+measured gains are recorded in the `memory` graph. Tests: 170, gate suites: 19 (`eval all` includes run/memory/promote/drift/retrieval/gate/security/branch/temporal/conflict/procedure/mcp/storage/telemetry/provenance/resilience/benchmarks/cli-docs-demo/quality)._

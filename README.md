@@ -1,63 +1,156 @@
 # graphCTX
 
-> **Local-first memory for coding agents. Dev tooling, not a SaaS.**
-> graphCTX *pushes* commit-valid, scope-aware context into your AI coding agent at the exact moments it drifts — so the agent stops being a goldfish. Everything runs on your machine. Your code never leaves it.
+Local-first memory for coding agents. graphCTX pushes commit-valid, scope-aware
+context into AI coding agents at lifecycle moments where pull-based memory is
+least reliable: session start, tool use, failure recovery, and compaction.
 
-[![status](https://img.shields.io/badge/status-pre--MVP-orange)](docs/PRD.md)
-[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+Everything runs on your machine: CLI, embedded SQLite, git anchoring, eval
+harness, benchmarks, and MCP stdio server. There is no required web service and
+no required network call for normal operation.
 
----
+## What Is Built
 
-## Why local-first is the point (not a limitation)
+- Commit-valid fact store over SQLite with migrations, WAL, FTS, optional
+  sqlite-vec, provenance edges, and append-only audit records.
+- Hybrid retrieval with lexical, semantic, RRF, MMR diversity, scope/entity
+  signals, and commit-valid filtering.
+- Injection planner with lifecycle gate, token budgeting, anti-repetition
+  ledger, open-loop resurfacing, send-edge security checks, and provenance tags.
+- Claude Code hook adapter plus Cursor, OpenCode, generic, and proxy channel
+  ladder support.
+- MCP stdio server exposing exactly 8 tools:
+  `remember`, `recall`, `inject_context`, `checkpoint_session`, `promote`,
+  `forget`, `why`, `resolve_conflict`.
+- Deterministic offline eval suite battery and benchmark gates covering memory,
+  retrieval, relevance, security, temporal validity, conflicts, LLM extraction,
+  promotion, adapters/MCP, storage, telemetry, provenance, resilience, docs/demo,
+  and code quality.
 
-The whole workflow already lives on your machine: your repo, your agent, your context window. A server adds nothing to the core loop — it would only add latency and ship your proprietary code somewhere. graphCTX belongs in the same category as `git`, your LSP, ESLint, and Claude Code's own hooks: **tooling that sits in your loop, not a service that phones home.**
+## Setup
 
-The value was never "we host your data." The value is the **injection loop** — forcing the right context into the agent when it drifts. That is 100% local.
-
-> Cloud sync, teams, and remote MCP are *optional future upsells* (multi-device, collaboration, zero-install) — explicitly **not** part of the core product and not needed to be useful. See [docs/future/INFRASTRUCTURE.md](docs/future/INFRASTRUCTURE.md). They are out of scope until the local product is proven.
-
-## The problem
-
-AI coding agents forget. Within a session they drift after context compaction; across sessions they start from zero — re-learning the test command, the architecture, the conventions, and your preferences every time.
-
-The industry answer is *memory you pull*: a tool the model calls when it decides to. But MCP tools are **model-controlled**, so recall becomes a **compliance problem** — the agent forgets to ask exactly when it most needs to remember.
-
-## The idea
-
-graphCTX inverts this. It is a memory layer that **pushes** the right context into the agent at deterministic lifecycle moments (session start, post-compaction, before a tool call, on branch switch), backed by a **commit-anchored temporal store** so facts are valid *as of a git state*, not wall-clock time.
-
-Memory lives in three scopes with conservative, evidence-gated promotion between them:
-
-| Scope | Holds | Lifetime |
-|---|---|---|
-| **Session** | Working state: plan, failed attempts, task state | Ephemeral |
-| **Workspace** | Durable repo truth: commands, conventions, architecture (commit-anchored) | Per project |
-| **User** | Cross-project preferences & habits (static + dynamic) | Follows the user |
-
-> The winning product is not the graph. It's the **injection loop + promotion discipline**.
-
-## Status
-
-Pre-MVP. The full design lives in **[docs/PRD.md](docs/PRD.md)**.
-
-The first thing we validate (M0): **does pushed context beat pulled context** on real coding tasks with forced compaction? If not, the thesis is wrong — and we learn it cheaply.
-
-## Planned interface
-
-```
-graphctx init                 # set up store + write AGENTS.md capsule
-graphctx serve --mcp          # run the MCP server
-graphctx install claude       # install push adapter (hooks)
-graphctx recall "<query>"     # pull fallback (not the primary path)
-graphctx inject --event PostCompact --session <id>
-graphctx time-travel --commit <sha> recall "<query>"
-graphctx why fact <id>        # provenance
+```bash
+npm install
+npx tsx src/cli.ts --help
 ```
 
-## Tech
+Build the TypeScript package when you need compiled output:
 
-TypeScript · SQLite (WAL + FTS5 + vectors) · MCP · Claude Code hooks first, channel ladder for other clients. **Local-first, private by default, no external database, no network required.**
+```bash
+npm run build
+```
+
+For local CLI development, either use `npx tsx src/cli.ts ...` directly or put a
+shim named `graphctx` on your PATH:
+
+```bash
+printf '#!/usr/bin/env bash\nexec npx tsx %s/src/cli.ts "$@"\n' "$PWD" > ~/.local/bin/graphctx
+chmod +x ~/.local/bin/graphctx
+```
+
+## Core Workflow
+
+Initialize a repo, install the adapter, and inspect readiness:
+
+```bash
+graphctx init -C .
+graphctx install auto -C .
+graphctx doctor -C .
+```
+
+Store and retrieve explicit memory:
+
+```bash
+graphctx remember "deploy with ./scripts/ship.sh" -C .
+graphctx recall "how do I deploy this project" -C .
+graphctx why <fact_id_or_last8> -C .
+```
+
+Carry unfinished work across compaction:
+
+```bash
+graphctx loop "finish the retry backoff" -C .
+graphctx hook PostCompact -C . < payload.json
+graphctx resolve <fact_id_or_last8> -C .
+```
+
+Run extraction and the offline demo:
+
+```bash
+graphctx extract -C .
+graphctx demo
+```
+
+## CLI Reference
+
+All shipped commands are discoverable with `graphctx --help`:
+
+```bash
+graphctx init
+graphctx install <claude|cursor|opencode|generic|auto>
+graphctx uninstall claude
+graphctx hook <event>
+graphctx recall "<query>"
+graphctx remember "<text>"
+graphctx loop "<text>"
+graphctx resolve <fact_id_or_last8>
+graphctx extract
+graphctx serve --mcp
+graphctx why <fact_id_or_last8>
+graphctx doctor
+graphctx demo
+graphctx tui
+graphctx compare
+graphctx bench
+graphctx eval <suite|all>
+```
+
+Useful eval commands:
+
+```bash
+graphctx eval all
+graphctx eval quality
+graphctx eval cli-docs-demo
+graphctx eval mcp
+graphctx eval run --arms A,B,C,N,S
+```
+
+## Testing And Quality Gates
+
+Run the same green bar used by the mission:
+
+```bash
+npx tsc --noEmit
+npx biome check src test
+npx biome check .
+npx vitest run
+npx tsx src/cli.ts eval all
+npx tsx src/cli.ts bench
+node autoresearch-results/metric.mjs
+```
+
+Expected current state:
+
+- `npx vitest run`: 170 tests pass.
+- `npx tsx src/cli.ts eval all`: 19 gate suites pass.
+- `node autoresearch-results/metric.mjs`: `failingGates` is `0`.
+- `npx tsx src/cli.ts bench`: hook hot-path p95 is below 150ms.
+
+## Design Notes
+
+graphCTX is deliberately local-first. Missing LLM keys, missing git metadata,
+bad config, or corrupt stores degrade to no memory rather than a broken agent.
+Live LLM extraction is opt-in; deterministic extraction and all default gates run
+offline.
+
+The product thesis is measured by the offline ablation:
+
+```bash
+graphctx eval run --arms A,B,C,N,S
+```
+
+Arm C, lifecycle push, must beat arm B, pull-only recall, while the N/S controls
+prove graphCTX can deliver a memory-only fact and suppress stale facts.
 
 ## License
 
-MIT © coder-company
+MIT (c) coder-company

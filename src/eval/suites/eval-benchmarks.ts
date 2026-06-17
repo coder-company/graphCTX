@@ -23,6 +23,7 @@ const EXPECTED_SUITES: EvalGateSuite[] = [
   "resilience",
   "benchmarks",
   "cli-docs-demo",
+  "quality",
 ];
 
 export interface EvalBenchmarksReport {
