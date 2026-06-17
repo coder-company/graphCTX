@@ -638,6 +638,10 @@ export interface RetrievalQualityReport {
   recallAt10: number;
   mrr: number;
   floor: number;
+  recallAt5Floor: number;
+  mrrFloor: number;
+  semanticProbe: SemanticProbeReport;
+  diversityProbe: DiversityProbeReport;
   pass: boolean;
   rows: Array<{
     label: string;
@@ -648,11 +652,34 @@ export interface RetrievalQualityReport {
   }>;
 }
 
+export interface SemanticProbeReport {
+  label: string;
+  vectorEnabled: boolean;
+  fallbackMode: boolean;
+  skipped: boolean;
+  firstRank: number;
+  queryObjectOverlap: boolean;
+  pass: boolean;
+}
+
+export interface DiversityProbeReport {
+  label: string;
+  vectorEnabled: boolean;
+  fallbackMode: boolean;
+  skipped: boolean;
+  top5Families: string[];
+  distinctFamiliesTop5: number;
+  pass: boolean;
+}
+
 // recall@10 floor: the measured baseline (0.667) rounded DOWN with margin, so the
 // suite passes today but flags a real regression in retrieval quality. The gap
 // between this baseline and 1.0 is exactly what the upcoming fusion A/B test
 // (weighted-average vs Reciprocal Rank Fusion) aims to close.
 const RECALL10_FLOOR = 0.6;
+const RECALL5_FLOOR = 0.9;
+const MRR_FLOOR = 0.7;
+const DIVERSITY_FAMILY_FLOOR = 3;
 
 function buildFact(spec: FactSpec, workspaceId: string): NewFact {
   return {
@@ -748,6 +775,9 @@ export async function runRetrievalQualityEval(): Promise<RetrievalQualityReport>
       });
     }
 
+    const semanticProbe = await runSemanticNoOverlapProbe();
+    const diversityProbe = await runDiversityProbe();
+
     rt.close();
 
     const n = RETRIEVAL_CASES.length;
@@ -765,8 +795,184 @@ export async function runRetrievalQualityEval(): Promise<RetrievalQualityReport>
       recallAt10,
       mrr,
       floor: RECALL10_FLOOR,
-      pass: recallAt10 >= RECALL10_FLOOR,
+      recallAt5Floor: RECALL5_FLOOR,
+      mrrFloor: MRR_FLOOR,
+      semanticProbe,
+      diversityProbe,
+      pass:
+        recallAt10 >= RECALL10_FLOOR &&
+        recallAt5 >= RECALL5_FLOOR &&
+        mrr >= MRR_FLOOR &&
+        semanticProbe.pass &&
+        diversityProbe.pass,
       rows,
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+async function runSemanticNoOverlapProbe(): Promise<SemanticProbeReport> {
+  const label = "semantic no-overlap: outage paging -> pagerduty";
+  const fallbackMode = explicitVectorFallbackMode();
+  const dir = mkdtempSync(join(tmpdir(), "graphctx-retrieval-semantic-"));
+  try {
+    const rt = new Runtime({
+      workspaceDir: dir,
+      userId: scope.user_id,
+      clock: fixedClock(FIXED_AT),
+    });
+    const vectorEnabled = rt.vectors.enabled;
+    if (!vectorEnabled) {
+      rt.close();
+      return {
+        label,
+        vectorEnabled,
+        fallbackMode,
+        skipped: true,
+        firstRank: 0,
+        queryObjectOverlap: false,
+        pass: fallbackMode,
+      };
+    }
+
+    for (let i = 0; i < 24; i++) {
+      rt.facts.insert(
+        buildFact(
+          {
+            subject: `aaa-noise-${String(i).padStart(2, "0")}`,
+            predicate: "owner",
+            object: `cache layer ${i}`,
+            fact_kind: "semantic",
+            raw_quote: `cache layer ${i} is owned by the platform team`,
+            tags: ["noise"],
+          },
+          rt.workspaceId,
+        ),
+      );
+    }
+    const gold = rt.facts.insert(
+      buildFact(
+        {
+          subject: "zzzz-incident-policy",
+          predicate: "escalation_target",
+          object: "pagerduty",
+          fact_kind: "constraint",
+          raw_quote: "pagerduty owns production escalation",
+          tags: ["incident"],
+        },
+        rt.workspaceId,
+      ),
+    );
+
+    const query = "who gets paged when service health breaks";
+    const ctx = await rt.injectionContext("UserPromptSubmit", "retrieval-semantic-probe", {
+      user_prompt: query,
+    });
+    const ranked = await new Retriever(rt.facts, rt.git, rt.vectors).retrieve(ctx, { k: 10 });
+    const firstRank = ranked.findIndex((sf) => sf.fact.fact_id === gold.fact_id) + 1;
+    const queryObjectOverlap = hasTokenOverlap(query, String(gold.object));
+    rt.close();
+    return {
+      label,
+      vectorEnabled,
+      fallbackMode,
+      skipped: false,
+      firstRank,
+      queryObjectOverlap,
+      pass: firstRank > 0 && firstRank <= 10 && !queryObjectOverlap,
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+async function runDiversityProbe(): Promise<DiversityProbeReport> {
+  const label = "MMR diversity: auth handler cluster";
+  const fallbackMode = explicitVectorFallbackMode();
+  const dir = mkdtempSync(join(tmpdir(), "graphctx-retrieval-diversity-"));
+  try {
+    const rt = new Runtime({
+      workspaceDir: dir,
+      userId: scope.user_id,
+      clock: fixedClock(FIXED_AT),
+    });
+    const vectorEnabled = rt.vectors.enabled;
+    if (!vectorEnabled) {
+      rt.close();
+      return {
+        label,
+        vectorEnabled,
+        fallbackMode,
+        skipped: true,
+        top5Families: [],
+        distinctFamiliesTop5: 0,
+        pass: fallbackMode,
+      };
+    }
+
+    for (let i = 0; i < 10; i++) {
+      rt.facts.insert(
+        buildFact(
+          {
+            subject: `src/auth/login-${i}.ts`,
+            predicate: "owns",
+            object: `login handler authenticate user request variant ${i}`,
+            fact_kind: "semantic",
+            raw_quote: `auth handler route for login authenticate user request variant ${i}`,
+            tags: ["auth", "handler"],
+          },
+          rt.workspaceId,
+        ),
+      );
+    }
+    for (const spec of [
+      {
+        subject: "src/auth/logout.ts",
+        object: "logout handler revoke session request",
+        raw_quote: "auth handler route for logout revoke session request",
+      },
+      {
+        subject: "src/auth/session.ts",
+        object: "session refresh handler rotate token request",
+        raw_quote: "auth handler route for session refresh rotate token request",
+      },
+      {
+        subject: "src/auth/password.ts",
+        object: "password reset handler recover account request",
+        raw_quote: "auth handler route for password reset recover account request",
+      },
+    ]) {
+      rt.facts.insert(
+        buildFact(
+          {
+            subject: spec.subject,
+            predicate: "owns",
+            object: spec.object,
+            fact_kind: "semantic",
+            raw_quote: spec.raw_quote,
+            tags: ["auth", "handler"],
+          },
+          rt.workspaceId,
+        ),
+      );
+    }
+
+    const ctx = await rt.injectionContext("UserPromptSubmit", "retrieval-diversity-probe", {
+      user_prompt: "where are the auth request handlers implemented",
+    });
+    const ranked = await new Retriever(rt.facts, rt.git, rt.vectors).retrieve(ctx, { k: 20 });
+    const top5Families = ranked.slice(0, 5).map((sf) => familyOf(sf.fact.subject));
+    const distinctFamiliesTop5 = new Set(top5Families).size;
+    rt.close();
+    return {
+      label,
+      vectorEnabled,
+      fallbackMode,
+      skipped: false,
+      top5Families,
+      distinctFamiliesTop5,
+      pass: distinctFamiliesTop5 >= DIVERSITY_FAMILY_FLOOR,
     };
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -798,11 +1004,71 @@ export function formatRetrievalQualityReport(r: RetrievalQualityReport): string 
   lines.push(`  recall@10:      ${pct(r.recallAt10)}  (${num(r.recallAt10)})`);
   lines.push(`  MRR:            ${num(r.mrr)}`);
   lines.push("");
+  lines.push("Semantic no-overlap probe");
+  lines.push("-".repeat(72));
+  lines.push(
+    r.semanticProbe.skipped
+      ? `  ${r.semanticProbe.label}: skipped (vector index disabled${r.semanticProbe.fallbackMode ? " by explicit fallback mode" : ""})`
+      : `  ${r.semanticProbe.label}: rank ${r.semanticProbe.firstRank || "-"}; query/object keyword overlap: ${r.semanticProbe.queryObjectOverlap ? "yes" : "no"}`,
+  );
+  lines.push("");
+  lines.push("MMR diversity probe");
+  lines.push("-".repeat(72));
+  lines.push(
+    r.diversityProbe.skipped
+      ? `  ${r.diversityProbe.label}: skipped (vector index disabled${r.diversityProbe.fallbackMode ? " by explicit fallback mode" : ""})`
+      : `  ${r.diversityProbe.label}: top-5 families [${r.diversityProbe.top5Families.join(", ")}], distinct=${r.diversityProbe.distinctFamiliesTop5} (floor ${DIVERSITY_FAMILY_FLOOR})`,
+  );
+  lines.push("");
   lines.push(
     r.pass
-      ? `  VERDICT: ✅ RETRIEVAL PASS — recall@10 ${pct(r.recallAt10)} >= floor ${pct(r.floor)}.`
-      : `  VERDICT: ❌ RETRIEVAL FAIL — recall@10 ${pct(r.recallAt10)} < floor ${pct(r.floor)}.`,
+      ? `  VERDICT: ✅ RETRIEVAL PASS — recall@10 ${pct(r.recallAt10)} >= floor ${pct(r.floor)}. Semantic no-overlap and MMR diversity gates pass.`
+      : `  VERDICT: ❌ RETRIEVAL FAIL — recall@10 ${pct(r.recallAt10)} (floor ${pct(r.floor)}), recall@5 ${pct(r.recallAt5)} (floor ${pct(r.recallAt5Floor)}), MRR ${num(r.mrr)} (floor ${num(r.mrrFloor)}), semantic=${r.semanticProbe.pass ? "pass" : "fail"}, diversity=${r.diversityProbe.pass ? "pass" : "fail"}.`,
   );
   lines.push("");
   return `${lines.join("\n")}\n`;
+}
+
+function explicitVectorFallbackMode(): boolean {
+  return !!process.env.GRAPHCTX_VEC0_PATH;
+}
+
+function hasTokenOverlap(a: string, b: string): boolean {
+  const at = meaningfulTokens(a);
+  for (const tok of meaningfulTokens(b)) {
+    if (at.has(tok)) return true;
+  }
+  return false;
+}
+
+function meaningfulTokens(text: string): Set<string> {
+  const stop = new Set([
+    "a",
+    "an",
+    "and",
+    "are",
+    "does",
+    "for",
+    "how",
+    "is",
+    "of",
+    "the",
+    "to",
+    "what",
+    "when",
+    "where",
+    "which",
+    "who",
+  ]);
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/[^a-z0-9_.:/-]+/)
+      .filter((t) => t.length >= 2 && !stop.has(t)),
+  );
+}
+
+function familyOf(subject: string): string {
+  const match = subject.match(/src\/auth\/([a-z]+)[^/]*\.ts/);
+  return match?.[1] ?? subject;
 }

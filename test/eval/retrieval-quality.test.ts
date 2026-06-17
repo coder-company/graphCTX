@@ -2,13 +2,18 @@ import { describe, expect, it } from "vitest";
 import { runRetrievalQualityEval } from "../../src/eval/suites/retrieval-quality.js";
 
 // Retrieval-quality benchmark: recall@k + MRR over a labeled (query → gold fact)
-// set. Establishes a regression floor for the Retriever so we can later A/B test
-// fusion strategies (weighted-average vs Reciprocal Rank Fusion).
+// set, plus semantic no-overlap and MMR diversity probes.
 describe("retrieval quality (recall@k + MRR)", () => {
-  it("meets the recall@10 floor over the labeled benchmark", async () => {
+  it("meets ranking floors and semantic/MMR parity probes", async () => {
     const r = await runRetrievalQualityEval();
     expect(r.queries).toBeGreaterThan(0);
     expect(r.recallAt10).toBeGreaterThanOrEqual(r.floor);
+    expect(r.recallAt5).toBeGreaterThanOrEqual(r.recallAt5Floor);
+    expect(r.mrr).toBeGreaterThanOrEqual(r.mrrFloor);
+    expect(r.semanticProbe.queryObjectOverlap).toBe(false);
+    expect(r.semanticProbe.firstRank).toBeGreaterThan(0);
+    expect(r.semanticProbe.firstRank).toBeLessThanOrEqual(10);
+    expect(r.diversityProbe.distinctFamiliesTop5).toBeGreaterThanOrEqual(3);
     expect(r.pass).toBe(true);
   }, 30000);
 

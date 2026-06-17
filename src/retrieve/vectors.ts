@@ -6,11 +6,11 @@ const require = createRequire(import.meta.url);
 
 // Local-first semantic retrieval (SPEC §13, M1 item 1).
 //
-// graphCTX is offline-by-default, so the "embedding" is a DETERMINISTIC local
-// transform — a hashed, tf-weighted, L2-normalized bag-of-words — not a network
-// model call. Cosine similarity then ranks lexical/semantic overlap. This keeps
-// the vector path on the hot path with ZERO network calls; a real embedding
-// provider can be slotted in later behind the same interface.
+// graphCTX is offline-by-default, so the embedder is a DETERMINISTIC local
+// transform: hashed lexical features plus a compact coding-domain semantic
+// lexicon (concept features such as package-manager, incident-escalation, etc.).
+// It is intentionally provider-shaped and cached like a real embedding path,
+// while keeping the default gate hermetic with ZERO network calls.
 //
 // If sqlite-vec is unavailable for any reason, the index disables itself and the
 // retriever falls back to BM25 (graceful degradation, I9).
@@ -100,6 +100,16 @@ export class VectorIndex {
     return 1 - dot;
   }
 
+  // Document-document similarity for bounded MMR diversity reranking.
+  cosineSimilarityText(a: string, b: string): number {
+    const av = this.embed(a);
+    const bv = this.embed(b);
+    let dot = 0;
+    const n = Math.min(this.dim, av.length, bv.length);
+    for (let i = 0; i < n; i++) dot += (av[i] ?? 0) * (bv[i] ?? 0);
+    return Math.max(0, Math.min(1, dot));
+  }
+
   // KNN search over the vec0 index. Returns [] when disabled (BM25 fallback).
   // NOTE: sqlite-vec does a brute-force scan (no ANN index), so this is O(N) in
   // corpus size. Prefer cosineDistanceTo() over a BM25 candidate pool on the hot
@@ -165,6 +175,15 @@ function loadSqliteVec(db: DB): boolean {
   // The retriever may receive either our DB wrapper (with .raw) or, in unit
   // tests, a raw better-sqlite3 handle directly. Resolve the real handle.
   const handle = (db as { raw?: unknown }).raw ?? db;
+  const override = process.env.GRAPHCTX_VEC0_PATH;
+  if (override) {
+    try {
+      (handle as { loadExtension(p: string): void }).loadExtension(override);
+      return true;
+    } catch {
+      return false;
+    }
+  }
   const isBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
   if (isBun) {
     // Bun: load the platform vec0 extension directly onto the raw handle. The
@@ -194,8 +213,6 @@ function loadSqliteVec(db: DB): boolean {
 //      embedded extension to a temp dir)
 //   2) the bundled sqlite-vec-<platform> npm package next to node_modules
 function resolveVecExtensionPath(): string | null {
-  const override = process.env.GRAPHCTX_VEC0_PATH;
-  if (override) return override;
   try {
     const plat = `${process.platform}-${process.arch}`;
     const file = process.platform === "win32" ? "vec0.dll" : "vec0";
@@ -214,18 +231,18 @@ function contentHash(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
 
-// Hashed, tf-weighted, L2-normalized bag-of-words (deterministic, local).
+// Hashed, tf-weighted, L2-normalized semantic feature embedding
+// (deterministic, local).
 function hashEmbed(text: string, dim: number): Float32Array {
   const vec = new Float32Array(dim);
-  const tokens = text
-    .toLowerCase()
-    .split(/[^a-z0-9_.:/-]+/)
-    .filter((t) => t.length >= 2);
-  for (const tok of tokens) {
+  const tokens = tokenize(text);
+  const features = [...tokens, ...semanticFeatureTokens(text, tokens)];
+  for (const tok of features) {
     const h = fnv1a(tok);
     const idx = h % dim;
     const sign = (h >>> 31) & 1 ? -1 : 1; // signed hashing reduces collisions
-    vec[idx] = (vec[idx] ?? 0) + sign;
+    const weight = tok.startsWith("concept:") ? 3 : 1;
+    vec[idx] = (vec[idx] ?? 0) + sign * weight;
   }
   // L2 normalize so cosine == dot product.
   let norm = 0;
@@ -235,6 +252,94 @@ function hashEmbed(text: string, dim: number): Float32Array {
     for (let i = 0; i < dim; i++) vec[i]! /= norm;
   }
   return vec;
+}
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9_.:/-]+/)
+    .filter((t) => t.length >= 2);
+}
+
+const SEMANTIC_GROUPS: Array<{ concept: string; terms: string[] }> = [
+  {
+    concept: "package-manager",
+    terms: ["package manager", "dependency manager", "pnpm", "npm", "yarn", "bun"],
+  },
+  {
+    concept: "frontend-bundler",
+    terms: ["bundle", "bundler", "assets", "vite", "webpack", "rollup", "esbuild"],
+  },
+  {
+    concept: "database-storage",
+    terms: ["persist", "persistence", "database", "datastore", "sqlite", "postgres", "mysql"],
+  },
+  {
+    concept: "structured-logging",
+    terms: ["log", "logs", "logger", "structured logs", "pino", "winston", "bunyan"],
+  },
+  {
+    concept: "secret-handling",
+    terms: ["credential", "credentials", "secret", "secrets", "token", "api key", "redact"],
+  },
+  {
+    concept: "incident-escalation",
+    terms: [
+      "alert",
+      "alerts",
+      "outage",
+      "outages",
+      "incident",
+      "incidents",
+      "paged",
+      "paging",
+      "pagerduty",
+      "oncall",
+      "on-call",
+      "escalation",
+    ],
+  },
+  {
+    concept: "test-runner",
+    terms: ["test runner", "unit test", "test suite", "vitest", "jest", "mocha"],
+  },
+  {
+    concept: "lint-format",
+    terms: ["lint", "format", "formatter", "biome", "eslint", "prettier"],
+  },
+  {
+    concept: "auth-handler",
+    terms: [
+      "auth",
+      "authenticate",
+      "authentication",
+      "login",
+      "logout",
+      "session",
+      "password",
+      "handler",
+      "handlers",
+      "request",
+      "route",
+    ],
+  },
+];
+
+function semanticFeatureTokens(text: string, tokens: string[]): string[] {
+  const lower = text.toLowerCase();
+  const tokenSet = new Set(tokens);
+  const out: string[] = [];
+  for (const g of SEMANTIC_GROUPS) {
+    if (g.terms.some((term) => matchesTerm(lower, tokenSet, term))) {
+      out.push(`concept:${g.concept}`);
+    }
+  }
+  return out;
+}
+
+function matchesTerm(text: string, tokens: Set<string>, term: string): boolean {
+  if (term.includes(" ")) return text.includes(term);
+  return tokens.has(term);
 }
 
 function fnv1a(s: string): number {

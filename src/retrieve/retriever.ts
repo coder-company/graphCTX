@@ -28,6 +28,12 @@ const CONSENSUS_BOOST = 0.5 / RRF_K;
 // without overpowering the fused order.
 const ENTITY_WEIGHT = 0.5;
 
+// Maximal Marginal Relevance over a bounded post-RRF pool. `lambda` stays above
+// 0.5 so relevance dominates, while still preventing duplicate clusters from
+// monopolizing the first capsule slots.
+const MMR_POOL = 24;
+const MMR_LAMBDA = 0.68;
+
 // A retrieval candidate accumulates the per-retriever signals needed to build
 // each ranked list. `lexScore` is the (scope/entity-folded) lexical relevance
 // used to rank the lexical list (higher = better); `semDist` is cosine distance
@@ -149,7 +155,7 @@ export class Retriever {
         const qv = this.vectors.embedQuery(query);
         // 1) Re-rank the lexical candidate pool (always cheap: O(pool)).
         for (const c of cand.values()) {
-          const dist = this.vectors.cosineDistanceTo(qv, String(c.fact.object));
+          const dist = this.vectors.cosineDistanceTo(qv, semanticText(c.fact));
           c.semDist = dist;
           c.foundSem = true;
         }
@@ -165,7 +171,7 @@ export class Retriever {
           // but without loading/hydrating all N — keeping this O(cap), not O(N).
           for (const f of this.repo.activeAsOf(wsScope, SEMANTIC_SCAN_CAP)) {
             if (cand.has(f.fact_id)) continue;
-            const dist = this.vectors.cosineDistanceTo(qv, String(f.object));
+            const dist = this.vectors.cosineDistanceTo(qv, semanticText(f));
             semCandidates.push({ fact: f, dist });
           }
           semCandidates.sort((a, b) => a.dist - b.dist);
@@ -222,7 +228,57 @@ export class Retriever {
         },
       });
     }
-    return fuse(valid);
+    return this.diversify(fuse(valid), query);
+  }
+
+  private diversify(scored: ScoredFact[], query: string): ScoredFact[] {
+    if (!query || !this.vectors?.enabled || scored.length <= 2) return scored;
+
+    const pool = scored.slice(0, Math.min(MMR_POOL, scored.length));
+    const tail = scored.slice(pool.length);
+    const maxScore = Math.max(...pool.map((s) => s.score), Number.EPSILON);
+    const remaining = [...pool];
+    const selected: ScoredFact[] = [];
+    const originalRank = new Map(pool.map((s, i) => [s.fact.fact_id, i]));
+    const textCache = new Map<string, string>();
+    const factText = (s: ScoredFact): string => {
+      let t = textCache.get(s.fact.fact_id);
+      if (!t) {
+        t = semanticText(s.fact);
+        textCache.set(s.fact.fact_id, t);
+      }
+      return t;
+    };
+
+    while (remaining.length > 0) {
+      let bestIdx = 0;
+      let bestScore = Number.NEGATIVE_INFINITY;
+      for (let i = 0; i < remaining.length; i++) {
+        const cand = remaining[i]!;
+        const relevance = cand.score / maxScore;
+        let diversityPenalty = 0;
+        for (const sel of selected) {
+          diversityPenalty = Math.max(
+            diversityPenalty,
+            this.vectors.cosineSimilarityText(factText(cand), factText(sel)),
+          );
+        }
+        const mmr = MMR_LAMBDA * relevance - (1 - MMR_LAMBDA) * diversityPenalty;
+        if (mmr > bestScore) {
+          bestScore = mmr;
+          bestIdx = i;
+          continue;
+        }
+        if (mmr === bestScore) {
+          const currentRank = originalRank.get(remaining[bestIdx]!.fact.fact_id) ?? 0;
+          const candidateRank = originalRank.get(cand.fact.fact_id) ?? 0;
+          if (candidateRank < currentRank) bestIdx = i;
+        }
+      }
+      selected.push(remaining.splice(bestIdx, 1)[0]!);
+    }
+
+    return [...selected, ...tail];
   }
 
   private async isValid(fact: Fact, ctx: InjectionContext): Promise<boolean> {
@@ -280,6 +336,21 @@ function collectEntities(ctx: InjectionContext): string[] {
   for (const f of ctx.current_files ?? []) e.add(f);
   for (const s of ctx.mentioned_symbols ?? []) e.add(s);
   return [...e];
+}
+
+function semanticText(fact: Fact): string {
+  const obj = typeof fact.object === "string" ? fact.object : JSON.stringify(fact.object);
+  return [
+    fact.subject,
+    fact.predicate,
+    obj,
+    fact.source.raw_quote,
+    fact.fact_kind,
+    fact.temporal_kind,
+    ...fact.tags,
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 // A vector hit is valid only within the active retrieval scopes (workspace or
