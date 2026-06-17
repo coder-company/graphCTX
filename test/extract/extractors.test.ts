@@ -54,6 +54,35 @@ describe("deterministic extractors", () => {
     expect(String(ind?.object)).toContain("tab");
   });
 
+  it("tsconfig → high-trust TypeScript compiler constraints from JSONC", () => {
+    writeFileSync(
+      join(dir, "tsconfig.json"),
+      `{
+        // tsconfig files usually allow comments and trailing commas.
+        "compilerOptions": {
+          "target": "ES2022",
+          "moduleResolution": "Bundler",
+          "strict": true,
+          "noUncheckedIndexedAccess": true,
+        },
+        "include": ["src/**/*.ts"],
+      }`,
+    );
+
+    const { res } = extract();
+    const strict = res.inserted.find((f) => f.predicate === "typescript_strict_mode");
+    const include = res.inserted.find((f) => f.predicate === "typescript_include_globs");
+
+    expect(strict).toMatchObject({
+      object: true,
+      trust_tier: "high",
+      status: "active",
+      promotion_state: "workspace_active",
+    });
+    expect(include?.object).toEqual(["src/**/*.ts"]);
+    expect(strict?.git?.path_globs).toEqual(["tsconfig.json"]);
+  });
+
   it("generated-markers → do_not_edit constraint", () => {
     mkdirSync(join(dir, "src"), { recursive: true });
     writeFileSync(join(dir, "src", "g.ts"), "// @generated DO NOT EDIT\nexport const x = 1;\n");
