@@ -18,6 +18,9 @@ export function createAnthropicProvider(cfg: ProviderConfig, key?: string): LlmP
     available: true,
     async chat(req: ChatRequest): Promise<ChatResponse> {
       try {
+        const outputConfig = req.jsonSchema
+          ? { format: { type: "json_schema", schema: req.jsonSchema } }
+          : undefined;
         const system = req.messages
           .filter((m) => m.role === "system")
           .map((m) => m.content)
@@ -33,6 +36,7 @@ export function createAnthropicProvider(cfg: ProviderConfig, key?: string): LlmP
             max_tokens: req.maxTokens ?? 1024,
             temperature: req.temperature ?? 0,
             ...(system ? { system } : {}),
+            ...(outputConfig ? { output_config: outputConfig } : {}),
             messages,
           }),
         });

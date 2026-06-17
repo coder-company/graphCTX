@@ -12,6 +12,7 @@ export interface ChatRequest {
   messages: ChatMessage[];
   // Ask the provider for strict JSON (providers that support it set the flag).
   json?: boolean;
+  jsonSchema?: Record<string, unknown>;
   maxTokens?: number;
   temperature?: number;
 }

@@ -21,7 +21,7 @@ export function defaultConfig(): Config {
     },
     llm: {
       provider: "anthropic",
-      chat_model: "claude-haiku",
+      chat_model: "claude-haiku-4-5",
       embed_model: "text-embedding-3-small",
       api_key_env: "ANTHROPIC_API_KEY",
       base_url: "",

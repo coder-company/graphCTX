@@ -450,6 +450,7 @@ program
     "A,B,C,N,S",
   )
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
+  .option("--live", "run opt-in live provider checks (requires GRAPHCTX_LLM_LIVE=1)", false)
   .action(async (sub, opts) => {
     const runPromote = async () => {
       const { runPromotionEval, formatPromotionReport } = await import("./eval/promotion-eval.js");
@@ -529,11 +530,11 @@ program
       process.stdout.write(formatParallelConflictReport(r));
       return r.pass;
     };
-    const runProcedure = async () => {
+    const runProcedure = async (live = false) => {
       const { runProcedureMemoryEval, formatProcedureMemoryReport } = await import(
         "./eval/suites/procedure-memory.js"
       );
-      const r = await runProcedureMemoryEval();
+      const r = await runProcedureMemoryEval({ live, cwd: opts.cwd });
       process.stdout.write(formatProcedureMemoryReport(r));
       return r.pass;
     };
@@ -583,7 +584,11 @@ program
       return;
     }
     if (sub === "procedure") {
-      if (!(await runProcedure())) process.exitCode = 1;
+      const live = Boolean(opts.live) && process.env.GRAPHCTX_LLM_LIVE === "1";
+      if (opts.live && !live) {
+        process.stdout.write("live procedure eval not run: set GRAPHCTX_LLM_LIVE=1 to opt in.\n");
+      }
+      if (!(await runProcedure(live))) process.exitCode = 1;
       return;
     }
     if (sub === "mcp") {

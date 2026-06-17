@@ -27,6 +27,46 @@ const procedureSchema = z.object({
   confidence: z.number().min(0).max(1).default(0.5),
 });
 const batchSchema = z.object({ procedures: z.array(procedureSchema).default([]) });
+const procedureBatchJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["procedures"],
+  properties: {
+    procedures: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "steps", "evidence_ids"],
+        properties: {
+          name: { type: "string" },
+          steps: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["description"],
+              properties: {
+                description: { type: "string" },
+                command: { type: ["string", "null"] },
+              },
+            },
+          },
+          verifier: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              command: { type: ["string", "null"] },
+              expected_exit_code: { type: "number" },
+            },
+          },
+          evidence_ids: { type: "array", items: { type: "string" } },
+          confidence: { type: "number" },
+        },
+      },
+    },
+  },
+} satisfies Record<string, unknown>;
 
 export interface MinedProcedure {
   name: string;
@@ -58,7 +98,12 @@ export async function mineProcedures(
       { role: "system", content: prompt },
       { role: "user", content: transcript },
     ];
-    const { text } = await deps.provider.chat({ messages, json: true, temperature: 0 });
+    const { text } = await deps.provider.chat({
+      messages,
+      json: true,
+      jsonSchema: procedureBatchJsonSchema,
+      temperature: 0,
+    });
     const parsed = parseJsonResponse<unknown>(text);
     if (!parsed) return [];
     const batch = batchSchema.safeParse(parsed);

@@ -14,6 +14,7 @@ export function createOpenAiProvider(cfg: ProviderConfig, key?: string): LlmProv
     available: true,
     async chat(req: ChatRequest): Promise<ChatResponse> {
       try {
+        const responseFormat = openAiResponseFormat(req, cfg.provider);
         const res = await fetch(`${baseUrl}/chat/completions`, {
           method: "POST",
           headers,
@@ -22,7 +23,7 @@ export function createOpenAiProvider(cfg: ProviderConfig, key?: string): LlmProv
             messages: req.messages,
             temperature: req.temperature ?? 0,
             max_tokens: req.maxTokens ?? 1024,
-            ...(req.json ? { response_format: { type: "json_object" } } : {}),
+            ...(responseFormat ? { response_format: responseFormat } : {}),
           }),
         });
         if (!res.ok) return { text: "" };
@@ -50,4 +51,21 @@ export function createOpenAiProvider(cfg: ProviderConfig, key?: string): LlmProv
       }
     },
   };
+}
+
+function openAiResponseFormat(
+  req: ChatRequest,
+  provider: ProviderConfig["provider"],
+): Record<string, unknown> | undefined {
+  if (req.jsonSchema && provider === "openai") {
+    return {
+      type: "json_schema",
+      json_schema: {
+        name: "graphctx_response",
+        schema: req.jsonSchema,
+        strict: true,
+      },
+    };
+  }
+  return req.json ? { type: "json_object" } : undefined;
 }

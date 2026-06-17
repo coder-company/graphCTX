@@ -93,7 +93,7 @@ _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 ho
 | Relevance gate precision | 🟡 in-progress | gate-precision suite (iter4): P/R/F1=1.0 on 26 labeled cases, all 4 branches (TP15 FP0 FN0 TN11). Guarded in `eval gate`. To perfect: adversarial + utility-labeled dataset |
 | Invalidation & temporal | ✅ | real-git temporal-correctness suite: 8/8 gated scenarios over throwaway repos. Patch-id equivalence is now wired into `isValidAsOf`, so a branch fact anchored to X is valid on another branch after cherry-pick Y; same-branch rebase false positives remain blocked. `eval temporal` guards it |
 | Conflict & precedence | ✅ | comprehensive eval: original 60-case ladder/determinism/resolve/reconcile gate remains 60/60 with silentWrongWinners=0, plus real Runtime concurrent-writer stress over a shared store reports 3/3 races and `silentOverwrites: 0`. `eval conflict` guards it |
-| LLM extraction & procedures | ⬜ untouched | safe+capped; precision/recall not quantified |
+| LLM extraction & procedures | ✅ | default Anthropic model updated to `claude-haiku-4-5`; hermetic `eval procedure` passes 6/6 with 0 leaks/high-trust/hallucinated evidence, and opt-in live gate reports 1 schema-valid fact with precision/recall 1.0/1.0 |
 | Promotion engine | ⬜ untouched | precision 100% on labeled set; recall on larger set pending |
 | Adapters & channel ladder | ⬜ untouched | 20/20 smoke; real-client integration pending |
 | MCP server & 8-tool surface | ⬜ untouched | exactly 8 tools; latest-spec compliance pending |
@@ -108,4 +108,4 @@ _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 ho
 | Code quality | ⬜ untouched | coverage % + dead-code audit pending |
 
 _Loop note: composite metric = (failing_gates × 100) + (un-perfected aspects); within-aspect
-measured gains are recorded in the `memory` graph. Tests: 153, gate suites: 11 (`eval all` includes retrieval/gate/security/temporal/conflict)._
+measured gains are recorded in the `memory` graph. Tests: 163, gate suites: 12 (`eval all` includes retrieval/gate/security/temporal/conflict/procedure)._

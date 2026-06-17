@@ -31,6 +31,31 @@ const llmFactSchema = z.object({
   raw_quote: z.string().optional(),
 });
 const llmFactBatchSchema = z.object({ facts: z.array(llmFactSchema).default([]) });
+const factBatchJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["facts"],
+  properties: {
+    facts: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["subject", "predicate", "object", "fact_kind", "evidence_ids"],
+        properties: {
+          subject: { type: "string" },
+          predicate: { type: "string" },
+          object: { type: ["string", "number", "boolean"] },
+          fact_kind: { type: "string", enum: FACT_KINDS },
+          trust_tier: { type: "string", enum: ["high", "low"] },
+          confidence: { type: "number" },
+          evidence_ids: { type: "array", items: { type: "string" } },
+          raw_quote: { type: "string" },
+        },
+      },
+    },
+  },
+} satisfies Record<string, unknown>;
 
 export interface FactExtractDeps {
   provider: LlmProvider;
@@ -53,7 +78,12 @@ export async function extractFactsFromEpisodes(
       { role: "system", content: prompt },
       { role: "user", content: transcript },
     ];
-    const { text } = await deps.provider.chat({ messages, json: true, temperature: 0 });
+    const { text } = await deps.provider.chat({
+      messages,
+      json: true,
+      jsonSchema: factBatchJsonSchema,
+      temperature: 0,
+    });
     const parsed = parseJsonResponse<unknown>(text);
     if (!parsed) return [];
     const batch = llmFactBatchSchema.safeParse(parsed);
