@@ -98,7 +98,7 @@ _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 ho
 | Adapters & channel ladder | ⬜ untouched | 20/20 smoke; real-client integration pending |
 | MCP server & 8-tool surface | ⬜ untouched | exactly 8 tools; latest-spec compliance pending |
 | Security (injection/secrets/trust) | 🟡 in-progress | adversarial benchmark (iter5-6): secret recall 1.0/precision 1.0; 0/13 poison promoted; 0 harmful capsule cards. `eval security` guards it. To perfect: more attack classes, fuzzing |
-| Performance (latency/scale) | 🟡 in-progress | hot path flattened to O(1) (iter8): p95 50k 240→1.7ms, 100k 470→2.1ms. `bench --scale` + 10k CI gate. To perfect: footprint/startup, 1M-fact run |
+| Performance (latency/scale) | ✅ | streaming bulk scale bench: default 1k/10k/50k/100k PASS, 1M p95 ~1.4ms, finite ingest timing, `bench --footprint` startup/RSS/heap gate, and impossible-budget FAIL path |
 | Storage & migrations | ⬜ untouched | append-only; corruption-recovery breadth pending |
 | Telemetry & outcome learning | ⬜ untouched | classification accuracy + learned scoring pending |
 | Provenance / why() | ⬜ untouched | completeness audit across fact kinds pending |

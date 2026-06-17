@@ -104,7 +104,7 @@ export const PROBES: Probe[] = [
 ];
 
 // Filler facts to test retrieval precision at scale (distractors).
-export function filler(n: number): string[] {
+export function fillerAt(i: number): string {
   const verbs = ["refactor", "optimize", "document", "test", "review", "profile", "cache", "index"];
   const nouns = [
     "parser",
@@ -116,14 +116,14 @@ export function filler(n: number): string[] {
     "resolver",
     "gateway",
   ];
+  const v = verbs[i % verbs.length];
+  const nn = nouns[(i >> 3) % nouns.length];
+  return `Note ${i}: ${v} the ${nn} module before the ${i % 5 === 0 ? "release" : "sprint"} (item ${i}).`;
+}
+
+export function filler(n: number): string[] {
   const out: string[] = [];
-  for (let i = 0; i < n; i++) {
-    const v = verbs[i % verbs.length];
-    const nn = nouns[(i >> 3) % nouns.length];
-    out.push(
-      `Note ${i}: ${v} the ${nn} module before the ${i % 5 === 0 ? "release" : "sprint"} (item ${i}).`,
-    );
-  }
+  for (let i = 0; i < n; i++) out.push(fillerAt(i));
   return out;
 }
 

@@ -14,10 +14,14 @@ import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { Runtime } from "../runtime.js";
 import { badge, table } from "../tui/box.js";
-import { type Dist, PROBES, dist, filler, insertFact } from "./scenarios.js";
+import { type Dist, PROBES, dist, fillerAt } from "./scenarios.js";
 
 export const SCALE_BUDGET_MS = 150;
 export const DEFAULT_SCALE_SIZES = [1000, 10000, 50000, 100000];
+export const FOOTPRINT_STARTUP_BUDGET_MS = 1000;
+export const FOOTPRINT_RSS_BUDGET_MB = 512;
+export const FOOTPRINT_HEAP_BUDGET_MB = 256;
+export const DEFAULT_FOOTPRINT_FACTS = 10000;
 
 export interface ScalePoint {
   scaleFacts: number;
@@ -32,6 +36,20 @@ export interface ScaleReport {
   budgetMs: number;
   points: ScalePoint[];
   pass: boolean; // every probed size within budget
+}
+
+export interface FootprintReport {
+  generatedAt: string;
+  scaleFacts: number;
+  startupMs: number;
+  firstResultMs: Dist;
+  rssMb: number;
+  heapUsedMb: number;
+  startupBudgetMs: number;
+  rssBudgetMb: number;
+  heapBudgetMb: number;
+  resultCount: number;
+  pass: boolean;
 }
 
 // Measure hot-path retrieval p50/p95/p99 at a single corpus size. Ingests
@@ -50,8 +68,7 @@ export async function measureScalePoint(
   let ingestMs = 0;
   try {
     const t0 = performance.now();
-    for (const f of filler(scaleFacts)) insertFact(rt, f);
-    for (const p of PROBES) insertFact(rt, p.fact);
+    bulkInsertBenchFacts(rt, scaleFacts);
     ingestMs = Math.round((performance.now() - t0) * 100) / 100;
 
     const { Retriever } = await import("../retrieve/retriever.js");
@@ -102,6 +119,84 @@ export async function runScaleBenchmark(
   };
 }
 
+export async function measureFootprint(
+  opts: {
+    scaleFacts?: number;
+    startupBudgetMs?: number;
+    rssBudgetMb?: number;
+    heapBudgetMb?: number;
+    repeats?: number;
+  } = {},
+): Promise<FootprintReport> {
+  const scaleFacts = opts.scaleFacts ?? DEFAULT_FOOTPRINT_FACTS;
+  const startupBudgetMs = opts.startupBudgetMs ?? FOOTPRINT_STARTUP_BUDGET_MS;
+  const rssBudgetMb = opts.rssBudgetMb ?? FOOTPRINT_RSS_BUDGET_MB;
+  const heapBudgetMb = opts.heapBudgetMb ?? FOOTPRINT_HEAP_BUDGET_MB;
+  const repeats = opts.repeats ?? 1;
+  const dir = mkdtempSync(join(tmpdir(), "graphctx-footprint-"));
+  try {
+    const seed = new Runtime({ workspaceDir: dir });
+    try {
+      bulkInsertBenchFacts(seed, scaleFacts);
+    } finally {
+      seed.close();
+    }
+
+    const firstResultMs: number[] = [];
+    let startupMs = 0;
+    let resultCount = 0;
+    let rssMb = 0;
+    let heapUsedMb = 0;
+
+    for (let i = 0; i < repeats; i++) {
+      const t0 = performance.now();
+      const rt = new Runtime({ workspaceDir: dir });
+      try {
+        const { Retriever } = await import("../retrieve/retriever.js");
+        const retriever = new Retriever(rt.facts, rt.git);
+        const ctx = await rt.injectionContext("UserPromptSubmit", `footprint-${i}`, {
+          user_prompt: PROBES[0]!.query,
+          budget_tokens: 1000,
+        });
+        const scored = await retriever.retrieve(ctx, { k: 10 });
+        const elapsed = performance.now() - t0;
+        firstResultMs.push(elapsed);
+        if (i === 0) {
+          startupMs = Math.round(elapsed * 100) / 100;
+          resultCount = scored.length;
+          const mem = process.memoryUsage();
+          rssMb = toMb(mem.rss);
+          heapUsedMb = toMb(mem.heapUsed);
+        }
+      } finally {
+        rt.close();
+      }
+    }
+
+    const distMs = dist(firstResultMs);
+    const pass =
+      distMs.p95 < startupBudgetMs &&
+      rssMb < rssBudgetMb &&
+      heapUsedMb < heapBudgetMb &&
+      resultCount > 0;
+    return {
+      generatedAt: new Date().toISOString(),
+      scaleFacts,
+      startupMs,
+      firstResultMs: distMs,
+      rssMb,
+      heapUsedMb,
+      startupBudgetMs,
+      rssBudgetMb,
+      heapBudgetMb,
+      resultCount,
+      pass,
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 function fmtN(n: number): string {
   return n.toLocaleString("en-US");
 }
@@ -139,4 +234,103 @@ export function formatScaleReport(r: ScaleReport): string {
       : `${badge("FAIL", "err")} hot-path p95 exceeded ${r.budgetMs}ms at one or more sizes.`,
   );
   return out.join("\n");
+}
+
+export function formatFootprintReport(r: FootprintReport): string {
+  const out: string[] = [];
+  out.push("");
+  out.push("graphCTX — startup / footprint");
+  out.push("");
+  out.push(
+    `  corpus: ${fmtN(r.scaleFacts)} facts  first-results: ${r.resultCount}  budget: startup < ${r.startupBudgetMs}ms, rss < ${r.rssBudgetMb}MB, heap < ${r.heapBudgetMb}MB`,
+  );
+  out.push(
+    `  startup: ${r.startupMs}ms  first-result p50: ${r.firstResultMs.p50}ms  p95: ${r.firstResultMs.p95}ms  p99: ${r.firstResultMs.p99}ms`,
+  );
+  out.push(`  rss: ${r.rssMb}MB  heap: ${r.heapUsedMb}MB`);
+  out.push("");
+  out.push(
+    r.pass
+      ? `${badge("PASS", "ok")} startup/footprint within declared budget.`
+      : `${badge("FAIL", "err")} startup/footprint exceeded declared budget.`,
+  );
+  return out.join("\n");
+}
+
+function bulkInsertBenchFacts(rt: Runtime, scaleFacts: number): void {
+  const now = new Date().toISOString();
+  const insert = rt.db.prepare(
+    `INSERT INTO facts (
+      fact_id, subject_id, predicate, object_json, fact_kind, temporal_kind,
+      scope_user_id, scope_workspace_id, scope_session_id, status, promotion_state,
+      trust_tier, sensitivity, confidence, evidence_count, t_created, t_recorded,
+      asserted_by, source_event_ids_json, source_commit, raw_quote, tags_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const insertFts = rt.db.prepare("INSERT INTO facts_fts (fact_id, text, tags) VALUES (?, ?, ?)");
+  const run = rt.db.transaction((count: unknown) => {
+    const n = Number(count);
+    for (let i = 0; i < n; i++) {
+      insertBenchFact(
+        insert,
+        insertFts,
+        rt,
+        `fact_scale_${String(i).padStart(8, "0")}`,
+        fillerAt(i),
+        now,
+      );
+    }
+    for (let i = 0; i < PROBES.length; i++) {
+      const p = PROBES[i]!;
+      insertBenchFact(
+        insert,
+        insertFts,
+        rt,
+        `fact_probe_${String(i).padStart(3, "0")}`,
+        p.fact,
+        now,
+      );
+    }
+  });
+  run(scaleFacts);
+}
+
+function insertBenchFact(
+  insert: { run(...params: unknown[]): unknown },
+  insertFts: { run(...params: unknown[]): unknown },
+  rt: Runtime,
+  factId: string,
+  text: string,
+  now: string,
+): void {
+  const ftsText = `repo note ${text} ${text}`;
+  insert.run(
+    factId,
+    "repo",
+    "note",
+    JSON.stringify(text),
+    "decision",
+    "static",
+    rt.userId,
+    rt.workspaceId,
+    null,
+    "active",
+    "workspace_active",
+    "high",
+    "public",
+    0.5,
+    1,
+    now,
+    now,
+    "user",
+    "[]",
+    null,
+    text,
+    '["bench"]',
+  );
+  insertFts.run(factId, ftsText, "bench");
+}
+
+function toMb(bytes: number): number {
+  return Math.round((bytes / 1024 / 1024) * 100) / 100;
 }

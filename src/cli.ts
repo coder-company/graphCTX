@@ -398,17 +398,31 @@ program
   .option("--repo <dir>", "fixture repo to bench", "fixtures/repo-pnpm-web")
   .option("-n, --iterations <n>", "iterations", "50")
   .option("--scale", "measure hot-path retrieval p50/p95/p99 at 1k-100k facts", false)
+  .option("--footprint", "measure cold startup-to-first-result latency and memory footprint", false)
   .option("--sizes <list>", "comma-separated corpus sizes for --scale", "1000,10000,50000,100000")
+  .option("--budget-ms <n>", "p95 budget for --scale in milliseconds", "150")
   .option("-C, --cwd <dir>", "base directory", process.cwd())
   .action(async (opts) => {
+    if (opts.footprint) {
+      const { measureFootprint, formatFootprintReport } = await import("./bench/scale.js");
+      process.stdout.write("running startup/footprint benchmark…\n");
+      const report = await measureFootprint();
+      process.stdout.write(`${formatFootprintReport(report)}\n`);
+      if (!report.pass) process.exitCode = 1;
+      return;
+    }
     if (opts.scale) {
       const { runScaleBenchmark, formatScaleReport } = await import("./bench/scale.js");
       const sizes = String(opts.sizes)
         .split(",")
         .map((s) => Number(s.trim()))
         .filter((n) => Number.isFinite(n) && n > 0);
-      process.stdout.write("running scale benchmark (ingest can take a few minutes at 100k)…\n");
-      const report = await runScaleBenchmark({ sizes });
+      const budgetMs = Number(opts.budgetMs);
+      process.stdout.write("running scale benchmark (streaming bulk ingest; 1M may take a bit)…\n");
+      const report = await runScaleBenchmark({
+        sizes,
+        budgetMs: Number.isFinite(budgetMs) && budgetMs > 0 ? budgetMs : undefined,
+      });
       process.stdout.write(`${formatScaleReport(report)}\n`);
       if (!report.pass) process.exitCode = 1;
       return;
