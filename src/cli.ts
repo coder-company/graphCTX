@@ -440,7 +440,7 @@ program
   .command("eval")
   .argument(
     "<sub>",
-    "subcommand: run | memory | promote | drift | retrieval | gate | security | branch | temporal | conflict | procedure | mcp | storage | telemetry | all",
+    "subcommand: run | memory | promote | drift | retrieval | gate | security | branch | temporal | conflict | procedure | mcp | storage | telemetry | provenance | all",
   )
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
@@ -562,6 +562,14 @@ program
       process.stdout.write(formatTelemetryLearningReport(r));
       return r.pass;
     };
+    const runProvenance = async () => {
+      const { runProvenanceWhyEval, formatProvenanceWhyReport } = await import(
+        "./eval/suites/provenance-why.js"
+      );
+      const r = runProvenanceWhyEval();
+      process.stdout.write(formatProvenanceWhyReport(r));
+      return r.pass;
+    };
 
     if (sub === "promote") {
       if (!(await runPromote())) process.exitCode = 1;
@@ -619,6 +627,10 @@ program
       if (!(await runTelemetry())) process.exitCode = 1;
       return;
     }
+    if (sub === "provenance") {
+      if (!(await runProvenance())) process.exitCode = 1;
+      return;
+    }
     if (sub === "all") {
       const a = await runArms();
       const mem = await runMemory();
@@ -634,7 +646,26 @@ program
       const m = await runMcp();
       const storage = await runStorage();
       const telemetry = await runTelemetry();
-      if (!(a && mem && p && d && rq && g && sec && b && t && c && pr && m && storage && telemetry))
+      const provenance = await runProvenance();
+      if (
+        !(
+          a &&
+          mem &&
+          p &&
+          d &&
+          rq &&
+          g &&
+          sec &&
+          b &&
+          t &&
+          c &&
+          pr &&
+          m &&
+          storage &&
+          telemetry &&
+          provenance
+        )
+      )
         process.exitCode = 1;
       return;
     }
