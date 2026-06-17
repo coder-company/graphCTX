@@ -69,3 +69,40 @@ describe("FactsRepo git anchors", () => {
     }
   });
 });
+
+describe("FactsRepo secondary indexes", () => {
+  it("keeps FTS tags searchable after metadata updates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "graphctx-facts-repo-"));
+    const db = openDb(join(dir, "facts.db"));
+    try {
+      const facts = new FactsRepo(db);
+      const fact = facts.insert({
+        subject: "repo",
+        predicate: "release_note",
+        object: "ship the stable channel",
+        fact_kind: "semantic",
+        temporal_kind: "static",
+        scope: { user_id: "u", workspace_id: "w" },
+        trust_tier: "high",
+        status: "active",
+        promotion_state: "workspace_active",
+        source: { asserted_by: "user", event_ids: [] },
+        tags: [],
+      });
+
+      expect(
+        facts.search({ text: "deployable", scope: { user_id: "u", workspace_id: "w" } }),
+      ).toEqual([]);
+
+      facts.update(fact.fact_id, { tags: ["deployable"] });
+
+      expect(
+        facts.search({ text: "deployable", scope: { user_id: "u", workspace_id: "w" } })[0]?.fact
+          .fact_id,
+      ).toBe(fact.fact_id);
+    } finally {
+      db.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

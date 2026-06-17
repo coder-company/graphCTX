@@ -324,6 +324,19 @@ export class FactsRepo {
     }
     if (sets.length === 0) return;
     this.db.prepare(`UPDATE facts SET ${sets.join(", ")} WHERE fact_id = @fact_id`).run(params);
+    if (patch.tags !== undefined) {
+      this.syncFtsTags(id, patch.tags);
+    }
+  }
+
+  private syncFtsTags(id: string, tags: string[]): void {
+    const tagsText = tags.join(" ");
+    this.db.prepare("UPDATE facts_fts SET tags = ? WHERE fact_id = ?").run(tagsText, id);
+    if (!this.vectors) return;
+    const row = this.db.prepare("SELECT text FROM facts_fts WHERE fact_id = ?").get(id) as
+      | { text: string }
+      | undefined;
+    if (row) this.vectors.upsert(id, `${row.text} ${tagsText}`);
   }
 
   expire(id: string, by: string, atCommit?: string): void {
