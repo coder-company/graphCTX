@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { writeAgentsCapsule } from "../adapters/boot-capsule.js";
+import type { Event } from "../core/types.js";
 import { redactWhyReport } from "../provenance/why.js";
 import { resolveConflicts } from "../resolve/conflicts.js";
 import type { Runtime } from "../runtime.js";
@@ -40,8 +41,20 @@ const recallInput = z.object({
   session_id: z.string().optional(),
 });
 
+const lifecycleEvents = [
+  "SessionStart",
+  "UserPromptSubmit",
+  "PreToolUse",
+  "PostToolUse",
+  "PreCompact",
+  "PostCompact",
+  "SessionEnd",
+  "FileChanged",
+  "BranchSwitch",
+] as const satisfies readonly Event[];
+
 const injectInput = z.object({
-  event: z.string().default("UserPromptSubmit"),
+  event: z.enum(lifecycleEvents).default("UserPromptSubmit"),
   session_id: z.string().default("mcp-session"),
   user_prompt: z.string().optional(),
 });
@@ -69,6 +82,7 @@ const num = { type: "number" };
 const bool = { type: "boolean" };
 const arr = (items: Record<string, unknown>) => ({ type: "array", items });
 const obj = { type: "object" };
+const eventSchema = { type: "string", enum: [...lifecycleEvents] };
 
 export const MCP_TOOLS: McpTool[] = [
   {
@@ -120,7 +134,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "inject_context",
     description: "Build and return the injection capsule for a lifecycle event.",
-    inputSchema: s({ event: str, session_id: str, user_prompt: str }),
+    inputSchema: s({ event: eventSchema, session_id: str, user_prompt: str }),
     outputSchema: s({ markdown: str, cards: arr(obj), tokens: num }, [
       "markdown",
       "cards",
@@ -128,7 +142,7 @@ export const MCP_TOOLS: McpTool[] = [
     ]),
     async handler(rt, args) {
       const a = injectInput.parse(args);
-      const ctx = await rt.injectionContext(a.event as never, a.session_id, {
+      const ctx = await rt.injectionContext(a.event, a.session_id, {
         user_prompt: a.user_prompt,
       });
       const capsule = await rt.planner().plan(ctx);

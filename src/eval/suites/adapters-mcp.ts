@@ -267,6 +267,20 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
           (t) => t.inputSchema?.type === "object" && t.outputSchema?.type === "object",
         ),
       );
+      const injectEventEnum = (
+        (
+          list.result?.tools?.find((t) => t.name === "inject_context")?.inputSchema?.properties as
+            | Record<string, { enum?: unknown[] }>
+            | undefined
+        )?.event?.enum ?? []
+      ).map(String);
+      check(
+        `MCP inject_context advertises lifecycle-event enum (${injectEventEnum.length} events)`,
+        injectEventEnum.includes("UserPromptSubmit") &&
+          injectEventEnum.includes("PostCompact") &&
+          injectEventEnum.includes("BranchSwitch") &&
+          !injectEventEnum.includes("NotARealEvent"),
+      );
 
       // round-trip a remember then a recall
       let requestId = 3;
@@ -516,7 +530,7 @@ function mcpToolCases(factId: string): ToolContractCase[] {
     {
       name: "inject_context",
       valid: { event: "UserPromptSubmit", session_id: "mcp-contract", user_prompt: "pnpm" },
-      invalid: { event: 42 },
+      invalid: { event: "NotARealEvent" },
       shape: isRecallPayload,
     },
     {
