@@ -123,6 +123,17 @@ function packageMetadataFacts(ctx: ExtractContext, pkg: PackageJson): NewFact[] 
   }
 
   if (typeof pkg.packageManager === "string" && pkg.packageManager.trim()) {
+    const declared = parseDeclaredPackageManager(pkg.packageManager);
+    if (declared) {
+      facts.push(
+        packageFact(ctx, {
+          predicate: "package_manager",
+          object: declared,
+          tags: ["dependency", "package", "config_file"],
+          rawQuote: `package.json packageManager: ${pkg.packageManager.trim()}`,
+        }),
+      );
+    }
     facts.push(
       packageFact(ctx, {
         predicate: "declared_package_manager",

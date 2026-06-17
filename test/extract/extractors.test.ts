@@ -70,6 +70,9 @@ describe("deterministic extractors", () => {
     expect(declared.res.inserted.find((f) => f.predicate === "test_command")?.object).toBe(
       "pnpm run test",
     );
+    expect(declared.res.inserted.find((f) => f.predicate === "package_manager")?.object).toBe(
+      "pnpm",
+    );
 
     rmSync(join(dir, "package.json"), { force: true });
     writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: { test: "bun test" } }));

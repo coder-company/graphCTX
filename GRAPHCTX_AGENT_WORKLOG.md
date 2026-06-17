@@ -209,3 +209,16 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval run --arms A,B,C,N,S`
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
+
+### Iteration 50 - packageManager canonical package facts
+
+- Emitted canonical `package_manager` facts from `package.json packageManager`
+  declarations so repos without lockfiles still get package-manager memory.
+- Extended the package-script extractor regression to cover that canonical fact.
+- Verification:
+  - `npx biome check src/extract/deterministic/package-scripts.ts test/extract/extractors.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/extract/extractors.test.ts test/eval/harness.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval run --arms A,B,C,N,S`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
