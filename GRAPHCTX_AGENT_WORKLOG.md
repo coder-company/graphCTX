@@ -142,3 +142,16 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx tsx src/cli.ts eval memory`
   - `npx tsx src/cli.ts eval quality`
+
+### Iteration 45 - fail-closed commit-scoped retrieval
+
+- Made retrieval suppress commit/repo/branch-scoped facts when no Git adapter is
+  available or Git validity checks throw, while still allowing unanchored memory.
+- Added retriever regressions for no-Git and broken-Git stale-memory suppression.
+- Verification:
+  - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/retrieve/retriever.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsx src/cli.ts eval quality`

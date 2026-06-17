@@ -285,11 +285,15 @@ export class Retriever {
 
   private async isValid(fact: Fact, ctx: InjectionContext): Promise<boolean> {
     if (fact.status !== "active") return false;
-    if (!fact.git || !this.git) return true;
+    if (!fact.git) return true;
+    if (!this.git) return !requiresGitValidation(fact.git);
     try {
       return await isValidAsOf(this.git, fact.git, ctx.git.head, ctx.git.branch, ctx.git.repo_id);
     } catch {
-      return true; // degrade open: if git check fails, don't drop the fact
+      // No memory is safer than stale commit-scoped memory. Path-only anchors can
+      // still flow through staleness checks; commit/repo/branch anchors require
+      // successful Git validation before injection or recall.
+      return !requiresGitValidation(fact.git);
     }
   }
 
@@ -381,6 +385,19 @@ function semanticText(fact: Fact): string {
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function requiresGitValidation(anchor: NonNullable<Fact["git"]>): boolean {
+  return Boolean(
+    anchor.repo_id ||
+      anchor.branch ||
+      anchor.base_head ||
+      anchor.introduced_by_commit ||
+      anchor.valid_from_commit ||
+      anchor.valid_until_commit ||
+      anchor.invalidated_by_commit ||
+      anchor.patch_id,
+  );
 }
 
 // A vector hit is valid only within the active retrieval scopes (workspace or
