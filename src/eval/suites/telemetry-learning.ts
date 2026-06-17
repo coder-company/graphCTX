@@ -95,6 +95,11 @@ export function runTelemetryLearningEval(): TelemetryLearningReport {
     `telemetry local-only: ${localOnly.networkCalls} network calls, recorded=${localOnly.recorded}, disabled-write=${localOnly.disabledWrite}`,
     localOnly.ok,
   );
+  const signalStorage = withTempDb((db) => evaluateSignalStorageSanitization(db));
+  check(
+    `telemetry signal storage: persisted keys=${signalStorage.persistedKeys.join(",") || "(none)"}, secret leaked=${signalStorage.secretLeaked}`,
+    signalStorage.ok,
+  );
 
   const failSoft = withTempDb((db) => evaluateFailSoft(db));
   check("telemetry fail-soft: record survived missing table (no throw)", failSoft);
@@ -210,6 +215,53 @@ function evaluateLocalOnlyRecording(db: DB): {
     networkCalls,
     recorded,
     disabledWrite,
+  };
+}
+
+function evaluateSignalStorageSanitization(db: DB): {
+  ok: boolean;
+  persistedKeys: string[];
+  secretLeaked: boolean;
+} {
+  const repo = new InjectionsRepo(db, clock);
+  const id = repo.log({
+    session_id: "s-sanitize",
+    event_type: "PostToolUse",
+    selected_fact_ids: ["fact_signal"],
+    token_count: 6,
+  });
+  const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+  const wideSignal = {
+    followedBySuccess: true,
+    repeatedFailure: false,
+    token: secret,
+    command: `curl -H 'Authorization: Bearer ${secret}' https://example.invalid`,
+    nested: { api_key: secret },
+  } as OutcomeSignal & Record<string, unknown>;
+
+  new OutcomeRecorder(db).record(id, wideSignal);
+  const row = db.prepare("SELECT outcome_json FROM injections WHERE injection_id = ?").get(id) as {
+    outcome_json: string;
+  };
+  const parsed = JSON.parse(row.outcome_json) as {
+    outcome?: string;
+    signals?: Record<string, unknown>;
+  };
+  const persistedKeys = Object.keys(parsed.signals ?? {}).sort();
+  const secretLeaked =
+    row.outcome_json.includes(secret) ||
+    row.outcome_json.includes("Authorization") ||
+    row.outcome_json.includes("api_key") ||
+    row.outcome_json.includes("command");
+  return {
+    ok:
+      parsed.outcome === "helped" &&
+      persistedKeys.length === 1 &&
+      persistedKeys[0] === "followedBySuccess" &&
+      parsed.signals?.followedBySuccess === true &&
+      !secretLeaked,
+    persistedKeys,
+    secretLeaked,
   };
 }
 

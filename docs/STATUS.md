@@ -76,9 +76,9 @@
 |---|---|---|
 | `hook <event>` p95 | < 150ms | 26.74ms ✅ |
 
-_Last updated: bounded long-prompt FTS retrieval. 184 tests, 19 gate suites green, all I1-I9 hold._
+_Last updated: sanitized telemetry outcome signal storage. 185 tests, 19 gate suites green, all I1-I9 hold._
 
-_Quality counters: Tests: 184. Gate suites: 19._
+_Quality counters: Tests: 185. Gate suites: 19._
 
 ---
 
@@ -102,7 +102,7 @@ _Quality counters: Tests: 184. Gate suites: 19._
 | Security (injection/secrets/trust) | ✅ | adversarial benchmark: secret recall 1.0/precision 1.0; 0 poison promoted across expanded attack families; 0 harmful capsule cards; deterministic fuzz cases. `eval security` guards it |
 | Performance (latency/scale) | ✅ | bounded long-prompt FTS term cap plus streaming bulk scale bench: 1k/10k/50k PASS with measured p95 1.59/1.73/1.76ms after this change, default 100k PASS, 1M p95 ~1.4ms, finite ingest timing, `bench --footprint` startup/RSS/heap gate, and impossible-budget FAIL path |
 | Storage & migrations | ✅ | new `eval storage` passes 10/10: schema_version 3, reopen migrations 0, v1→v3 rows preserved 3/3, append-only expire tombstones retained, malformed rows skipped, missing optional ledger table degrades, WAL/FK/busy_timeout enforced, cascades/edge trail consistent |
-| Telemetry & outcome learning | ✅ | new `eval telemetry` passes 8/8: classifier accuracy 1.00>=0.90 with harmful-over-helped precedence, local-only recording with 0 network calls and disabled-write=0, fail-soft missing-table handling, malformed summary rows skipped, learned ranking lift +1.00, and DB-backed ledger cross-channel/open_loop behavior |
+| Telemetry & outcome learning | ✅ | new `eval telemetry` passes 9/9: classifier accuracy 1.00>=0.90 with harmful-over-helped precedence, local-only recording with 0 network calls and disabled-write=0, signal storage whitelists known booleans and drops secret/unknown fields, fail-soft missing-table handling, malformed summary rows skipped, learned ranking lift +1.00, and DB-backed ledger cross-channel/open_loop behavior |
 | Provenance / why() | ✅ | new `eval provenance` passes 5/5: deterministic extract→why chain complete, last-8 suffix equals full-id report, unknown id exits cleanly with `no fact found`, clean vs dangling evidence reports complete/incomplete, and git anchor/promotions/edges sections render when present |
 | Resilience & fail-soft (I9) | ✅ | new `eval resilience` passes 9/9: no-key deterministic-only capsule emits with exit 0, corrupt DB and bad config degrade to empty output, missing git and planner crashes never propagate, provider resolution returns `nullProvider`, no-key extraction is a deterministic no-op, and SessionStart/SessionEnd lifecycle hooks run fail-soft |
 | Eval harness & benchmarks | ✅ | `eval benchmarks` passes 5/5: centralized 19-suite registry, A/B/C/N/S ablation confirms push 93% > pull 21% with N/S 5/5 controls, offline graphCTX-vs-Supermemory scorecard renders, live bake-off skips without key, 1k/10k scale p95 stays under budget, and trapped offline network calls remain 0 |
@@ -110,4 +110,4 @@ _Quality counters: Tests: 184. Gate suites: 19._
 | Code quality | ✅ | new `eval quality` passes 6/6: full-repo Biome, strict TS config/scripts, CLI help/docs/README reachability, eval-suite runner/test coverage, final README docs-as-code, and generated migration packaging guard |
 
 _Loop note: composite metric = (failing_gates × 100) + (un-perfected aspects); within-aspect
-measured gains are recorded in the `memory` graph. Tests: 184, gate suites: 19 (`eval all` includes run/memory/promote/drift/retrieval/gate/security/branch/temporal/conflict/procedure/mcp/storage/telemetry/provenance/resilience/benchmarks/cli-docs-demo/quality)._
+measured gains are recorded in the `memory` graph. Tests: 185, gate suites: 19 (`eval all` includes run/memory/promote/drift/retrieval/gate/security/branch/temporal/conflict/procedure/mcp/storage/telemetry/provenance/resilience/benchmarks/cli-docs-demo/quality)._

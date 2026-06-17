@@ -33,9 +33,10 @@ export interface OutcomeSignal {
 }
 
 export function classifyOutcome(sig: OutcomeSignal): OutcomeClass {
-  if (sig.repeatedFailure) return "harmful";
-  if (sig.referencedInjectedFact || sig.followedBySuccess) return "helped";
-  if (sig.noEffect) return "ignored";
+  const clean = sanitizeOutcomeSignal(sig);
+  if (clean.repeatedFailure) return "harmful";
+  if (clean.referencedInjectedFact || clean.followedBySuccess) return "helped";
+  if (clean.noEffect) return "ignored";
   return "unknown";
 }
 
@@ -57,12 +58,13 @@ export class OutcomeRecorder {
 
   // Persist a classified outcome onto the injection row (local-only).
   record(injectionId: string, sig: OutcomeSignal): OutcomeClass {
-    const outcome = classifyOutcome(sig);
+    const signals = sanitizeOutcomeSignal(sig);
+    const outcome = classifyOutcome(signals);
     if (!this.enabled) return outcome;
     try {
       this.db
         .prepare("UPDATE injections SET outcome_json = ? WHERE injection_id = ?")
-        .run(JSON.stringify({ outcome, signals: sig, at: new Date().toISOString() }), injectionId);
+        .run(JSON.stringify({ outcome, signals, at: new Date().toISOString() }), injectionId);
     } catch {
       // telemetry must never break anything (I9)
     }
@@ -150,6 +152,26 @@ export function applyOutcomeLearning(
       if (b.score !== a.score) return b.score - a.score;
       return a.fact.fact_id.localeCompare(b.fact.fact_id);
     });
+}
+
+const OUTCOME_SIGNAL_KEYS = [
+  "followedBySuccess",
+  "repeatedFailure",
+  "referencedInjectedFact",
+  "noEffect",
+] as const;
+
+function sanitizeOutcomeSignal(sig: OutcomeSignal): OutcomeSignal {
+  const input = isRecord(sig) ? sig : {};
+  const clean: OutcomeSignal = {};
+  for (const key of OUTCOME_SIGNAL_KEYS) {
+    if (input[key] === true) clean[key] = true;
+  }
+  return clean;
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
 }
 
 function emptySummary(): OutcomeSummary {
