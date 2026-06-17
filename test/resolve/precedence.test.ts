@@ -19,7 +19,11 @@ function fact(over: Partial<Fact>): Fact {
     evidence_count: 1,
     contradiction_count: 0,
     injection_count: 0,
-    time: { t_created: "2026-01-01T00:00:00Z", t_recorded: "2026-01-01T00:00:00Z" },
+    time: {
+      t_observed: "2026-01-01T00:00:00Z",
+      t_created: "2026-01-01T00:00:00Z",
+      t_recorded: "2026-01-01T00:00:00Z",
+    },
     source: { asserted_by: "user", event_ids: [] },
     tags: [],
     ...over,

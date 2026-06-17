@@ -359,7 +359,7 @@ function makeFact(id: string, kind: FactKind): Fact {
     evidence_count: 1,
     contradiction_count: 0,
     injection_count: 0,
-    time: { t_created: clock.iso(), t_recorded: clock.iso() },
+    time: { t_observed: clock.iso(), t_created: clock.iso(), t_recorded: clock.iso() },
     source: { asserted_by: "user", event_ids: [], raw_quote: id },
     tags: ["telemetry_eval"],
   };

@@ -32,6 +32,7 @@ interface FactRow {
   injection_count: number;
   last_verified_at: string | null;
   last_injected_at: string | null;
+  t_observed: string | null;
   t_created: string;
   t_recorded: string;
   t_expired: string | null;
@@ -89,6 +90,7 @@ function rowToFact(row: FactRow, anchor?: AnchorRow): Fact {
     last_verified_at: row.last_verified_at ?? undefined,
     last_injected_at: row.last_injected_at ?? undefined,
     time: {
+      t_observed: row.t_observed ?? row.t_recorded,
       t_created: row.t_created,
       t_recorded: row.t_recorded,
       t_expired: row.t_expired ?? undefined,
@@ -168,6 +170,7 @@ export class FactsRepo {
   insert(input: NewFact): Fact {
     const id = factId();
     const now = this.clock.iso();
+    const observed = input.observed_at ?? now;
     const status = input.status ?? "candidate";
     const promotion_state = input.promotion_state ?? "session_only";
     const ftsText = `${input.subject} ${input.predicate} ${stringifyObject(input.object)} ${input.source.raw_quote ?? ""}`;
@@ -188,12 +191,12 @@ export class FactsRepo {
           fact_id, subject_id, predicate, object_json, fact_kind, temporal_kind,
           scope_user_id, scope_workspace_id, scope_session_id, status, promotion_state,
           trust_tier, sensitivity, confidence, evidence_count, t_created, t_recorded,
-          asserted_by, source_event_ids_json, source_commit, raw_quote, tags_json
+          t_observed, asserted_by, source_event_ids_json, source_commit, raw_quote, tags_json
         ) VALUES (
           @fact_id, @subject_id, @predicate, @object_json, @fact_kind, @temporal_kind,
           @scope_user_id, @scope_workspace_id, @scope_session_id, @status, @promotion_state,
           @trust_tier, @sensitivity, @confidence, @evidence_count, @t_created, @t_recorded,
-          @asserted_by, @source_event_ids_json, @source_commit, @raw_quote, @tags_json
+          @t_observed, @asserted_by, @source_event_ids_json, @source_commit, @raw_quote, @tags_json
         )`,
       )
       .run({
@@ -214,6 +217,7 @@ export class FactsRepo {
         evidence_count: input.evidence_count ?? 1,
         t_created: now,
         t_recorded: now,
+        t_observed: observed,
         asserted_by: input.source.asserted_by,
         source_event_ids_json: JSON.stringify(input.source.event_ids),
         source_commit: input.source.commit ?? null,

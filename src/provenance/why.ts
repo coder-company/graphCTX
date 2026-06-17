@@ -66,6 +66,7 @@ export function formatWhy(r: WhyReport): string {
   lines.push("=".repeat(72));
   lines.push(`  kind:          ${r.fact.fact_kind} / ${r.fact.temporal_kind}`);
   lines.push(`  status:        ${r.fact.status}  (${r.fact.promotion_state})`);
+  lines.push(`  observed:      ${r.fact.time.t_observed}  recorded=${r.fact.time.t_recorded}`);
   lines.push(`  trust:         ${r.fact.trust_tier}  sensitivity=${r.fact.sensitivity}`);
   lines.push(`  asserted by:   ${r.asserted_by}`);
   if (r.raw_quote) lines.push(`  raw quote:     "${r.raw_quote}"`);

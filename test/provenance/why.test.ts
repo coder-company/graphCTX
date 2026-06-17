@@ -84,6 +84,22 @@ describe("why() provenance reader", () => {
     expect(rIncoming.complete).toBe(true); // no cited evidence to miss
   });
 
+  it("reports when a fact was observed separately from when it was recorded", () => {
+    const fact = facts.insert(
+      f({
+        observed_at: "2025-12-31T23:59:00.000Z",
+        source: {
+          asserted_by: "user",
+          event_ids: [],
+          raw_quote: "observed before it was recorded",
+        },
+      }),
+    );
+    const r = why(fact.fact_id, deps())!;
+    expect(r.fact.time.t_observed).toBe("2025-12-31T23:59:00.000Z");
+    expect(r.fact.time.t_recorded).not.toBe(r.fact.time.t_observed);
+  });
+
   it("includes the promotion audit trail (which gate fired)", () => {
     const fact = facts.insert(f({}));
     promotions.record({

@@ -69,6 +69,7 @@ export interface FactSource {
 }
 
 export interface FactTime {
+  t_observed: string;
   t_created: string;
   t_recorded: string;
   t_expired?: string;
@@ -116,6 +117,7 @@ export interface NewFact {
   source: FactSource;
   tags?: string[];
   evidence_count?: number;
+  observed_at?: string;
 }
 
 // Mutable metadata/lifecycle fields only (I5 — never mutate truth in place).

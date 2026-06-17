@@ -30,7 +30,7 @@ function sf(id: string, kind = "semantic"): ScoredFact {
       evidence_count: 1,
       contradiction_count: 0,
       injection_count: 0,
-      time: { t_created: "2026-01-01", t_recorded: "2026-01-01" },
+      time: { t_observed: "2026-01-01", t_created: "2026-01-01", t_recorded: "2026-01-01" },
       source: { asserted_by: "user", event_ids: [] },
       tags: [],
     },

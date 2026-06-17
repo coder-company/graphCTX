@@ -22,4 +22,9 @@ export const MIGRATIONS: Migration[] = [
     file: "0003_m2.sql",
     sql: "-- M2: DB-backed anti-repetition ledger for cross-channel, cross-process\n-- idempotency. A fact injected via a hook must not be re-injected via an MCP\n-- rider in the same session within the TTL (SPEC §15, GAMEPLAN §5.2).\nCREATE TABLE inject_ledger (\n  session_id   TEXT NOT NULL,\n  fact_id      TEXT NOT NULL,\n  event_type   TEXT,\n  injected_at  TEXT NOT NULL,\n  PRIMARY KEY (session_id, fact_id)\n);\n\nCREATE INDEX idx_inject_ledger_session ON inject_ledger(session_id, injected_at);\n",
   },
+  {
+    version: 4,
+    file: "0004_temporal_observed.sql",
+    sql: "-- M3: first-class fact observation time.\n--\n-- `t_created` says when graphCTX created the row and `t_recorded` says when it\n-- persisted the row. Temporal graph provenance also needs the source-world time\n-- when the fact was observed. Existing rows predate this distinction, so backfill\n-- observation time from `t_recorded`.\nALTER TABLE facts ADD COLUMN t_observed TEXT;\nUPDATE facts SET t_observed = t_recorded WHERE t_observed IS NULL;\nCREATE INDEX idx_facts_observed ON facts(scope_user_id, t_observed);\n",
+  },
 ];

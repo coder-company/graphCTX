@@ -76,11 +76,20 @@ export function runStorageMigrationsEval(): StorageMigrationsReport {
       const facts = countRows(db, "facts");
       const edges = countRows(db, "edges");
       const episodes = countRows(db, "episodes");
+      const observed = db
+        .prepare("SELECT t_observed, t_recorded FROM facts WHERE fact_id = ?")
+        .get("fact_storage_v1") as
+        | { t_observed: string | null; t_recorded: string | null }
+        | undefined;
       const rowsPreserved = facts === 1 && edges === 1 && episodes === 1;
       check(
         `forward-compat: rows preserved ${facts + edges + episodes}/3, version 1→${schemaVersion(db)}`,
         applied === latestVersion - 1 && schemaVersion(db) === latestVersion && rowsPreserved,
         `applied=${applied}`,
+      );
+      check(
+        "forward-compat: t_observed backfilled from t_recorded",
+        observed?.t_observed === observed?.t_recorded && !!observed?.t_observed,
       );
       check(
         "forward-compat: new migration tables exist",

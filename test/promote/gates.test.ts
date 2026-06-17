@@ -30,7 +30,7 @@ const fact = (over: Partial<Fact>): Fact =>
     evidence_count: 1,
     contradiction_count: 0,
     injection_count: 0,
-    time: { t_created: "t", t_recorded: "t" },
+    time: { t_observed: "t", t_created: "t", t_recorded: "t" },
     source: { asserted_by: "deterministic_parser", event_ids: [] },
     tags: [],
     ...over,

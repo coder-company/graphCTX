@@ -19,7 +19,11 @@ function fact(over: Partial<Fact>): Fact {
     evidence_count: 1,
     contradiction_count: 0,
     injection_count: 0,
-    time: { t_created: "2026-01-01T00:00:00Z", t_recorded: "2026-01-01T00:00:00Z" },
+    time: {
+      t_observed: "2026-01-01T00:00:00Z",
+      t_created: "2026-01-01T00:00:00Z",
+      t_recorded: "2026-01-01T00:00:00Z",
+    },
     source: { asserted_by: "user", event_ids: [] },
     tags: [],
     ...over,
@@ -40,14 +44,22 @@ describe("fuse — confidence + recency rerank (M2, S5)", () => {
     const old: ScoredFact = {
       fact: fact({
         object: "old",
-        time: { t_created: "2025-06-01T00:00:00Z", t_recorded: "2025-06-01T00:00:00Z" },
+        time: {
+          t_observed: "2025-06-01T00:00:00Z",
+          t_created: "2025-06-01T00:00:00Z",
+          t_recorded: "2025-06-01T00:00:00Z",
+        },
       }),
       score: 1,
     };
     const fresh: ScoredFact = {
       fact: fact({
         object: "fresh",
-        time: { t_created: "2026-01-30T00:00:00Z", t_recorded: "2026-01-30T00:00:00Z" },
+        time: {
+          t_observed: "2026-01-30T00:00:00Z",
+          t_created: "2026-01-30T00:00:00Z",
+          t_recorded: "2026-01-30T00:00:00Z",
+        },
       }),
       score: 1,
     };
@@ -61,7 +73,11 @@ describe("fuse — confidence + recency rerank (M2, S5)", () => {
       fact: fact({
         object: "strong",
         confidence: 0.9,
-        time: { t_created: "2025-01-01T00:00:00Z", t_recorded: "2025-01-01T00:00:00Z" },
+        time: {
+          t_observed: "2025-01-01T00:00:00Z",
+          t_created: "2025-01-01T00:00:00Z",
+          t_recorded: "2025-01-01T00:00:00Z",
+        },
       }),
       score: 5,
     };
@@ -69,7 +85,11 @@ describe("fuse — confidence + recency rerank (M2, S5)", () => {
       fact: fact({
         object: "weak",
         confidence: 0.9,
-        time: { t_created: "2026-01-31T00:00:00Z", t_recorded: "2026-01-31T00:00:00Z" },
+        time: {
+          t_observed: "2026-01-31T00:00:00Z",
+          t_created: "2026-01-31T00:00:00Z",
+          t_recorded: "2026-01-31T00:00:00Z",
+        },
       }),
       score: 1,
     };
