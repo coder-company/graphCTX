@@ -139,4 +139,37 @@ describe("injection planner (core loop)", () => {
     expect(capsule.markdown).toContain("User preferences");
     expect(capsule.markdown).toContain("use concise status updates");
   });
+
+  it("resolves precedence before budget redundancy", async () => {
+    const db = openDb(":memory:");
+    const facts = new FactsRepo(db);
+    facts.insert(
+      activeFact({
+        predicate: "package_manager",
+        object: "pnpm",
+        source: { asserted_by: "deterministic_parser", event_ids: [] },
+      }),
+    );
+    facts.insert(
+      activeFact({
+        predicate: "package_manager",
+        object: "npm",
+        scope: { user_id: "u" },
+        source: { asserted_by: "user", event_ids: [] },
+        promotion_state: "user_static_active",
+      }),
+    );
+    const planner = new InjectionPlanner({
+      facts,
+      git: null,
+      workspaceDir: process.cwd(),
+      gateConfig,
+      budgetConfig,
+    });
+    const capsule = await planner.plan(ctx("SessionStart"));
+
+    expect(capsule.markdown).toContain("This repo uses pnpm");
+    expect(capsule.markdown).not.toContain("This repo uses npm");
+    expect(capsule.conflicts[0]?.summary).toContain("repo structured evidence");
+  });
 });

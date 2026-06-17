@@ -74,8 +74,14 @@ export class InjectionPlanner {
     // anti-repetition (cross-channel idempotency within a session)
     const deduped = this.ledger.removeRecentlyInjected(safe, ctx.scope.session_id);
 
+    // Resolve precedence before budget/redundancy. Otherwise a lower-precedence
+    // card with a selection bonus (for example an old user profile) can consume
+    // the subject/predicate slot before higher-precedence structured evidence is
+    // allowed to win.
+    const resolution = resolveConflicts(deduped, ctx.scope.session_id);
+
     const { selected, omitted } = selectByBudget(
-      deduped,
+      resolution.resolved,
       budget,
       ctx.event,
       this.deps.budgetConfig,
@@ -86,7 +92,7 @@ export class InjectionPlanner {
     // that survived verification/secret/dedupe but were crowded out by budget.
     if (ctx.event === "PostCompact" || ctx.event === "SessionStart") {
       const present = new Set(selected.map((s) => s.scored.fact.fact_id));
-      for (const s of deduped) {
+      for (const s of resolution.resolved) {
         if (s.fact.fact_kind === "open_loop" && !present.has(s.fact.fact_id)) {
           const card = renderCard(s.fact);
           selected.push({ scored: s, tokens: card.tokens, markdown: card.markdown });
@@ -97,27 +103,16 @@ export class InjectionPlanner {
 
     if (selected.length === 0) return EMPTY_CAPSULE;
 
-    // Precedence resolution (SPEC §14): suppress contradicted losers, surface the
-    // conflict so the agent sees which value won and why. Falls back to the M0
-    // detector for the conflict note text when resolution finds none.
-    const resolution = resolveConflicts(
-      selected.map((s) => s.scored),
-      ctx.scope.session_id,
-    );
-    const winners = new Set(resolution.resolved.map((r) => r.fact.fact_id));
-    const kept = selected.filter((s) => winners.has(s.scored.fact.fact_id));
-    const finalSelected = kept.length > 0 ? kept : selected;
-
-    const cards = finalSelected.map((s) => renderCard(s.scored.fact));
+    const cards = selected.map((s) => renderCard(s.scored.fact));
     const conflicts =
       resolution.conflicts.length > 0
         ? resolution.conflicts
-        : detectConflicts(finalSelected.map((s) => s.scored));
+        : detectConflicts(selected.map((s) => s.scored));
     const capsule = renderCapsule(ctx.event, cards, conflicts, omitted);
 
     this.ledger.record(
       ctx.scope.session_id,
-      finalSelected.map((s) => s.scored),
+      selected.map((s) => s.scored),
       ctx.event,
     );
 
@@ -125,7 +120,7 @@ export class InjectionPlanner {
       this.deps.injections.log({
         session_id: ctx.scope.session_id ?? "unknown",
         event_type: ctx.event,
-        selected_fact_ids: finalSelected.map((s) => s.scored.fact.fact_id),
+        selected_fact_ids: selected.map((s) => s.scored.fact.fact_id),
         rejected_fact_ids: omitted.map((o) => o.fact_id),
         token_count: capsule.token_count,
         git_head: ctx.git.head,
