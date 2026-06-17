@@ -16,20 +16,20 @@ export interface McpTool {
   handler: (rt: Runtime, args: unknown) => Promise<unknown>;
 }
 
+const factKindValues = [
+  "semantic",
+  "procedural",
+  "preference",
+  "decision",
+  "constraint",
+  "failure",
+  "task_state",
+  "open_loop",
+] as const;
+
 const rememberInput = z.object({
   text: z.string().min(1),
-  kind: z
-    .enum([
-      "semantic",
-      "procedural",
-      "preference",
-      "decision",
-      "constraint",
-      "failure",
-      "task_state",
-      "open_loop",
-    ])
-    .default("semantic"),
+  kind: z.enum(factKindValues).default("semantic"),
   subject: z.string().default("user"),
   predicate: z.string().default("note"),
   session_id: z.string().optional(),
@@ -79,18 +79,22 @@ const s = (props: Record<string, unknown>, required: string[] = []) => ({
 });
 const str = { type: "string" };
 const num = { type: "number" };
+const nonEmptyStr = { type: "string", minLength: 1 };
+const positiveInt = { type: "integer", minimum: 1 };
 const bool = { type: "boolean" };
 const arr = (items: Record<string, unknown>) => ({ type: "array", items });
 const obj = { type: "object" };
+const factKindSchema = { type: "string", enum: [...factKindValues] };
 const eventSchema = { type: "string", enum: [...lifecycleEvents] };
 
 export const MCP_TOOLS: McpTool[] = [
   {
     name: "remember",
     description: "Store a user-asserted fact/event/procedure in graphCTX memory.",
-    inputSchema: s({ text: str, kind: str, subject: str, predicate: str, session_id: str }, [
-      "text",
-    ]),
+    inputSchema: s(
+      { text: nonEmptyStr, kind: factKindSchema, subject: str, predicate: str, session_id: str },
+      ["text"],
+    ),
     outputSchema: s({ fact_id: str, status: str }, ["fact_id", "status"]),
     async handler(rt, args) {
       const a = rememberInput.parse(args);
@@ -115,7 +119,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "recall",
     description: "Pull retrieval (fallback path; push is primary). Returns ranked memory cards.",
-    inputSchema: s({ query: str, budget_tokens: num, session_id: str }, ["query"]),
+    inputSchema: s({ query: nonEmptyStr, budget_tokens: positiveInt, session_id: str }, ["query"]),
     outputSchema: s({ markdown: str, cards: arr(obj), tokens: num }, [
       "markdown",
       "cards",
@@ -180,7 +184,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "forget",
     description: "Expire a fact so it stops being recalled/injected.",
-    inputSchema: s({ fact_id: str, reason: str }, ["fact_id"]),
+    inputSchema: s({ fact_id: nonEmptyStr, reason: str }, ["fact_id"]),
     outputSchema: s({ fact_id: str, status: str }, ["fact_id", "status"]),
     async handler(rt, args) {
       const a = forgetInput.parse(args);
@@ -194,7 +198,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "why",
     description: "Return the full provenance chain for a fact (events, anchor, gate, edges).",
-    inputSchema: s({ fact_id: str }, ["fact_id"]),
+    inputSchema: s({ fact_id: nonEmptyStr }, ["fact_id"]),
     outputSchema: s({ fact: obj, error: str }),
     async handler(rt, args) {
       const a = whyInput.parse(args);

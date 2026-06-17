@@ -267,19 +267,29 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
           (t) => t.inputSchema?.type === "object" && t.outputSchema?.type === "object",
         ),
       );
-      const injectEventEnum = (
-        (
-          list.result?.tools?.find((t) => t.name === "inject_context")?.inputSchema?.properties as
-            | Record<string, { enum?: unknown[] }>
-            | undefined
-        )?.event?.enum ?? []
-      ).map(String);
+      const injectEventEnum = (inputProps("inject_context", list).event?.enum ?? []).map(String);
       check(
         `MCP inject_context advertises lifecycle-event enum (${injectEventEnum.length} events)`,
         injectEventEnum.includes("UserPromptSubmit") &&
           injectEventEnum.includes("PostCompact") &&
           injectEventEnum.includes("BranchSwitch") &&
           !injectEventEnum.includes("NotARealEvent"),
+      );
+      const rememberProps = inputProps("remember", list);
+      const recallProps = inputProps("recall", list);
+      const forgetProps = inputProps("forget", list);
+      const whyProps = inputProps("why", list);
+      const kindEnum = (rememberProps.kind?.enum ?? []).map(String);
+      check(
+        "MCP tools/list advertises zod-aligned scalar constraints",
+        rememberProps.text?.minLength === 1 &&
+          kindEnum.includes("open_loop") &&
+          kindEnum.includes("procedural") &&
+          recallProps.query?.minLength === 1 &&
+          recallProps.budget_tokens?.type === "integer" &&
+          recallProps.budget_tokens?.minimum === 1 &&
+          forgetProps.fact_id?.minLength === 1 &&
+          whyProps.fact_id?.minLength === 1,
       );
 
       // round-trip a remember then a recall
@@ -564,6 +574,27 @@ function mcpToolCases(factId: string): ToolContractCase[] {
       shape: (p) => Array.isArray(p?.winners) && Array.isArray(p?.conflicts),
     },
   ];
+}
+
+function inputProps(
+  name: string,
+  list: {
+    result?: {
+      tools?: Array<{
+        name?: string;
+        inputSchema?: { properties?: Record<string, SchemaProp> };
+      }>;
+    };
+  },
+): Record<string, SchemaProp> {
+  return list.result?.tools?.find((t) => t.name === name)?.inputSchema?.properties ?? {};
+}
+
+interface SchemaProp {
+  type?: unknown;
+  enum?: unknown[];
+  minLength?: unknown;
+  minimum?: unknown;
 }
 
 function payloadObject(res: ToolCallResponse): Record<string, unknown> | null {
