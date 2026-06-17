@@ -240,3 +240,18 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - Initial file-shaped eval commands `npx tsx src/cli.ts eval core-memory-lifecycle`
     and `npx tsx src/cli.ts eval adapters-mcp` failed because the CLI exposes
     grouped gate names; reran the correct `memory` and `mcp` gates successfully.
+
+### Iteration 52 - open-loop session metadata secret refusal
+
+- Moved open-loop secret intake protection into `Runtime.noteOpenLoop`, covering
+  CLI, TUI, tests, and any direct Runtime caller before the open-loop fact is
+  assembled.
+- Added CLI preflight validation for `loop --session` so secret-shaped session
+  ids are refused before opening the workspace Runtime.
+- Added Runtime and CLI lifecycle regressions proving unsafe session metadata is
+  refused and no open-loop row resurfaces.
+- Updated README/STATUS counters to 206 Vitest tests.
+- Verification:
+  - `npx biome check --write src/runtime.ts src/cli.ts src/eval/suites/core-memory-lifecycle.ts test/inject/open-loops.test.ts`
+  - `npx vitest run test/inject/open-loops.test.ts`
+  - `npx tsx src/cli.ts eval memory`

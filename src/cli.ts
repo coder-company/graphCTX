@@ -227,7 +227,7 @@ program
   .option("--session <id>", "session id (session-scoped by default)")
   .action(async (text, opts) => {
     try {
-      assertSafeMemoryWrite(text);
+      assertSafeExplicitMemoryWrite({ text, session_id: opts.session });
     } catch (e) {
       fail(formatMemoryWriteError(e));
     }

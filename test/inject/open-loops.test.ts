@@ -39,6 +39,18 @@ describe("open loops — compaction recovery (M1 §7)", () => {
     expect(second.markdown).toContain("rename getCwd everywhere");
   });
 
+  it("refuses secret-bearing session metadata before writing the open loop", () => {
+    expect(() =>
+      rt.noteOpenLoop(
+        "finish the release checklist",
+        "Authorization: Bearer plainlowentropytoken123",
+      ),
+    ).toThrow("refusing to store secret-bearing memory");
+    expect(rt.facts.openLoops(rt.scope()).map((f) => f.object)).not.toContain(
+      "finish the release checklist",
+    );
+  });
+
   it("a resolved open loop stops appearing", async () => {
     const loop = rt.noteOpenLoop("delete the dead feature flag", "s1");
     const before = await postCompact("s1");

@@ -287,6 +287,25 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     `loopStatus=${secretLoop.loop.status} stderr=${JSON.stringify(secretLoop.loop.stderr.trim())} compact=${JSON.stringify(secretLoop.compact.stdout.trim())}`,
   );
 
+  const secretLoopSession = withRepo((dir) => {
+    const secret = "Authorization: Bearer plainlowentropytoken123";
+    const loop = cli(["loop", "finish deploy checklist", "--session", secret, "-C", dir]);
+    const payload = JSON.stringify({ session_id: "default-session", cwd: dir });
+    const compact = cli(["hook", "PostCompact", "-C", dir], payload);
+    return { secret, loop, compact };
+  }, true);
+  if (secretLoopSession.compact.status !== 0) cliFailures += 1;
+  check(
+    "secret-bearing open-loop session metadata is refused before storage",
+    secretLoopSession.loop.status !== 0 &&
+      secretLoopSession.compact.status === 0 &&
+      !secretLoopSession.loop.stdout.includes(secretLoopSession.secret) &&
+      !secretLoopSession.loop.stderr.includes(secretLoopSession.secret) &&
+      secretLoopSession.loop.stderr.includes("refusing to store secret-bearing memory") &&
+      !secretLoopSession.compact.stdout.includes("finish deploy checklist"),
+    `loopStatus=${secretLoopSession.loop.status} stderr=${JSON.stringify(secretLoopSession.loop.stderr.trim())} compact=${JSON.stringify(secretLoopSession.compact.stdout.trim())}`,
+  );
+
   const why = withRepo((dir) => {
     const out = cli([
       "remember",

@@ -23,6 +23,7 @@ import {
 import { Probation } from "./promote/probation.js";
 import { type WhyReport, why } from "./provenance/why.js";
 import { VectorIndex } from "./retrieve/vectors.js";
+import { assertSafeExplicitMemoryWrite } from "./security/intake.js";
 import { type DB, openDb } from "./store/db.js";
 import { EdgesRepo } from "./store/edges.repo.js";
 import { EpisodesRepo } from "./store/episodes.repo.js";
@@ -290,6 +291,13 @@ export class Runtime {
   // Record a durable open loop (M1 §7) — an unfinished thread to resurface at
   // PostCompact/SessionStart. Session-scoped by default.
   noteOpenLoop(description: string, sessionId?: string): ReturnType<FactsRepo["insert"]> {
+    assertSafeExplicitMemoryWrite({
+      text: description,
+      subject: "session",
+      predicate: "open_loop",
+      kind: "open_loop",
+      session_id: sessionId,
+    });
     return this.facts.insert({
       subject: "session",
       predicate: "open_loop",
