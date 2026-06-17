@@ -132,8 +132,10 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
         threw = true;
       }
       check(
-        "cursor install refuses malformed existing mcp.json without overwriting it",
-        threw && readFileSync(badMcpPath, "utf8") === badMcp,
+        "cursor install refuses malformed existing mcp.json without overwriting it or writing partial rules",
+        threw &&
+          readFileSync(badMcpPath, "utf8") === badMcp &&
+          !existsSync(join(badCursorDir, ".cursor", "rules", "graphctx.mdc")),
       );
     } finally {
       rmSync(badCursorDir, { recursive: true, force: true });

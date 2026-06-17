@@ -24,6 +24,21 @@ export class CursorAdapter implements Adapter {
 
   async install(opts: InstallOptions): Promise<void> {
     const bin = opts.binPath ?? "graphctx";
+    // Validate existing user-owned JSON before writing any graphCTX files. A
+    // malformed mcp.json should fail closed without leaving a partial install.
+    const mcpPath = join(this.workspaceDir, ".cursor", "mcp.json");
+    let mcp: { mcpServers?: Record<string, unknown> } = {};
+    if (existsSync(mcpPath)) {
+      try {
+        mcp = JSON.parse(readFileSync(mcpPath, "utf8"));
+      } catch (e) {
+        throw new AdapterError(
+          `cannot parse ${mcpPath}: ${(e as Error).message}`,
+          "fix or remove the file",
+        );
+      }
+    }
+
     // Tier 0: a project rule that grounds + directs recall.
     const rulesDir = join(this.workspaceDir, ".cursor", "rules");
     mkdirSync(rulesDir, { recursive: true });
@@ -41,18 +56,6 @@ export class CursorAdapter implements Adapter {
     writeFileSync(join(rulesDir, "graphctx.mdc"), rule, "utf8");
 
     // Tier 1: register the MCP server in Cursor's mcp.json.
-    const mcpPath = join(this.workspaceDir, ".cursor", "mcp.json");
-    let mcp: { mcpServers?: Record<string, unknown> } = {};
-    if (existsSync(mcpPath)) {
-      try {
-        mcp = JSON.parse(readFileSync(mcpPath, "utf8"));
-      } catch (e) {
-        throw new AdapterError(
-          `cannot parse ${mcpPath}: ${(e as Error).message}`,
-          "fix or remove the file",
-        );
-      }
-    }
     mcp.mcpServers = mcp.mcpServers ?? {};
     mcp.mcpServers.graphctx = { command: bin, args: ["serve", "--mcp"] };
     writeFileSync(mcpPath, `${JSON.stringify(mcp, null, 2)}\n`, "utf8");
