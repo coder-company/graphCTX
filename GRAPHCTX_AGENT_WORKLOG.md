@@ -317,3 +317,15 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
 - Recoverable failures:
   - Initial `npx tsx src/cli.ts eval cli-docs-demo` caught stale docs counters
     at 208/209 tests; updated README/STATUS to the live 209 count.
+
+### Iteration 57 - procedure verifier secret scanning
+
+- Included procedure verifier commands in LLM procedure-mining secret scans so a
+  model cannot return a safe-looking procedure with a credential-bearing
+  verifier command for persistence.
+- Extended the procedure-memory eval with a secret verifier procedure that must
+  be dropped, raising the gate to 7/7 checks.
+- Verification:
+  - `npx biome check --write src/extract/llm/procedure-miner.ts src/eval/suites/procedure-memory.ts`
+  - `npx tsx src/cli.ts eval procedure`
+  - `npx tsc --noEmit`

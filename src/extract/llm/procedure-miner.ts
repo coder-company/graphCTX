@@ -112,7 +112,11 @@ export async function mineProcedures(
     const validEventIds = new Set(episodes.map((e) => e.event_id));
     const out: MinedProcedure[] = [];
     for (const p of batch.data.procedures) {
-      const blob = `${p.name} ${p.steps.map((s) => `${s.description} ${s.command ?? ""}`).join(" ")}`;
+      const blob = [
+        p.name,
+        p.steps.map((s) => `${s.description} ${s.command ?? ""}`).join(" "),
+        p.verifier?.command ?? "",
+      ].join(" ");
       if (containsSecret(blob)) continue; // I3
       out.push({
         name: p.name,

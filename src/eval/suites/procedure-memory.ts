@@ -131,6 +131,16 @@ function stubProvider(): LlmProvider {
                 evidence_ids: ["evt_2"],
                 confidence: 0.7,
               },
+              {
+                name: "deploy with token",
+                steps: [{ description: "deploy", command: "npm run deploy" }],
+                verifier: {
+                  command: "curl -H 'Authorization: Bearer plainlowentropytoken123'",
+                  expected_exit_code: 0,
+                },
+                evidence_ids: ["evt_2"],
+                confidence: 0.9,
+              },
             ],
           }),
         };
@@ -195,7 +205,11 @@ export async function runProcedureMemoryEval(
   if (c6) passed += 1;
   detail.push(`${c6 ? "✓" : "✗"} verifier expected exit code captured`);
 
-  const checks = 6;
+  const secretVerifierDropped = !procs.some((p) => p.name === "deploy with token");
+  if (secretVerifierDropped) passed += 1;
+  detail.push(`${secretVerifierDropped ? "✓" : "✗"} secret verifier procedure dropped (I3)`);
+
+  const checks = 7;
   const pass =
     passed === checks &&
     secretsLeaked === 0 &&
