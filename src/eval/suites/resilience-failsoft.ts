@@ -125,6 +125,13 @@ export async function runResilienceFailsoftEval(): Promise<ResilienceFailsoftRep
   });
   check("planner crash mid-hook -> empty capsule, never propagates", plannerCrash);
 
+  const hookCaptureRedaction = await evaluateHookCaptureRedaction();
+  check(
+    "secret-bearing hook payloads are redacted before episode persistence",
+    hookCaptureRedaction.ok,
+    `storedSecret=${hookCaptureRedaction.secretLeaked} redacted=${hookCaptureRedaction.redacted}`,
+  );
+
   const provider = await evaluateProviderFailsoft();
   check(
     "provider resolution fail-soft: missing key and missing adapter return nullProvider",
@@ -228,6 +235,40 @@ function evaluateBadConfigCases(): {
     return { ok: res.status === 0 && res.stdout.trim() === "", ...res };
   });
   return { invalidJson, schemaInvalid };
+}
+
+async function evaluateHookCaptureRedaction(): Promise<{
+  ok: boolean;
+  secretLeaked: boolean;
+  redacted: boolean;
+}> {
+  return withTempDirAsync(async (dir) => {
+    const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+    const rt = new Runtime({ workspaceDir: dir, userId: "resilience-eval" });
+    try {
+      await handleHook(rt, "UserPromptSubmit", {
+        session_id: "s-redact",
+        cwd: dir,
+        prompt: `deploy with token ${secret}`,
+        tool_name: "Bash",
+        tool_input: {
+          command: `curl -H 'Authorization: Bearer ${secret}' https://example.invalid`,
+          env: { GITHUB_TOKEN: secret },
+        },
+        tool_response: {
+          success: false,
+          stderr: `request failed for token ${secret}`,
+          stdout: `ignored stdout ${secret}`,
+        },
+      });
+      const stored = JSON.stringify(rt.episodes.bySession("s-redact").map((e) => e.payload));
+      const secretLeaked = stored.includes(secret);
+      const redacted = stored.includes("[REDACTED:");
+      return { ok: !secretLeaked && redacted, secretLeaked, redacted };
+    } finally {
+      rt.close();
+    }
+  });
 }
 
 async function evaluateProviderFailsoft(): Promise<{

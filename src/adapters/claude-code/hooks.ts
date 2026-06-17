@@ -1,6 +1,7 @@
 import { normalizeClaudeEvent } from "../../capture/normalizers.js";
 import type { Capsule, Event } from "../../core/types.js";
 import type { Runtime } from "../../runtime.js";
+import { redactSecretValue, redactSecrets } from "../../security/secrets.js";
 
 // Claude Code hook payload (subset we use). Field names follow Claude Code's
 // hook input schema; unknown fields are ignored.
@@ -143,11 +144,16 @@ function toClaudeStdout(event: Event, capsule: Capsule): string {
 function sanitizePayload(p: ClaudeHookPayload): unknown {
   return {
     hook_event_name: p.hook_event_name,
-    prompt: p.prompt,
+    prompt: p.prompt ? truncate(redactSecrets(p.prompt), 4000) : undefined,
     tool_name: p.tool_name,
-    tool_input: p.tool_input,
+    tool_input: redactSecretValue(p.tool_input),
     tool_response: p.tool_response
-      ? { success: p.tool_response.success, stderr: truncate(p.tool_response.stderr, 1000) }
+      ? {
+          success: p.tool_response.success,
+          stderr: p.tool_response.stderr
+            ? truncate(redactSecrets(p.tool_response.stderr), 1000)
+            : undefined,
+        }
       : undefined,
   };
 }

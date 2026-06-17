@@ -89,4 +89,29 @@ describe("I9 resilience — agent still runs when graphCTX is broken", () => {
     expect(result.capsule.markdown).toBe("");
     expect(result.capsule.cards).toHaveLength(0);
   });
+
+  it("secret-bearing hook payloads are redacted before episode persistence", async () => {
+    const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+    const rt = new Runtime({ workspaceDir: dir, userId: "u" });
+    await handleHook(rt, "UserPromptSubmit", {
+      session_id: "s-redact",
+      cwd: dir,
+      prompt: `deploy using token ${secret}`,
+      tool_name: "Bash",
+      tool_input: {
+        command: `curl -H 'Authorization: Bearer ${secret}' https://example.invalid`,
+        env: { GITHUB_TOKEN: secret },
+      },
+      tool_response: {
+        success: false,
+        stderr: `failed with ${secret}`,
+        stdout: `not captured ${secret}`,
+      },
+    });
+    const stored = JSON.stringify(rt.episodes.bySession("s-redact").map((e) => e.payload));
+    rt.close();
+
+    expect(stored).not.toContain(secret);
+    expect(stored).toContain("[REDACTED:");
+  });
 });
