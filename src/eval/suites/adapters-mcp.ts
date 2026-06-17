@@ -335,6 +335,14 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
     classifyOutcome({ repeatedFailure: true }) === "harmful",
   );
   check(
+    "telemetry precedence: harmful wins over helped signals",
+    classifyOutcome({
+      repeatedFailure: true,
+      followedBySuccess: true,
+      referencedInjectedFact: true,
+    }) === "harmful",
+  );
+  check(
     "telemetry classifies a downstream success as helped",
     classifyOutcome({ followedBySuccess: true }) === "helped",
   );

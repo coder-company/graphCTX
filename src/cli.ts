@@ -440,7 +440,7 @@ program
   .command("eval")
   .argument(
     "<sub>",
-    "subcommand: run | memory | promote | drift | retrieval | gate | security | branch | temporal | conflict | procedure | mcp | storage | all",
+    "subcommand: run | memory | promote | drift | retrieval | gate | security | branch | temporal | conflict | procedure | mcp | storage | telemetry | all",
   )
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
@@ -554,6 +554,14 @@ program
       process.stdout.write(formatStorageMigrationsReport(r));
       return r.pass;
     };
+    const runTelemetry = async () => {
+      const { runTelemetryLearningEval, formatTelemetryLearningReport } = await import(
+        "./eval/suites/telemetry-learning.js"
+      );
+      const r = runTelemetryLearningEval();
+      process.stdout.write(formatTelemetryLearningReport(r));
+      return r.pass;
+    };
 
     if (sub === "promote") {
       if (!(await runPromote())) process.exitCode = 1;
@@ -607,6 +615,10 @@ program
       if (!(await runStorage())) process.exitCode = 1;
       return;
     }
+    if (sub === "telemetry") {
+      if (!(await runTelemetry())) process.exitCode = 1;
+      return;
+    }
     if (sub === "all") {
       const a = await runArms();
       const mem = await runMemory();
@@ -621,7 +633,8 @@ program
       const pr = await runProcedure();
       const m = await runMcp();
       const storage = await runStorage();
-      if (!(a && mem && p && d && rq && g && sec && b && t && c && pr && m && storage))
+      const telemetry = await runTelemetry();
+      if (!(a && mem && p && d && rq && g && sec && b && t && c && pr && m && storage && telemetry))
         process.exitCode = 1;
       return;
     }

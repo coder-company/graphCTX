@@ -1,3 +1,4 @@
+import type { ScoredFact } from "../core/types.js";
 import type { DB } from "../store/db.js";
 
 // Local-only outcome telemetry (SPEC §21). Classifies whether an injected capsule
@@ -5,6 +6,19 @@ import type { DB } from "../store/db.js";
 // session. Pure heuristic over local events — NEVER leaves the machine
 // (config.telemetry.local_only). Feeds future learned scoring (v2).
 export type OutcomeClass = "helped" | "ignored" | "harmful" | "unknown";
+
+export type OutcomeSummary = Record<OutcomeClass, number>;
+
+export interface OutcomeLearningStats extends OutcomeSummary {
+  fact_id: string;
+  total: number;
+  adjustment: number;
+}
+
+export interface OutcomeLearningOptions {
+  minObservations?: number;
+  maxAdjustment?: number;
+}
 
 export interface OutcomeSignal {
   // A tool/command after the injection succeeded (suggests the context helped).
@@ -24,6 +38,13 @@ export function classifyOutcome(sig: OutcomeSignal): OutcomeClass {
   if (sig.noEffect) return "ignored";
   return "unknown";
 }
+
+const OUTCOME_WEIGHTS: Record<OutcomeClass, number> = {
+  helped: 1,
+  ignored: -0.2,
+  harmful: -1,
+  unknown: 0,
+};
 
 export class OutcomeRecorder {
   private readonly db: DB;
@@ -49,28 +70,139 @@ export class OutcomeRecorder {
   }
 
   // Aggregate counts per outcome class for local inspection.
-  summary(): Record<OutcomeClass, number> {
-    const counts: Record<OutcomeClass, number> = {
-      helped: 0,
-      ignored: 0,
-      harmful: 0,
-      unknown: 0,
-    };
+  summary(): OutcomeSummary {
+    const counts = emptySummary();
     try {
       const rows = this.db
         .prepare("SELECT outcome_json FROM injections WHERE outcome_json IS NOT NULL")
         .all() as Array<{ outcome_json: string }>;
       for (const r of rows) {
-        try {
-          const o = JSON.parse(r.outcome_json) as { outcome?: OutcomeClass };
-          if (o.outcome && o.outcome in counts) counts[o.outcome] += 1;
-        } catch {
-          // skip malformed
-        }
+        const outcome = parseOutcome(r.outcome_json);
+        if (outcome) counts[outcome] += 1;
       }
     } catch {
-      // table/colum missing → empty summary
+      // table/column missing → empty summary
     }
     return counts;
   }
+}
+
+export function loadOutcomeLearningStats(
+  db: DB,
+  opts: OutcomeLearningOptions = {},
+): Map<string, OutcomeLearningStats> {
+  const minObservations = opts.minObservations ?? 1;
+  const maxAdjustment = opts.maxAdjustment ?? 0.75;
+  const byFact = new Map<string, OutcomeLearningStats>();
+  try {
+    const rows = db
+      .prepare(
+        `SELECT selected_fact_ids_json, outcome_json
+         FROM injections
+         WHERE outcome_json IS NOT NULL`,
+      )
+      .all() as Array<{ selected_fact_ids_json: string; outcome_json: string }>;
+    for (const row of rows) {
+      const outcome = parseOutcome(row.outcome_json);
+      const factIds = parseFactIds(row.selected_fact_ids_json);
+      if (!outcome || factIds.length === 0) continue;
+      for (const factId of factIds) {
+        const stats = byFact.get(factId) ?? newStats(factId);
+        stats[outcome] += 1;
+        stats.total += 1;
+        byFact.set(factId, stats);
+      }
+    }
+  } catch {
+    return byFact;
+  }
+
+  for (const stats of byFact.values()) {
+    stats.adjustment =
+      stats.total >= minObservations
+        ? clamp(weightedMean(stats), -maxAdjustment, maxAdjustment)
+        : 0;
+  }
+  return byFact;
+}
+
+export function rerankWithOutcomeLearning(
+  scored: ScoredFact[],
+  db: DB,
+  opts: OutcomeLearningOptions = {},
+): ScoredFact[] {
+  return applyOutcomeLearning(scored, loadOutcomeLearningStats(db, opts));
+}
+
+export function applyOutcomeLearning(
+  scored: ScoredFact[],
+  stats: Map<string, OutcomeLearningStats>,
+): ScoredFact[] {
+  return scored
+    .map((s) => {
+      const adjustment = stats.get(s.fact.fact_id)?.adjustment ?? 0;
+      return {
+        ...s,
+        score: s.score * (1 + adjustment),
+      };
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.fact.fact_id.localeCompare(b.fact.fact_id);
+    });
+}
+
+function emptySummary(): OutcomeSummary {
+  return {
+    helped: 0,
+    ignored: 0,
+    harmful: 0,
+    unknown: 0,
+  };
+}
+
+function newStats(factId: string): OutcomeLearningStats {
+  return {
+    fact_id: factId,
+    ...emptySummary(),
+    total: 0,
+    adjustment: 0,
+  };
+}
+
+function parseOutcome(raw: string): OutcomeClass | null {
+  try {
+    const o = JSON.parse(raw) as { outcome?: string };
+    return isOutcome(o.outcome) ? o.outcome : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseFactIds(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function isOutcome(v: unknown): v is OutcomeClass {
+  return v === "helped" || v === "ignored" || v === "harmful" || v === "unknown";
+}
+
+function weightedMean(stats: OutcomeSummary & { total: number }): number {
+  if (stats.total === 0) return 0;
+  return (
+    (stats.helped * OUTCOME_WEIGHTS.helped +
+      stats.ignored * OUTCOME_WEIGHTS.ignored +
+      stats.harmful * OUTCOME_WEIGHTS.harmful +
+      stats.unknown * OUTCOME_WEIGHTS.unknown) /
+    stats.total
+  );
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
 }
