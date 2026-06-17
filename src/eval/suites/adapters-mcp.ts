@@ -1,11 +1,14 @@
 import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { buildHookPayload, selectTier } from "../../adapters/channel.js";
+import { handleHook } from "../../adapters/claude-code/hooks.js";
 import { ProxyAdapter } from "../../adapters/proxy/index.js";
 import { detectClient, makeAdapter } from "../../adapters/registry.js";
-import type { Capsule } from "../../core/types.js";
+import type { Capsule, InjectionContext } from "../../core/types.js";
 import { McpServer } from "../../mcp/server.js";
 import { MCP_TOOLS } from "../../mcp/tools.js";
+import type { Runtime } from "../../runtime.js";
 import { classifyOutcome } from "../../telemetry/outcomes.js";
 
 // Phase-4 (M4) gate suite. Verifies the multi-client surface:
@@ -64,6 +67,20 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       existsSync(join(opencodeDir, "opencode.json")),
     );
 
+    check("detectClient classifies cursor workspace", detectClient(cursorDir) === "cursor");
+    check("detectClient classifies opencode workspace", detectClient(opencodeDir) === "opencode");
+    const claudeDir = mkdtempSync(join(tmpdir(), "gctx-claude-"));
+    try {
+      cpSync(fixture, claudeDir, { recursive: true });
+      rmSync(join(claudeDir, ".graphctx"), { recursive: true, force: true });
+      const { mkdirSync, writeFileSync } = await import("node:fs");
+      mkdirSync(join(claudeDir, ".claude"), { recursive: true });
+      writeFileSync(join(claudeDir, "CLAUDE.md"), "# Claude workspace\n", "utf8");
+      check("detectClient classifies claude workspace", detectClient(claudeDir) === "claude");
+    } finally {
+      rmSync(claudeDir, { recursive: true, force: true });
+    }
+
     // auto-detect falls back to generic on a bare repo
     check("detectClient falls back to generic", detectClient(genericDir) === "generic");
 
@@ -79,10 +96,27 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       token_count: 8,
     };
     await generic.deliver(capsule, {} as never, 0);
-    check("generic Tier 0 writes AGENTS.md", existsSync(join(genericDir, "AGENTS.md")));
+    const agentsPath = join(genericDir, "AGENTS.md");
+    const agents = existsSync(agentsPath) ? readFileSync(agentsPath, "utf8") : "";
+    check(
+      "generic Tier 0 writes AGENTS.md",
+      agents.includes("repo test_command: npm test") && !agents.includes("sk-"),
+    );
     // @ts-expect-error rider is a GenericAdapter extra
     const rider: string = generic.rider(capsule);
     check("generic Tier 1 produces a bounded rider", rider.includes("graphCTX rider"));
+    const hookPayload = JSON.parse(buildHookPayload("UserPromptSubmit", capsule)) as {
+      hookSpecificOutput?: { additionalContext?: string };
+    };
+    check(
+      "same capsule content delivered across Tier 0/1/2 transports",
+      agents.includes("repo test_command: npm test") &&
+        rider.includes(capsule.markdown) &&
+        hookPayload.hookSpecificOutput?.additionalContext === capsule.markdown,
+    );
+    const ctx = { event: "UserPromptSubmit" } as InjectionContext;
+    check("channel ladder selects highest supported tier", selectTier([0, 1, 2], ctx) === 2);
+    check("hookless channel ladder falls back to Tier 1", selectTier(cap.tiers, ctx) === 1);
 
     // --- (4) proxy security ---
     const proxyDisabled = new ProxyAdapter(genericDir, { enabled: false });
@@ -169,6 +203,35 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
   // also assert the static tool table is 8 (I8 invariant at module level)
   check("MCP_TOOLS table is exactly 8 (I8)", MCP_TOOLS.length === 8);
 
+  // --- (2b) Claude hook Tier 2 payload + fail-soft ---
+  const hookCapsule: Capsule = {
+    markdown: "- repo test_command: npm test [mem:hook]",
+    cards: [{ fact_id: "hook", reason: "test", tokens: 8 }],
+    omitted: [],
+    conflicts: [],
+    token_count: 8,
+  };
+  const hookOk = await handleHook(fakeRuntime({ capsule: hookCapsule }), "UserPromptSubmit", {
+    session_id: "s-hook",
+    prompt: "run tests",
+  });
+  const hookJson = hookOk.stdout ? JSON.parse(hookOk.stdout) : {};
+  check(
+    "claude hook emits Tier 2 additionalContext payload",
+    hookJson.hookSpecificOutput?.hookEventName === "UserPromptSubmit" &&
+      hookJson.hookSpecificOutput?.additionalContext === hookCapsule.markdown,
+  );
+  const hookFail = await handleHook(fakeRuntime({ throwPlanning: true }), "UserPromptSubmit", {
+    session_id: "s-hook",
+    prompt: "run tests",
+  });
+  check(
+    "claude hook degrades fail-soft to empty capsule on forced planner error",
+    hookFail.stdout === "" &&
+      hookFail.capsule.markdown === "" &&
+      hookFail.capsule.cards.length === 0,
+  );
+
   // --- (5) telemetry classification ---
   check(
     "telemetry classifies a repeated failure as harmful",
@@ -186,6 +249,35 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
   const checks = detail.length;
   const pass = passed === checks && toolCount === 8 && proxyLeaks === 0;
   return { checks, passed, toolCount, proxyLeaks, detail, pass };
+}
+
+function fakeRuntime(opts: { capsule?: Capsule; throwPlanning?: boolean }): Runtime {
+  return {
+    workspaceId: "ws-eval",
+    git: {
+      async isRepo() {
+        return false;
+      },
+    },
+    episodeLog: {
+      append() {},
+    },
+    async extract() {},
+    async runPromotionSweep() {},
+    async injectionContext(event: string) {
+      return { event };
+    },
+    planner() {
+      return {
+        async plan() {
+          if (opts.throwPlanning) throw new Error("forced planner failure");
+          return (
+            opts.capsule ?? { markdown: "", cards: [], omitted: [], conflicts: [], token_count: 0 }
+          );
+        },
+      };
+    },
+  } as unknown as Runtime;
 }
 
 export function formatAdaptersMcpReport(r: AdaptersMcpReport): string {
