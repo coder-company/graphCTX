@@ -11,7 +11,7 @@ import { MCP_TOOLS } from "./tools.js";
 // the rest of the codebase). Fail-soft: a tool error returns a JSON-RPC error,
 // never crashes the server.
 
-const PROTOCOL_VERSION = "2024-11-05";
+const PROTOCOL_VERSION = "2025-11-25";
 
 interface JsonRpcRequest {
   jsonrpc: "2.0";
@@ -35,13 +35,13 @@ export class McpServer {
   private readonly riderSession: string;
 
   constructor(opts: McpServerOptions = {}) {
-    this.rt = new Runtime({ workspaceDir: opts.workspaceDir, userId: opts.userId });
-    this.emit = opts.emit ?? ((line) => process.stdout.write(`${line}\n`));
-    this.riderSession = opts.riderSessionId ?? "mcp-rider";
     if (MCP_TOOLS.length !== 8) {
       // I8 hard guard — the surface must be exactly 8 tools.
       throw new Error(`I8 violation: MCP must expose exactly 8 tools, found ${MCP_TOOLS.length}`);
     }
+    this.rt = new Runtime({ workspaceDir: opts.workspaceDir, userId: opts.userId });
+    this.emit = opts.emit ?? ((line) => process.stdout.write(`${line}\n`));
+    this.riderSession = opts.riderSessionId ?? "mcp-rider";
   }
 
   // Handle one JSON-RPC message; returns the response object (or null for
@@ -63,6 +63,7 @@ export class McpServer {
               name: t.name,
               description: t.description,
               inputSchema: t.inputSchema,
+              outputSchema: t.outputSchema,
             })),
           });
         case "tools/call":
@@ -87,7 +88,7 @@ export class McpServer {
       const rider = await this.maybeRider();
       const content = [{ type: "text", text }];
       if (rider) content.push({ type: "text", text: rider });
-      return this.ok(req.id, { content, isError: false });
+      return this.ok(req.id, { content, structuredContent: result, isError: false });
     } catch (e) {
       return this.ok(req.id, {
         content: [{ type: "text", text: `error: ${(e as Error).message}` }],

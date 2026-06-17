@@ -1,6 +1,8 @@
+import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildHookPayload, selectTier } from "../../adapters/channel.js";
 import { handleHook } from "../../adapters/claude-code/hooks.js";
 import { ProxyAdapter } from "../../adapters/proxy/index.js";
@@ -11,10 +13,32 @@ import { MCP_TOOLS } from "../../mcp/tools.js";
 import type { Runtime } from "../../runtime.js";
 import { classifyOutcome } from "../../telemetry/outcomes.js";
 
+const here = dirname(fileURLToPath(import.meta.url));
+const repoRoot = join(here, "..", "..", "..");
+const cliPath = join(repoRoot, "src", "cli.ts");
+const tsxBin = join(
+  repoRoot,
+  "node_modules",
+  ".bin",
+  process.platform === "win32" ? "tsx.cmd" : "tsx",
+);
+
+const EXPECTED_MCP_TOOL_NAMES = [
+  "remember",
+  "recall",
+  "inject_context",
+  "checkpoint_session",
+  "promote",
+  "forget",
+  "why",
+  "resolve_conflict",
+];
+
 // Phase-4 (M4) gate suite. Verifies the multi-client surface:
 //   1. install per client writes the right config (cursor rules+MCP, opencode MCP).
-//   2. MCP server smoke: initialize + tools/list returns EXACTLY 8 tools (I8);
-//      a tools/call round-trips.
+//   2. MCP server contract: initialize + tools/list returns EXACTLY 8 tools (I8);
+//      every tools/call validates inputs, returns structured output, and the real
+//      serve --mcp stdio entry point speaks JSON-RPC.
 //   3. generic adapter delivers via Tier 0 (AGENTS.md) + exposes a Tier 1 rider.
 //   4. proxy is secure: refuses by default (opt-in) AND refuses secret capsules.
 //   5. telemetry classifies outcomes (helped/ignored/harmful).
@@ -156,52 +180,125 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
     const server = new McpServer({ workspaceDir: mcpDir });
     try {
       const init = (await server.handle({ jsonrpc: "2.0", id: 1, method: "initialize" })) as {
-        result?: { protocolVersion?: string };
+        result?: {
+          protocolVersion?: string;
+          serverInfo?: { name?: string };
+          capabilities?: { tools?: unknown };
+        };
       };
       check("MCP initialize returns protocol version", !!init.result?.protocolVersion);
+      check(
+        "MCP initialize returns serverInfo + tools capability",
+        init.result?.serverInfo?.name === "graphctx" && !!init.result?.capabilities?.tools,
+      );
 
       const list = (await server.handle({ jsonrpc: "2.0", id: 2, method: "tools/list" })) as {
-        result?: { tools?: unknown[] };
+        result?: {
+          tools?: Array<{
+            name?: string;
+            inputSchema?: Record<string, unknown>;
+            outputSchema?: Record<string, unknown>;
+          }>;
+        };
       };
       toolCount = list.result?.tools?.length ?? 0;
       check(`MCP exposes EXACTLY 8 tools (I8) — got ${toolCount}`, toolCount === 8);
+      const listedNames = list.result?.tools?.map((t) => t.name ?? "") ?? [];
+      check(
+        "MCP tools/list names match static MCP_TOOLS table",
+        sameList(listedNames, toolNames()),
+      );
+      check(
+        "MCP tools/list exposes declared input and output schemas",
+        (list.result?.tools ?? []).every(
+          (t) => t.inputSchema?.type === "object" && t.outputSchema?.type === "object",
+        ),
+      );
 
       // round-trip a remember then a recall
-      const remembered = (await server.handle({
-        jsonrpc: "2.0",
-        id: 3,
-        method: "tools/call",
-        params: {
-          name: "remember",
-          arguments: { text: "use vitest", subject: "repo", predicate: "test_runner" },
-        },
-      })) as { result?: { isError?: boolean } };
-      check("MCP tools/call remember succeeds", remembered.result?.isError === false);
+      let requestId = 3;
+      const remembered = await callTool(server, requestId++, "remember", {
+        text: "use vitest",
+        subject: "repo",
+        predicate: "test_runner",
+      });
+      const rememberedPayload = payloadObject(remembered);
+      const rememberedFactId =
+        typeof rememberedPayload?.fact_id === "string" ? rememberedPayload.fact_id : "";
+      check(
+        "MCP tools/call remember succeeds",
+        remembered.result?.isError === false && isRememberPayload(rememberedPayload),
+      );
 
-      const recalled = (await server.handle({
-        jsonrpc: "2.0",
-        id: 4,
-        method: "tools/call",
-        params: { name: "recall", arguments: { query: "test runner" } },
-      })) as { result?: { isError?: boolean; content?: unknown[] } };
-      check("MCP tools/call recall returns content", recalled.result?.isError === false);
+      const recalled = await callTool(server, requestId++, "recall", { query: "vitest" });
+      const recalledPayload = payloadObject(recalled);
+      check(
+        "MCP tools/call recall returns content",
+        recalled.result?.isError === false &&
+          isRecallPayload(recalledPayload) &&
+          recalledPayload.cards.length > 0 &&
+          recalledPayload.markdown.includes("vitest"),
+      );
 
-      const unknown = (await server.handle({
+      const unknown = await callTool(server, requestId++, "does_not_exist", {});
+      check("MCP rejects unknown tool", unknown.error?.code === -32602);
+
+      const badMethod = (await server.handle({
         jsonrpc: "2.0",
-        id: 5,
-        method: "tools/call",
-        params: { name: "does_not_exist", arguments: {} },
-      })) as { error?: unknown };
-      check("MCP rejects unknown tool", !!unknown.error);
+        id: requestId++,
+        method: "not/a_method",
+      })) as { error?: { code?: number } };
+      check("MCP rejects invalid method with -32601", badMethod.error?.code === -32601);
+
+      const toolCases = mcpToolCases(rememberedFactId);
+      for (const tc of toolCases) {
+        const valid = await callTool(server, requestId++, tc.name, tc.valid);
+        const payload = payloadObject(valid);
+        check(
+          `MCP input contract: ${tc.name} valid succeeds / invalid rejects`,
+          valid.result?.isError === false &&
+            (await callTool(server, requestId++, tc.name, tc.invalid)).result?.isError === true,
+        );
+        check(`MCP output shape: ${tc.name}`, valid.result?.isError === false && tc.shape(payload));
+      }
+
+      const riderFirst = await callTool(server, requestId++, "remember", {
+        text: "mcp rider eval fact for deterministic context",
+        subject: "repo",
+        predicate: "mcp rider",
+      });
+      const firstRider = riderText(riderFirst);
+      check(
+        "MCP Tier-1 rider is bounded by 600 chars",
+        firstRider.includes("graphCTX rider") && firstRider.length <= 600,
+      );
+      const riderSecond = await callTool(server, requestId++, "recall", { query: "mcp rider" });
+      const secondRider = riderText(riderSecond);
+      check(
+        "MCP Tier-1 rider anti-repetition suppresses repeat within session TTL",
+        !secondRider.includes("mcp rider eval fact") && secondRider.length <= 600,
+      );
     } finally {
       server.close();
     }
+
+    const stdio = runServeMcpStdio(mcpDir);
+    check("MCP serve --mcp stdio initialize returns protocol version", stdio.initialized);
+    check(
+      `MCP serve --mcp stdio tools/list returns 8 tools (${stdio.toolNames.join(", ")})`,
+      stdio.toolNames.length === 8 && sameList(stdio.toolNames, EXPECTED_MCP_TOOL_NAMES),
+    );
   } finally {
     rmSync(mcpDir, { recursive: true, force: true });
   }
 
   // also assert the static tool table is 8 (I8 invariant at module level)
   check("MCP_TOOLS table is exactly 8 (I8)", MCP_TOOLS.length === 8);
+  check(
+    "MCP_TOOLS table names are the documented 8",
+    sameList(toolNames(), EXPECTED_MCP_TOOL_NAMES),
+  );
+  check("MCP server hard-errors on tool count drift", rejectsToolCountDrift());
 
   // --- (2b) Claude hook Tier 2 payload + fail-soft ---
   const hookCapsule: Capsule = {
@@ -278,6 +375,193 @@ function fakeRuntime(opts: { capsule?: Capsule; throwPlanning?: boolean }): Runt
       };
     },
   } as unknown as Runtime;
+}
+
+interface ToolCallResponse {
+  result?: {
+    isError?: boolean;
+    content?: Array<{ type?: string; text?: string }>;
+    structuredContent?: unknown;
+  };
+  error?: { code?: number; message?: string };
+}
+
+interface ToolContractCase {
+  name: string;
+  valid: unknown;
+  invalid: unknown;
+  shape: (payload: Record<string, unknown> | null) => boolean;
+}
+
+async function callTool(
+  server: McpServer,
+  id: number,
+  name: string,
+  args: unknown,
+): Promise<ToolCallResponse> {
+  return (await server.handle({
+    jsonrpc: "2.0",
+    id,
+    method: "tools/call",
+    params: { name, arguments: args },
+  })) as ToolCallResponse;
+}
+
+function mcpToolCases(factId: string): ToolContractCase[] {
+  return [
+    {
+      name: "remember",
+      valid: { text: "use pnpm", subject: "repo", predicate: "package_manager" },
+      invalid: {},
+      shape: isRememberPayload,
+    },
+    {
+      name: "recall",
+      valid: { query: "pnpm" },
+      invalid: {},
+      shape: isRecallPayload,
+    },
+    {
+      name: "inject_context",
+      valid: { event: "UserPromptSubmit", session_id: "mcp-contract", user_prompt: "pnpm" },
+      invalid: { event: 42 },
+      shape: isRecallPayload,
+    },
+    {
+      name: "checkpoint_session",
+      valid: { session_id: "mcp-contract" },
+      invalid: { session_id: 42 },
+      shape: (p) => isRecord(p?.promoted),
+    },
+    {
+      name: "promote",
+      valid: { session_id: "mcp-contract", dry_run: true },
+      invalid: { dry_run: "true" },
+      shape: (p) => p?.dry_run === true && typeof p.candidate_count === "number",
+    },
+    {
+      name: "why",
+      valid: { fact_id: factId },
+      invalid: { fact_id: "" },
+      shape: (p) => isRecord(p?.fact) || p?.error === "fact not found",
+    },
+    {
+      name: "forget",
+      valid: { fact_id: factId, reason: "mcp contract eval" },
+      invalid: { fact_id: "" },
+      shape: (p) => p?.fact_id === factId && p?.status === "expired",
+    },
+    {
+      name: "resolve_conflict",
+      valid: { session_id: "mcp-contract" },
+      invalid: { session_id: 42 },
+      shape: (p) => Array.isArray(p?.winners) && Array.isArray(p?.conflicts),
+    },
+  ];
+}
+
+function payloadObject(res: ToolCallResponse): Record<string, unknown> | null {
+  if (isRecord(res.result?.structuredContent)) return res.result.structuredContent;
+  const first = res.result?.content?.find((c) => c.type === "text" && c.text)?.text;
+  if (!first) return null;
+  try {
+    const parsed = JSON.parse(first);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function riderText(res: ToolCallResponse): string {
+  return (res.result?.content ?? [])
+    .slice(1)
+    .map((c) => c.text ?? "")
+    .join("\n");
+}
+
+function isRememberPayload(p: Record<string, unknown> | null): p is {
+  fact_id: string;
+  status: string;
+} {
+  return typeof p?.fact_id === "string" && typeof p.status === "string";
+}
+
+function isRecallPayload(p: Record<string, unknown> | null): p is {
+  markdown: string;
+  cards: unknown[];
+  tokens: number;
+} {
+  return typeof p?.markdown === "string" && Array.isArray(p.cards) && typeof p.tokens === "number";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function sameList(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
+function toolNames(): string[] {
+  return MCP_TOOLS.map((t) => t.name);
+}
+
+function rejectsToolCountDrift(): boolean {
+  const originalLength = MCP_TOOLS.length;
+  MCP_TOOLS.push({
+    name: "drift_probe",
+    description: "temporary eval probe",
+    inputSchema: { type: "object" },
+    outputSchema: { type: "object" },
+    async handler() {
+      return {};
+    },
+  });
+  try {
+    const server = new McpServer();
+    server.close();
+    return false;
+  } catch (e) {
+    return (e as Error).message.includes("I8 violation");
+  } finally {
+    MCP_TOOLS.splice(originalLength);
+  }
+}
+
+function runServeMcpStdio(workspaceDir: string): { initialized: boolean; toolNames: string[] } {
+  try {
+    execFileSync("git", ["-C", workspaceDir, "init", "-q"], { stdio: "ignore" });
+    const stdout = execFileSync(tsxBin, [cliPath, "serve", "--mcp", "-C", workspaceDir], {
+      cwd: repoRoot,
+      env: { ...process.env, GRAPHCTX_USER_ID: "mcp-stdio-eval" },
+      input: [
+        JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }),
+        JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }),
+        "",
+      ].join("\n"),
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: 20000,
+    });
+    const responses = stdout
+      .trim()
+      .split(/\n+/)
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    const init = responses.find((r) => r.id === 1);
+    const list = responses.find((r) => r.id === 2);
+    const initResult = isRecord(init?.result) ? init.result : null;
+    const listResult = isRecord(list?.result) ? list.result : null;
+    const initialized =
+      typeof initResult?.protocolVersion === "string" && initResult.protocolVersion.length > 0;
+    const tools = Array.isArray(listResult?.tools) ? listResult.tools : [];
+    const names = tools
+      .map((t) => (isRecord(t) && typeof t.name === "string" ? t.name : ""))
+      .filter(Boolean);
+    return { initialized, toolNames: names };
+  } catch {
+    return { initialized: false, toolNames: [] };
+  }
 }
 
 export function formatAdaptersMcpReport(r: AdaptersMcpReport): string {

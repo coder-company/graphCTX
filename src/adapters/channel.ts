@@ -35,9 +35,10 @@ export function selectTier(available: ChannelTier[], ctx: InjectionContext): Cha
 export function buildRider(capsule: Capsule, maxChars = 600): string {
   if (!capsule.markdown) return "";
   const header = "\n\n<!-- graphCTX rider -->\n";
+  const bodyBudget = Math.max(0, maxChars - header.length);
   const body =
-    capsule.markdown.length > maxChars
-      ? `${capsule.markdown.slice(0, maxChars)}…`
+    capsule.markdown.length > bodyBudget
+      ? `${capsule.markdown.slice(0, Math.max(0, bodyBudget - 1))}…`
       : capsule.markdown;
   return `${header}${body}`;
 }

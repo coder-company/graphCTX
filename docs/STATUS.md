@@ -9,7 +9,7 @@
 | M1 — memory core | `m1-finish` | promotion precision ≥ 90% | ✅ PASS (100% precision/recall, 0 leaks) |
 | M2 — injection loop | `m2-injection` | harmful-injection < target + selective gate | ✅ PASS (0 harmful, 31% PreToolUse fire-rate, 0 dupes) |
 | M3 — robustness | `m3-robustness` | branch-truth + parallel-conflict + procedure pass | ✅ PASS (0 leaks, 0 silent winners, safe LLM extraction) |
-| M4 — adapters + MCP | `adapters-mcp` | install per client + MCP smoke + secure proxy | ✅ PASS (20/20; MCP=8 tools; 0 proxy leaks) |
+| M4 — adapters + MCP | `adapters-mcp` | install per client + MCP contract + secure proxy | ✅ PASS (54/54; MCP=8 tools; 0 proxy leaks) |
 
 ## Module status (SPEC §2 layout)
 
@@ -46,7 +46,7 @@
 | adapters/adapter + registry + channel | §17 | ✅ | capability detection + tier routing; channel ladder T0-4; auto-detect client |
 | adapters/claude-code | §17 | ✅ | install/hooks/templates; all lifecycle events wired (Tier 2) |
 | adapters/cursor, opencode, generic, proxy | §17 | ✅ | cursor (rules+MCP, T0-1), opencode (MCP, T0-1-3), generic (T0-1 floor), proxy (T4 opt-in + secret-refusing) |
-| mcp/server + tools | §18 | ✅ | stdio JSON-RPC (no SDK dep); EXACTLY 8 tools (I8); Tier-1 parasitic rider |
+| mcp/server + tools | §18 | ✅ | stdio JSON-RPC (no SDK dep); MCP 2025-11-25 handshake; EXACTLY 8 tools (I8); input/output schemas; structuredContent; bounded Tier-1 rider |
 | llm/provider + openai/anthropic/local | §10 | ✅ | lazy + async-only + fail-soft; fetch-based (no SDK deps); null provider = deterministic-only |
 | security/secrets | §20 | ✅ | scan on write + capsule pre-send (I3); sensitivity stamping |
 | security/trust | §20 | ✅ | trust tiers enforced via extractors + gates + precedence; LLM facts capped to low |
@@ -96,7 +96,7 @@ _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 ho
 | LLM extraction & procedures | ✅ | default Anthropic model updated to `claude-haiku-4-5`; hermetic `eval procedure` passes 6/6 with 0 leaks/high-trust/hallucinated evidence, and opt-in live gate reports 1 schema-valid fact with precision/recall 1.0/1.0 |
 | Promotion engine | ✅ | `eval promote` now gates hard boolean admission with real probation: precision/recall 100%/100%, 0 secret/task_state leaks, verified-procedure succeeds through the procedures table, and missing-target perishable facts are held (`held unverified: 1`) |
 | Adapters & channel ladder | ✅ | `eval mcp` now covers 28/28 adapter/channel checks: marked client detection, highest-tier selection, Tier 0/1/2 transport-only capsule invariance, parseable cursor/opencode installs, secure opt-in proxy, and Claude hook Tier-2/fail-soft behavior |
-| MCP server & 8-tool surface | ⬜ untouched | exactly 8 tools; latest-spec compliance pending |
+| MCP server & 8-tool surface | ✅ | `eval mcp` now covers 54/54 checks: MCP 2025-11-25 initialize shape, exact 8-tool live/static surface with count-drift hard error, per-tool zod input + output-shape contracts, JSON-RPC -32602/-32601 errors, bounded anti-repetition rider, and real `serve --mcp` stdio initialize/tools-list |
 | Security (injection/secrets/trust) | 🟡 in-progress | adversarial benchmark (iter5-6): secret recall 1.0/precision 1.0; 0/13 poison promoted; 0 harmful capsule cards. `eval security` guards it. To perfect: more attack classes, fuzzing |
 | Performance (latency/scale) | ✅ | streaming bulk scale bench: default 1k/10k/50k/100k PASS, 1M p95 ~1.4ms, finite ingest timing, `bench --footprint` startup/RSS/heap gate, and impossible-budget FAIL path |
 | Storage & migrations | ⬜ untouched | append-only; corruption-recovery breadth pending |

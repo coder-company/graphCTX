@@ -8,6 +8,7 @@ export interface McpTool {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>; // JSON Schema for tools/list
+  outputSchema: Record<string, unknown>; // JSON Schema for successful structuredContent
   handler: (rt: Runtime, args: unknown) => Promise<unknown>;
 }
 
@@ -63,14 +64,17 @@ const s = (props: Record<string, unknown>, required: string[] = []) => ({
 const str = { type: "string" };
 const num = { type: "number" };
 const bool = { type: "boolean" };
+const arr = (items: Record<string, unknown>) => ({ type: "array", items });
+const obj = { type: "object" };
 
 export const MCP_TOOLS: McpTool[] = [
   {
     name: "remember",
-    description: "Store a fact/event/procedure candidate in graphCTX memory.",
+    description: "Store a user-asserted fact/event/procedure in graphCTX memory.",
     inputSchema: s({ text: str, kind: str, subject: str, predicate: str, session_id: str }, [
       "text",
     ]),
+    outputSchema: s({ fact_id: str, status: str }, ["fact_id", "status"]),
     async handler(rt, args) {
       const a = rememberInput.parse(args);
       const fact = await rt.learn({
@@ -81,9 +85,9 @@ export const MCP_TOOLS: McpTool[] = [
         temporal_kind: a.kind === "task_state" || a.kind === "open_loop" ? "dynamic" : "static",
         scope: rt.scope(a.session_id),
         trust_tier: "high", // user-asserted via explicit tool call
-        status: "candidate",
-        promotion_state: "session_only",
-        source: { asserted_by: "user", event_ids: [], raw_quote: a.text },
+        status: "active",
+        promotion_state: a.session_id ? "session_only" : "workspace_active",
+        source: { asserted_by: "user", event_ids: [], raw_quote: `user said: ${a.text}` },
         tags: ["mcp_remember"],
       });
       return { fact_id: fact.fact_id, status: fact.status };
@@ -93,6 +97,11 @@ export const MCP_TOOLS: McpTool[] = [
     name: "recall",
     description: "Pull retrieval (fallback path; push is primary). Returns ranked memory cards.",
     inputSchema: s({ query: str, budget_tokens: num, session_id: str }, ["query"]),
+    outputSchema: s({ markdown: str, cards: arr(obj), tokens: num }, [
+      "markdown",
+      "cards",
+      "tokens",
+    ]),
     async handler(rt, args) {
       const a = recallInput.parse(args);
       const ctx = await rt.injectionContext("UserPromptSubmit", a.session_id ?? "mcp-session", {
@@ -107,6 +116,11 @@ export const MCP_TOOLS: McpTool[] = [
     name: "inject_context",
     description: "Build and return the injection capsule for a lifecycle event.",
     inputSchema: s({ event: str, session_id: str, user_prompt: str }),
+    outputSchema: s({ markdown: str, cards: arr(obj), tokens: num }, [
+      "markdown",
+      "cards",
+      "tokens",
+    ]),
     async handler(rt, args) {
       const a = injectInput.parse(args);
       const ctx = await rt.injectionContext(a.event as never, a.session_id, {
@@ -120,6 +134,7 @@ export const MCP_TOOLS: McpTool[] = [
     name: "checkpoint_session",
     description: "Persist session state (run promotion sweep on pre-compact / session end).",
     inputSchema: s({ session_id: str }),
+    outputSchema: s({ promoted: obj }, ["promoted"]),
     async handler(rt, args) {
       const a = checkpointInput.parse(args);
       const swept = await rt.runPromotionSweep(a.session_id);
@@ -130,6 +145,7 @@ export const MCP_TOOLS: McpTool[] = [
     name: "promote",
     description: "Run the session→workspace promotion sweep (dry-run supported).",
     inputSchema: s({ session_id: str, dry_run: bool }),
+    outputSchema: s({ dry_run: bool, candidate_count: num, promoted: obj }),
     async handler(rt, args) {
       const a = promoteInput.parse(args);
       if (a.dry_run) {
@@ -144,9 +160,10 @@ export const MCP_TOOLS: McpTool[] = [
     name: "forget",
     description: "Expire a fact so it stops being recalled/injected.",
     inputSchema: s({ fact_id: str, reason: str }, ["fact_id"]),
+    outputSchema: s({ fact_id: str, status: str }, ["fact_id", "status"]),
     async handler(rt, args) {
       const a = forgetInput.parse(args);
-      rt.facts.expire(a.fact_id, `forget:${a.reason}`);
+      rt.facts.expire(a.fact_id, a.fact_id);
       return { fact_id: a.fact_id, status: "expired" };
     },
   },
@@ -154,6 +171,7 @@ export const MCP_TOOLS: McpTool[] = [
     name: "why",
     description: "Return the full provenance chain for a fact (events, anchor, gate, edges).",
     inputSchema: s({ fact_id: str }, ["fact_id"]),
+    outputSchema: s({ fact: obj, error: str }),
     async handler(rt, args) {
       const a = whyInput.parse(args);
       const report = rt.why(a.fact_id);
@@ -164,6 +182,7 @@ export const MCP_TOOLS: McpTool[] = [
     name: "resolve_conflict",
     description: "Resolve disputed facts by precedence; returns winners + surfaced conflicts.",
     inputSchema: s({ session_id: str }),
+    outputSchema: s({ winners: arr(str), conflicts: arr(obj) }, ["winners", "conflicts"]),
     async handler(rt, args) {
       const a = resolveInput.parse(args);
       const active = rt.facts.activeAsOf(rt.scope(a.session_id));
