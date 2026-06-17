@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Fact, ScoredFact } from "../../core/types.js";
 import {
   type ConcurrencyOutcome,
@@ -5,6 +8,7 @@ import {
   resolveConflicts,
 } from "../../resolve/conflicts.js";
 import { byPrecedence, precedenceRank } from "../../resolve/precedence.js";
+import { Runtime } from "../../runtime.js";
 
 // Parallel-conflict (SPEC §14, M3 gate). graphCTX must NEVER silently pick a
 // last-writer-wins winner. This suite is a COMPREHENSIVE, permanent regression
@@ -22,7 +26,9 @@ import { byPrecedence, precedenceRank } from "../../resolve/precedence.js";
 //      stale-base, idempotency, branch-disjointness, high-trust-supersedes-prose
 //      and the adversarial edges (high-vs-high, non-ancestor base, one-sided
 //      branch, base_seen idempotency).
-//   5. Headline metric — silentWrongWinners MUST be 0: an ambiguous contradiction
+//   5. Real Runtime concurrent stress — two durable writers over the same store
+//      race stale-base writes; outcomes preserve/audit both sides.
+//   6. Headline metric — silentWrongWinners MUST be 0: an ambiguous contradiction
 //      resolving to `apply` is a silent LWW = catastrophic.
 
 export interface LadderResult {
@@ -41,6 +47,13 @@ export interface SectionResult {
   passed: number;
 }
 
+export interface ConcurrentStressResult {
+  cases: number;
+  passed: number;
+  silentOverwrites: number;
+  outcomes: Record<string, number>;
+}
+
 export interface ParallelConflictReport {
   cases: number; // total gated cases across all sections
   passed: number;
@@ -49,6 +62,7 @@ export interface ParallelConflictReport {
   determinism: DeterminismResult;
   resolve: SectionResult; // resolveConflicts semantics cases
   reconcile: SectionResult; // reconcileWrite matrix cases
+  concurrent: ConcurrentStressResult; // real Runtime two-writer stress
   detail: string[];
   pass: boolean;
 }
@@ -216,8 +230,11 @@ function shuffle<T>(arr: T[], seed: number): T[] {
 }
 
 function keyOf(f: Fact): string {
-  const obj = typeof f.object === "string" ? f.object : JSON.stringify(f.object);
-  return `${precedenceRank(f, CUR)}|${f.subject}::${f.predicate}::${obj}`;
+  return `${precedenceRank(f, CUR)}|${f.subject}::${f.predicate}::${objStr(f)}`;
+}
+
+function objStr(f: Fact): string {
+  return typeof f.object === "string" ? f.object : JSON.stringify(f.object);
 }
 
 function runDeterminism(detail: string[]): DeterminismResult {
@@ -566,6 +583,263 @@ function runReconcile(detail: string[]): { section: SectionResult; silentWrongWi
   return { section: { cases, passed }, silentWrongWinners };
 }
 
+// ---- section 5: real Runtime concurrent-session stress ----------------------
+
+interface DurableWriterSpec {
+  sessionId: string;
+  object: string;
+  branch: string;
+  trustTier?: Fact["trust_tier"];
+  assertedBy?: Fact["source"]["asserted_by"];
+  baseGitHead?: string;
+  validFromCommit?: string;
+}
+
+interface ConcurrentCase {
+  label: string;
+  first: DurableWriterSpec;
+  second: DurableWriterSpec;
+  expectSecond: ConcurrencyOutcome["kind"];
+}
+
+const CONCURRENT_CASES: ConcurrentCase[] = [
+  {
+    label: "same-branch stale writers dispute",
+    first: { sessionId: "race-a", object: "pnpm", branch: "main", trustTier: "low" },
+    second: { sessionId: "race-b", object: "yarn", branch: "main", trustTier: "low" },
+    expectSecond: "disputed",
+  },
+  {
+    label: "branch-disjoint stale writers partition",
+    first: { sessionId: "race-a", object: "pnpm", branch: "main", trustTier: "low" },
+    second: { sessionId: "race-b", object: "yarn", branch: "feat", trustTier: "low" },
+    expectSecond: "partition",
+  },
+  {
+    label: "structured stale writer invalidates lower-trust current",
+    first: {
+      sessionId: "race-a",
+      object: "npm",
+      branch: "main",
+      trustTier: "low",
+      validFromCommit: "c0",
+    },
+    second: {
+      sessionId: "race-b",
+      object: "pnpm",
+      branch: "main",
+      trustTier: "high",
+      assertedBy: "deterministic_parser",
+      baseGitHead: "c1",
+    },
+    expectSecond: "invalidate",
+  },
+];
+
+function runConcurrentStress(detail: string[]): ConcurrentStressResult {
+  let cases = 0;
+  let passed = 0;
+  let silentOverwrites = 0;
+  const outcomes: Record<string, number> = {};
+
+  for (const c of CONCURRENT_CASES) {
+    cases += 1;
+    const result = runConcurrentCase(c);
+    outcomes[result.secondOutcome] = (outcomes[result.secondOutcome] ?? 0) + 1;
+    if (result.silentOverwrite) silentOverwrites += 1;
+    const ok =
+      result.firstOutcome === "apply" &&
+      result.secondOutcome === c.expectSecond &&
+      !result.silentOverwrite &&
+      result.loserAuditable;
+    if (ok) passed += 1;
+    detail.push(
+      `  ${ok ? "✓" : "✗"} concurrent writers: ${c.label} → first=${result.firstOutcome} second=${result.secondOutcome} silentOverwrite=${result.silentOverwrite} loserAuditable=${result.loserAuditable}`,
+    );
+  }
+
+  detail.push(
+    `  ${silentOverwrites === 0 ? "✓" : "✗"} concurrent writers: ${silentOverwrites} silent overwrites across ${cases} real Runtime races`,
+  );
+  return { cases, passed, silentOverwrites, outcomes };
+}
+
+function runConcurrentCase(c: ConcurrentCase): {
+  firstOutcome: ConcurrencyOutcome["kind"];
+  secondOutcome: ConcurrencyOutcome["kind"];
+  silentOverwrite: boolean;
+  loserAuditable: boolean;
+} {
+  const dir = mkdtempSync(join(tmpdir(), "graphctx-conflict-"));
+  const seed = new Runtime({ workspaceDir: dir, userId: "conflict-eval" });
+  const writerA = new Runtime({ workspaceDir: dir, userId: "conflict-eval" });
+  const writerB = new Runtime({ workspaceDir: dir, userId: "conflict-eval" });
+  const inspector = new Runtime({ workspaceDir: dir, userId: "conflict-eval" });
+  try {
+    const base = insertRuntimeFact(seed, {
+      sessionId: "race-base",
+      object: "base",
+      branch: "main",
+      trustTier: "low",
+      validFromCommit: "c0",
+    });
+    const first = applyDurableWrite(writerA, {
+      spec: c.first,
+      baseSeenFactId: base.fact_id,
+      current: base,
+    });
+    const currentForSecond = currentDurableFact(writerB) ?? first.fact;
+    const second = applyDurableWrite(writerB, {
+      spec: c.second,
+      baseSeenFactId: base.fact_id,
+      current: currentForSecond,
+    });
+    const audit = auditConcurrentResult(inspector, currentForSecond, second.fact, second.outcome);
+    return {
+      firstOutcome: first.outcome.kind,
+      secondOutcome: second.outcome.kind,
+      silentOverwrite: audit.silentOverwrite,
+      loserAuditable: audit.loserAuditable,
+    };
+  } finally {
+    seed.close();
+    writerA.close();
+    writerB.close();
+    inspector.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+function applyDurableWrite(
+  rt: Runtime,
+  opts: { spec: DurableWriterSpec; baseSeenFactId: string; current: Fact | null },
+): { fact: Fact; outcome: ConcurrencyOutcome } {
+  const intentFact = runtimeIntentFact(rt, opts.spec);
+  const outcome = reconcileWrite(
+    {
+      base_seen_fact_id: opts.baseSeenFactId,
+      base_git_head: opts.spec.baseGitHead,
+      branch: opts.spec.branch,
+      fact: intentFact,
+    },
+    opts.current,
+    isAncestor,
+  );
+  const inserted = insertRuntimeFact(
+    rt,
+    opts.spec,
+    outcome.kind === "disputed" ? "disputed" : "active",
+  );
+  applyDurableOutcome(rt, inserted, opts.current, outcome);
+  return { fact: rt.facts.get(inserted.fact_id) ?? inserted, outcome };
+}
+
+function insertRuntimeFact(
+  rt: Runtime,
+  spec: DurableWriterSpec,
+  status: Fact["status"] = "active",
+): Fact {
+  return rt.facts.insert({
+    subject: "repo",
+    predicate: "package_manager",
+    object: spec.object,
+    fact_kind: "constraint",
+    temporal_kind: "static",
+    scope: rt.scope(spec.sessionId),
+    trust_tier: spec.trustTier ?? "low",
+    status,
+    promotion_state: "workspace_active",
+    source: { asserted_by: spec.assertedBy ?? "user", event_ids: [] },
+    git: { branch: spec.branch, valid_from_commit: spec.validFromCommit },
+  });
+}
+
+function runtimeIntentFact(rt: Runtime, spec: DurableWriterSpec): Fact {
+  return fact({
+    subject: "repo",
+    predicate: "package_manager",
+    object: spec.object,
+    scope: rt.scope(spec.sessionId),
+    status: "active",
+    promotion_state: "workspace_active",
+    trust_tier: spec.trustTier ?? "low",
+    source: { asserted_by: spec.assertedBy ?? "user", event_ids: [] },
+    git: { branch: spec.branch, valid_from_commit: spec.validFromCommit },
+  });
+}
+
+function applyDurableOutcome(
+  rt: Runtime,
+  inserted: Fact,
+  current: Fact | null,
+  outcome: ConcurrencyOutcome,
+): void {
+  if (!current) return;
+  switch (outcome.kind) {
+    case "apply": {
+      if (objStr(inserted) !== objStr(current)) {
+        rt.edges.add(inserted.fact_id, "SUPERSEDES", current.fact_id, inserted.fact_id);
+        rt.edges.add(current.fact_id, "SUPERSEDED_BY", inserted.fact_id, inserted.fact_id);
+        rt.facts.update(current.fact_id, {
+          status: "superseded",
+          invalidated_by: inserted.fact_id,
+        });
+      }
+      return;
+    }
+    case "partition":
+      return;
+    case "invalidate": {
+      rt.edges.add(inserted.fact_id, "INVALIDATES", current.fact_id, inserted.fact_id);
+      rt.facts.expire(current.fact_id, inserted.fact_id, "c1");
+      return;
+    }
+    case "disputed": {
+      rt.edges.add(inserted.fact_id, "CONFLICTS_WITH", current.fact_id, inserted.fact_id);
+      rt.facts.update(current.fact_id, {
+        status: "disputed",
+        contradiction_count: current.contradiction_count + 1,
+      });
+      return;
+    }
+  }
+}
+
+function currentDurableFact(rt: Runtime): Fact | null {
+  const active = rt.facts
+    .bySubjectPredicate("repo", "package_manager", { user_id: rt.userId })
+    .filter((f) => f.status === "active" && f.promotion_state === "workspace_active");
+  active.sort((a, b) => {
+    const byTime = a.time.t_recorded.localeCompare(b.time.t_recorded);
+    if (byTime !== 0) return byTime;
+    return a.fact_id.localeCompare(b.fact_id);
+  });
+  return active.at(-1) ?? null;
+}
+
+function auditConcurrentResult(
+  rt: Runtime,
+  current: Fact,
+  incoming: Fact,
+  outcome: ConcurrencyOutcome,
+): { silentOverwrite: boolean; loserAuditable: boolean } {
+  const currentAfter = rt.facts.get(current.fact_id);
+  const incomingAfter = rt.facts.get(incoming.fact_id);
+  const bothPersisted = currentAfter !== null && incomingAfter !== null;
+  const edgeCount =
+    rt.edges.touching(current.fact_id).length + rt.edges.touching(incoming.fact_id).length;
+  const loserAuditable =
+    bothPersisted &&
+    (outcome.kind === "partition" ||
+      currentAfter.status === "expired" ||
+      currentAfter.status === "superseded" ||
+      currentAfter.status === "disputed" ||
+      incomingAfter.status === "disputed" ||
+      edgeCount > 0);
+  const silentOverwrite = outcome.kind === "apply" || !bothPersisted || !loserAuditable;
+  return { silentOverwrite, loserAuditable };
+}
+
 // ---- top-level runner -------------------------------------------------------
 
 export function runParallelConflictEval(): ParallelConflictReport {
@@ -586,6 +860,10 @@ export function runParallelConflictEval(): ParallelConflictReport {
   detail.push("[4] reconcileWrite matrix (apply / partition / invalidate / disputed)");
   const { section: reconcile, silentWrongWinners } = runReconcile(detail);
 
+  detail.push("");
+  detail.push("[5] real Runtime concurrent-session stress");
+  const concurrent = runConcurrentStress(detail);
+
   const determinismCases = 2; // stable total order + equal-rank tiebreak
   const determinismPassed =
     (determinism.stable ? 1 : 0) + (determinism.tiebreakByContentKey ? 1 : 0);
@@ -601,8 +879,13 @@ export function runParallelConflictEval(): ParallelConflictReport {
     determinism,
     resolve,
     reconcile,
+    concurrent,
     detail,
-    pass: passed === cases && silentWrongWinners === 0,
+    pass:
+      passed === cases &&
+      silentWrongWinners === 0 &&
+      concurrent.passed === concurrent.cases &&
+      concurrent.silentOverwrites === 0,
   };
 }
 
@@ -622,11 +905,14 @@ export function formatParallelConflictReport(r: ParallelConflictReport): string 
   lines.push(`  resolveConflicts:      ${r.resolve.passed}/${r.resolve.cases} semantics cases`);
   lines.push(`  reconcileWrite matrix: ${r.reconcile.passed}/${r.reconcile.cases} cases`);
   lines.push(
+    `  concurrent stress:     ${r.concurrent.passed}/${r.concurrent.cases} real Runtime races, silentOverwrites: ${r.concurrent.silentOverwrites}`,
+  );
+  lines.push(
     `  cases: ${r.passed}/${r.cases}   silent wrong winners: ${r.silentWrongWinners} (must be 0)`,
   );
   lines.push(
     r.pass
-      ? "  VERDICT: ✅ no silent LWW — full precedence ladder holds; conflicts partition/dispute/surface correctly."
+      ? "  VERDICT: ✅ no silent LWW — full precedence ladder holds; conflicts partition/dispute/surface correctly; concurrent writers preserve auditability."
       : "  VERDICT: ❌ parallel-conflict FAIL.",
   );
   lines.push("");

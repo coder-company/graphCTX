@@ -92,7 +92,7 @@ _Last updated: end of Phase 4 (M4). 121 tests, 7 gate suites green, all I1-I9 ho
 | Retrieval & ranking | 🟡 in-progress | RRF fusion (iter3) + stopword filter (iter8): recall@1 0.61, recall@5 0.94, recall@10 1.00, MRR 0.76 (was 0.33/0.50/0.67/0.43). `eval retrieval` regression gate |
 | Relevance gate precision | 🟡 in-progress | gate-precision suite (iter4): P/R/F1=1.0 on 26 labeled cases, all 4 branches (TP15 FP0 FN0 TN11). Guarded in `eval gate`. To perfect: adversarial + utility-labeled dataset |
 | Invalidation & temporal | ✅ | real-git temporal-correctness suite: 8/8 gated scenarios over throwaway repos. Patch-id equivalence is now wired into `isValidAsOf`, so a branch fact anchored to X is valid on another branch after cherry-pick Y; same-branch rebase false positives remain blocked. `eval temporal` guards it |
-| Conflict & precedence | 🟡 in-progress | comprehensive eval (iter10): 60 gated cases — 36-pair precedence ladder cross-product (incl D14 prose<profile), stable total-order determinism, resolveConflicts semantics, reconcile matrix w/ adversarial edges. silentWrongWinners=0. `eval conflict` guards it. To perfect: real concurrent-session stress + load |
+| Conflict & precedence | ✅ | comprehensive eval: original 60-case ladder/determinism/resolve/reconcile gate remains 60/60 with silentWrongWinners=0, plus real Runtime concurrent-writer stress over a shared store reports 3/3 races and `silentOverwrites: 0`. `eval conflict` guards it |
 | LLM extraction & procedures | ⬜ untouched | safe+capped; precision/recall not quantified |
 | Promotion engine | ⬜ untouched | precision 100% on labeled set; recall on larger set pending |
 | Adapters & channel ladder | ⬜ untouched | 20/20 smoke; real-client integration pending |

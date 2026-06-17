@@ -33,11 +33,24 @@ describe("parallel-conflict & precedence (comprehensive)", () => {
     expect(r.reconcile.passed).toBe(r.reconcile.cases);
   });
 
+  it("runs real Runtime concurrent writers without silent overwrites", () => {
+    const r = runParallelConflictEval();
+    expect(r.concurrent.cases).toBeGreaterThan(0);
+    expect(r.concurrent.passed).toBe(r.concurrent.cases);
+    expect(r.concurrent.silentOverwrites).toBe(0);
+    expect(r.concurrent.outcomes).toMatchObject({
+      disputed: 1,
+      partition: 1,
+      invalidate: 1,
+    });
+  });
+
   it("is deterministic across runs", () => {
     const a = runParallelConflictEval();
     const b = runParallelConflictEval();
     expect(b.cases).toBe(a.cases);
     expect(b.passed).toBe(a.passed);
     expect(b.silentWrongWinners).toBe(a.silentWrongWinners);
+    expect(b.concurrent).toEqual(a.concurrent);
   });
 });
