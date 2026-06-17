@@ -28,7 +28,7 @@
 | git/git + anchors | §8 | ✅ | head/branch/isAncestor/validity; anchorAtHead; branch filter; parentsOf/commitMessage |
 | git/dag | §8 | ✅ | detectEvent (ff/merge/rebase/revert/switch); revert re-validates prior fact |
 | capture/episode-log + normalizers | §9 | ✅ | append-only JSONL + DB mirror; claude normalizer |
-| extract/deterministic/* (8) | §10.1 | ✅ | package-scripts, editorconfig, tsconfig, tooling-config, lockfile, ci, generated-markers, agent-files |
+| extract/deterministic/* (9) | §10.1 | ✅ | package-scripts, editorconfig, tsconfig, tooling-config, lockfile, docker, ci, generated-markers, agent-files |
 | extract/llm/* | §10.2 | ✅ | fact-extractor + procedure-miner (zod, secret-scrub, trust-cap, evidence-filter); 3 versioned prompts |
 | invalidate/relation + invalidator | §11 | ✅ | deterministic-first + edges + cited-evidence post-check |
 | invalidate/llm-agent | §11 | ✅ | provider-backed agent + null fallback; cited-evidence enforced by invalidator |
@@ -76,9 +76,9 @@
 |---|---|---|
 | `hook <event>` p95 | < 150ms | 15.78ms ✅ |
 
-_Last updated: high-trust tooling/tsconfig deterministic extraction, high-entropy redaction hardening, repo-id-isolated temporal validity, measured hook latency, fail-closed adapter install/uninstall, and typed CLI error formatting. 196 tests, 19 gate suites green, all I1-I9 hold._
+_Last updated: high-trust Docker/tooling/tsconfig deterministic extraction, high-entropy redaction hardening, repo-id-isolated temporal validity, measured hook latency, fail-closed adapter install/uninstall, and typed CLI error formatting. 197 tests, 19 gate suites green, all I1-I9 hold._
 
-_Quality counters: Tests: 196. Gate suites: 19._
+_Quality counters: Tests: 197. Gate suites: 19._
 
 ---
 
@@ -110,4 +110,4 @@ _Quality counters: Tests: 196. Gate suites: 19._
 | Code quality | ✅ | new `eval quality` passes 6/6: full-repo Biome, strict TS config/scripts, shared command-surface helpers for CLI help/docs/README reachability, eval-suite runner/test coverage, final README docs-as-code, and generated migration packaging guard |
 
 _Loop note: composite metric = (failing_gates × 100) + (un-perfected aspects); within-aspect
-measured gains are recorded in the `memory` graph. Tests: 196, gate suites: 19 (`eval all` includes run/memory/promote/drift/retrieval/gate/security/branch/temporal/conflict/procedure/mcp/storage/telemetry/provenance/resilience/benchmarks/cli-docs-demo/quality)._
+measured gains are recorded in the `memory` graph. Tests: 197, gate suites: 19 (`eval all` includes run/memory/promote/drift/retrieval/gate/security/branch/temporal/conflict/procedure/mcp/storage/telemetry/provenance/resilience/benchmarks/cli-docs-demo/quality)._

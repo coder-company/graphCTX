@@ -3,6 +3,7 @@ import { containsSecret } from "../security/secrets.js";
 import type { FactsRepo } from "../store/facts.repo.js";
 import { agentFilesExtractor } from "./deterministic/agent-files.js";
 import { ciExtractor } from "./deterministic/ci.js";
+import { dockerExtractor } from "./deterministic/docker.js";
 import { editorconfigExtractor } from "./deterministic/editorconfig.js";
 import { generatedMarkersExtractor } from "./deterministic/generated-markers.js";
 import { lockfileExtractor } from "./deterministic/lockfile.js";
@@ -17,6 +18,7 @@ export const DETERMINISTIC_EXTRACTORS: Extractor[] = [
   tsconfigExtractor,
   toolingConfigExtractor,
   lockfileExtractor,
+  dockerExtractor,
   ciExtractor,
   generatedMarkersExtractor,
   agentFilesExtractor,

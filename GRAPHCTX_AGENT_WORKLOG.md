@@ -40,3 +40,19 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx tsx src/cli.ts eval quality`
   - `npx tsx src/cli.ts eval cli-docs-demo`
+
+### Iteration 38 - deterministic Docker and Compose extraction
+
+- Added high-trust deterministic extraction for Dockerfile and Docker Compose
+  configuration.
+- Extracted base images, build stages, workdir, exposed ports, container users,
+  compose services, images, build contexts, and ports with git path anchors.
+- Added a regression test for Dockerfile and Compose facts.
+- Updated README, STATUS, and SPEC counters from 8 to 9 deterministic
+  extractors and from 196 to 197 Vitest tests.
+- Verification:
+  - `npx biome check src/extract/pipeline.ts src/extract/deterministic/docker.ts test/extract/extractors.test.ts README.md docs/STATUS.md docs/SPEC.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsx src/cli.ts eval cli-docs-demo`

@@ -131,6 +131,52 @@ describe("deterministic extractors", () => {
     ]);
   });
 
+  it("docker config → high-trust container and compose facts", () => {
+    writeFileSync(
+      join(dir, "Dockerfile"),
+      "FROM --platform=$BUILDPLATFORM node:22-alpine AS app\nWORKDIR /srv/app\nEXPOSE 3000 9229\nUSER node\n",
+    );
+    writeFileSync(
+      join(dir, "docker-compose.yml"),
+      [
+        "services:",
+        "  web:",
+        "    build: .",
+        "    ports:",
+        '      - "3000:3000"',
+        "  redis:",
+        "    image: redis:7-alpine",
+      ].join("\n"),
+    );
+
+    const { res } = extract();
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "Dockerfile",
+        predicate: "container_base_image",
+        object: "node:22-alpine",
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "Dockerfile",
+        predicate: "container_user",
+        object: "node",
+        fact_kind: "constraint",
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "compose service web",
+        predicate: "compose_build_context",
+        object: ".",
+      }),
+    );
+    expect(res.inserted.find((f) => f.predicate === "compose_port")?.git?.path_globs).toEqual([
+      "docker-compose.yml",
+    ]);
+  });
+
   it("generated-markers → do_not_edit constraint", () => {
     mkdirSync(join(dir, "src"), { recursive: true });
     writeFileSync(join(dir, "src", "g.ts"), "// @generated DO NOT EDIT\nexport const x = 1;\n");
