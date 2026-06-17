@@ -284,7 +284,15 @@ export function formatReport(report: BenchReport): string {
   out.push(formatMultiAxis(report.axes));
   out.push("");
   if (!report.live) {
-    out.push(style.gray("Live bake-off: skipped (run with --live and SUPERMEMORY_API_KEY set)."));
+    if (report.liveSkippedReason) {
+      out.push(
+        style.gray(
+          `Live bake-off: skipped (${report.liveSkippedReason}; export SUPERMEMORY_API_KEY to run --live).`,
+        ),
+      );
+    } else {
+      out.push(style.gray("Live bake-off: skipped (run with --live and SUPERMEMORY_API_KEY set)."));
+    }
     return out.join("\n");
   }
   out.push(style.bold("Live bake-off — shared fact set, same queries"));

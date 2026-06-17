@@ -13,7 +13,13 @@ import {
 import { isoNow } from "./core/clock.js";
 import { GraphCtxError } from "./core/errors.js";
 import { runEval } from "./eval/harness.js";
-import { formatReport } from "./eval/report.js";
+import {
+  EVAL_GATE_SUITES,
+  type EvalGateSuite,
+  evalSubcommandHelp,
+  isEvalGateSuite,
+} from "./eval/registry.js";
+import { evalReportPass, formatReport } from "./eval/report.js";
 import { renderCard } from "./render/cards.js";
 import { Runtime } from "./runtime.js";
 import { bootstrapVec0 } from "./store/vec0-bootstrap.js";
@@ -438,10 +444,7 @@ program
 
 program
   .command("eval")
-  .argument(
-    "<sub>",
-    "subcommand: run | memory | promote | drift | retrieval | gate | security | branch | temporal | conflict | procedure | mcp | storage | telemetry | provenance | resilience | all",
-  )
+  .argument("<sub>", evalSubcommandHelp())
   .description("run evaluation suites")
   .option("--suite <name>", "suite name", "compaction-recovery")
   .option(
@@ -480,7 +483,7 @@ program
         .map((a) => a.trim());
       const report = await runEval({ suite: opts.suite, arms, baseDir: opts.cwd });
       process.stdout.write(formatReport(report));
-      return true;
+      return evalReportPass(report);
     };
     const runMemory = async () => {
       const { runCoreMemoryLifecycleEval, formatCoreMemoryLifecycleReport } = await import(
@@ -578,113 +581,54 @@ program
       process.stdout.write(formatResilienceFailsoftReport(r));
       return r.pass;
     };
+    const runBenchmarks = async () => {
+      const { runEvalBenchmarksEval, formatEvalBenchmarksReport } = await import(
+        "./eval/suites/eval-benchmarks.js"
+      );
+      const r = await runEvalBenchmarksEval();
+      process.stdout.write(formatEvalBenchmarksReport(r));
+      return r.pass;
+    };
 
-    if (sub === "promote") {
-      if (!(await runPromote())) process.exitCode = 1;
-      return;
-    }
-    if (sub === "drift") {
-      if (!(await runDrift())) process.exitCode = 1;
-      return;
-    }
-    if (sub === "retrieval") {
-      if (!(await runRetrieval())) process.exitCode = 1;
-      return;
-    }
-    if (sub === "memory") {
-      if (!(await runMemory())) process.exitCode = 1;
-      return;
-    }
-    if (sub === "gate") {
-      if (!(await runGate())) process.exitCode = 1;
-      return;
-    }
-    if (sub === "security") {
-      if (!(await runSecurity())) process.exitCode = 1;
-      return;
-    }
-    if (sub === "branch") {
-      if (!(await runBranch())) process.exitCode = 1;
-      return;
-    }
-    if (sub === "temporal") {
-      if (!(await runTemporal())) process.exitCode = 1;
-      return;
-    }
-    if (sub === "conflict") {
-      if (!(await runConflict())) process.exitCode = 1;
-      return;
-    }
-    if (sub === "procedure") {
-      const live = Boolean(opts.live) && process.env.GRAPHCTX_LLM_LIVE === "1";
-      if (opts.live && !live) {
-        process.stdout.write("live procedure eval not run: set GRAPHCTX_LLM_LIVE=1 to opt in.\n");
-      }
-      if (!(await runProcedure(live))) process.exitCode = 1;
-      return;
-    }
-    if (sub === "mcp") {
-      if (!(await runMcp())) process.exitCode = 1;
-      return;
-    }
-    if (sub === "storage") {
-      if (!(await runStorage())) process.exitCode = 1;
-      return;
-    }
-    if (sub === "telemetry") {
-      if (!(await runTelemetry())) process.exitCode = 1;
-      return;
-    }
-    if (sub === "provenance") {
-      if (!(await runProvenance())) process.exitCode = 1;
-      return;
-    }
-    if (sub === "resilience") {
-      if (!(await runResilience())) process.exitCode = 1;
+    const runners: Record<EvalGateSuite, () => Promise<boolean>> = {
+      run: runArms,
+      memory: runMemory,
+      promote: runPromote,
+      drift: runDrift,
+      retrieval: runRetrieval,
+      gate: runGate,
+      security: runSecurity,
+      branch: runBranch,
+      temporal: runTemporal,
+      conflict: runConflict,
+      procedure: async () => {
+        const live = Boolean(opts.live) && process.env.GRAPHCTX_LLM_LIVE === "1";
+        if (opts.live && !live) {
+          process.stdout.write("live procedure eval not run: set GRAPHCTX_LLM_LIVE=1 to opt in.\n");
+        }
+        return runProcedure(live);
+      },
+      mcp: runMcp,
+      storage: runStorage,
+      telemetry: runTelemetry,
+      provenance: runProvenance,
+      resilience: runResilience,
+      benchmarks: runBenchmarks,
+    };
+
+    if (isEvalGateSuite(sub)) {
+      if (!(await runners[sub]())) process.exitCode = 1;
       return;
     }
     if (sub === "all") {
-      const a = await runArms();
-      const mem = await runMemory();
-      const p = await runPromote();
-      const d = await runDrift();
-      const rq = await runRetrieval();
-      const g = await runGate();
-      const sec = await runSecurity();
-      const b = await runBranch();
-      const t = await runTemporal();
-      const c = await runConflict();
-      const pr = await runProcedure();
-      const m = await runMcp();
-      const storage = await runStorage();
-      const telemetry = await runTelemetry();
-      const provenance = await runProvenance();
-      const resilience = await runResilience();
-      if (
-        !(
-          a &&
-          mem &&
-          p &&
-          d &&
-          rq &&
-          g &&
-          sec &&
-          b &&
-          t &&
-          c &&
-          pr &&
-          m &&
-          storage &&
-          telemetry &&
-          provenance &&
-          resilience
-        )
-      )
-        process.exitCode = 1;
+      let pass = true;
+      for (const suite of EVAL_GATE_SUITES) {
+        pass = (await runners[suite]()) && pass;
+      }
+      if (!pass) process.exitCode = 1;
       return;
     }
-    if (sub !== "run") fail(`unknown eval subcommand "${sub}"`);
-    await runArms();
+    fail(`unknown eval subcommand "${sub}"`);
   });
 
 // Extract the embedded sqlite-vec extension (compiled binary only; no-op under

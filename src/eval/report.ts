@@ -91,6 +91,18 @@ export function formatReport(report: EvalReport): string {
   return `${lines.join("\n")}\n`;
 }
 
+export function evalReportPass(report: EvalReport): boolean {
+  const b = find(report.arms, "B");
+  const c = find(report.arms, "C");
+  const armsPass =
+    b && c
+      ? c.postCompactSolveRate > b.postCompactSolveRate &&
+        c.repeatedFailedCommands < b.repeatedFailedCommands
+      : true;
+  const controlsPass = report.controls.every((ctrl) => ctrl.passed === ctrl.repos);
+  return armsPass && controlsPass;
+}
+
 function find(arms: ArmResult[], id: string): ArmResult | undefined {
   return arms.find((a) => a.arm === id);
 }
