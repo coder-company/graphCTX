@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Fact, ScoredFact } from "../../core/types.js";
+import { classifyRelation } from "../../invalidate/relation.js";
 import {
   type ConcurrencyOutcome,
   reconcileWrite,
@@ -388,6 +389,20 @@ function runResolveSemantics(detail: string[]): SectionResult {
     check(
       "loser never silently dropped — contradiction is surfaced",
       res.conflicts.length === 1 && res.resolved.length === 1,
+    );
+  }
+
+  // f) Invalidation must respect the same precedence ladder as injection.
+  {
+    const structured = rankFact(2, "npm");
+    const workspaceUser = rankFact(3, "pnpm");
+    check(
+      "invalidator precedence: lower durable memory cannot supersede structured repo evidence",
+      classifyRelation(workspaceUser, structured).relation === "coexists",
+    );
+    check(
+      "invalidator precedence: structured repo evidence can supersede lower workspace memory",
+      classifyRelation(structured, workspaceUser).relation === "refines",
     );
   }
 

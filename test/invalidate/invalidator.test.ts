@@ -61,9 +61,37 @@ describe("relation classifier (deterministic-first)", () => {
   });
 
   it("low-trust contradictory value → conflicts (no silent winner)", () => {
-    const existing = mk({ object: "npm test" });
-    const incoming = facts.insert(base({ object: "yarn test", trust_tier: "low" }));
+    const existing = mk({
+      object: "npm test",
+      trust_tier: "low",
+      source: { asserted_by: "deterministic_parser", event_ids: [] },
+    });
+    const incoming = facts.insert(
+      base({
+        object: "yarn test",
+        trust_tier: "low",
+        source: { asserted_by: "deterministic_parser", event_ids: [] },
+      }),
+    );
     expect(classifyRelation(incoming, existing).relation).toBe("conflicts");
+  });
+
+  it("lower-precedence durable memory does not supersede structured repo evidence", () => {
+    const existing = mk({
+      object: "npm test",
+      trust_tier: "high",
+      source: { asserted_by: "deterministic_parser", event_ids: [] },
+    });
+    const incoming = facts.insert(
+      base({
+        object: "yarn test",
+        trust_tier: "high",
+        source: { asserted_by: "user", event_ids: [] },
+      }),
+    );
+    const v = classifyRelation(incoming, existing);
+    expect(v.relation).toBe("coexists");
+    expect(v.reason).toContain("higher-precedence");
   });
 
   it("different subject/predicate → unrelated (deterministic)", () => {
@@ -90,6 +118,30 @@ describe("invalidator effects + injection suppression", () => {
     expect(active.find((f) => f.fact_id === incoming.fact_id)).toBeDefined();
     // SUPERSEDES edge recorded
     expect(edges.from(incoming.fact_id, "SUPERSEDES").length).toBe(1);
+  });
+
+  it("preserves active structured evidence when lower-precedence memory contradicts it", async () => {
+    const existing = facts.insert(
+      base({
+        object: "npm test",
+        trust_tier: "high",
+        source: { asserted_by: "deterministic_parser", event_ids: [] },
+      }),
+    );
+    const incoming = facts.insert(
+      base({
+        object: "yarn test",
+        trust_tier: "high",
+        source: { asserted_by: "user", event_ids: [] },
+      }),
+    );
+    const inv = new Invalidator({ facts, edges, episodes });
+    const res = await inv.processIncomingFact(incoming);
+
+    expect(res.actions.some((a) => a.relation === "refines")).toBe(false);
+    expect(facts.get(existing.fact_id)!.status).toBe("active");
+    expect(facts.get(incoming.fact_id)!.status).toBe("active");
+    expect(edges.from(incoming.fact_id, "SUPERSEDES").length).toBe(0);
   });
 
   it("resolve(): an open loop is superseded and stops being active", async () => {

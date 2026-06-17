@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Fact } from "../core/types.js";
+import { precedenceRank } from "../resolve/precedence.js";
 
 // The six relations an incoming fact can have to an existing one (SPEC §11).
 export type Relation = "same" | "refines" | "invalidates" | "conflicts" | "coexists" | "unrelated";
@@ -73,9 +74,23 @@ export function classifyRelation(
     };
   }
 
-  // Same scope + same subject/predicate + different object, from a trusted
-  // structured source → the newer assertion refines (supersedes) the older.
   const bothSameScope = sameScopeLevel(incoming, existing);
+  if (bothSameScope) {
+    const incomingRank = precedenceRank(incoming, incoming.scope.session_id);
+    const existingRank = precedenceRank(existing, incoming.scope.session_id);
+    if (incomingRank > existingRank) {
+      return {
+        relation: "coexists",
+        reason:
+          "existing higher-precedence value retained; contradiction resolved at retrieval/injection",
+        deterministic: true,
+      };
+    }
+  }
+
+  // Same scope + same subject/predicate + different object, from equal-or-higher
+  // precedence trusted evidence → the newer assertion refines (supersedes) the
+  // older. Lower-precedence facts must not erase structured repo truth.
   if (bothSameScope && incoming.trust_tier === "high" && incoming.source.asserted_by !== "agent") {
     return {
       relation: "refines",
