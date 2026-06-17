@@ -6,6 +6,8 @@ import {
   SCALE_BUDGET_MS,
   measureFootprint,
   measureScalePoint,
+  parseScaleSizes,
+  runScaleBenchmark,
 } from "../../src/bench/scale.js";
 
 // Regression gate (SPEC §24): the hot path (indexed BM25 + bounded semantic
@@ -26,6 +28,13 @@ describe("scale latency budget (SPEC §24)", () => {
     expect(p.retrievalMs.p95).toBeGreaterThan(p.budgetMs);
     expect(p.pass).toBe(false);
   }, 30000);
+
+  it("rejects empty or invalid scale size lists", async () => {
+    expect(parseScaleSizes("1000, 10000")).toEqual([1000, 10000]);
+    expect(() => parseScaleSizes("1000, nope")).toThrow(/invalid scale size/);
+    expect(() => parseScaleSizes("")).toThrow(/comma-separated positive integer sizes/);
+    await expect(runScaleBenchmark({ sizes: [] })).rejects.toThrow(/at least one/);
+  });
 
   it("measures cold startup-to-first-result and process footprint", async () => {
     const r = await measureFootprint({ scaleFacts: 1000 });

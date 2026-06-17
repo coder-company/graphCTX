@@ -439,11 +439,15 @@ program
       return;
     }
     if (opts.scale) {
-      const { runScaleBenchmark, formatScaleReport } = await import("./bench/scale.js");
-      const sizes = String(opts.sizes)
-        .split(",")
-        .map((s) => Number(s.trim()))
-        .filter((n) => Number.isFinite(n) && n > 0);
+      const { runScaleBenchmark, formatScaleReport, parseScaleSizes } = await import(
+        "./bench/scale.js"
+      );
+      let sizes: number[];
+      try {
+        sizes = parseScaleSizes(String(opts.sizes));
+      } catch (e) {
+        fail((e as Error).message);
+      }
       const budgetMs = Number(opts.budgetMs);
       process.stdout.write("running scale benchmark (streaming bulk ingest; 1M may take a bit)…\n");
       const report = await runScaleBenchmark({

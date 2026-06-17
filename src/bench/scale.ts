@@ -105,7 +105,7 @@ export async function measureScalePoint(
 export async function runScaleBenchmark(
   opts: { sizes?: number[]; repeats?: number; k?: number; budgetMs?: number } = {},
 ): Promise<ScaleReport> {
-  const sizes = opts.sizes ?? DEFAULT_SCALE_SIZES;
+  const sizes = validateScaleSizes(opts.sizes ?? DEFAULT_SCALE_SIZES);
   const budgetMs = opts.budgetMs ?? SCALE_BUDGET_MS;
   const points: ScalePoint[] = [];
   for (const n of sizes) {
@@ -117,6 +117,34 @@ export async function runScaleBenchmark(
     points,
     pass: points.every((p) => p.pass),
   };
+}
+
+export function parseScaleSizes(raw: string): number[] {
+  const parts = raw.split(",").map((s) => s.trim());
+  if (parts.length === 0 || parts.some((s) => s.length === 0)) {
+    throw new Error("scale benchmark requires comma-separated positive integer sizes");
+  }
+  return validateScaleSizes(
+    parts.map((part) => {
+      const n = Number(part);
+      if (!Number.isSafeInteger(n) || n <= 0) {
+        throw new Error(`invalid scale size "${part}"; expected a positive integer`);
+      }
+      return n;
+    }),
+  );
+}
+
+function validateScaleSizes(sizes: readonly number[]): number[] {
+  if (sizes.length === 0) {
+    throw new Error("scale benchmark requires at least one positive integer size");
+  }
+  return sizes.map((n) => {
+    if (!Number.isSafeInteger(n) || n <= 0) {
+      throw new Error(`invalid scale size "${n}"; expected a positive integer`);
+    }
+    return n;
+  });
 }
 
 export async function measureFootprint(

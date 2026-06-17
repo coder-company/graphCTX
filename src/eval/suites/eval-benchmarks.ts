@@ -117,6 +117,12 @@ export async function runEvalBenchmarksEval(): Promise<EvalBenchmarksReport> {
     offline.value.scale.points.map((p) => `${p.scaleFacts}:p95=${p.retrievalMs.p95}ms`).join(" "),
   );
 
+  const emptyScaleRejected = await rejectsEmptyScaleBenchmark();
+  check(
+    "scale benchmark rejects empty/invalid size lists instead of vacuous PASS",
+    emptyScaleRejected,
+  );
+
   const emitted = `${offline.value.compareText}\n${offline.value.liveSkipText}`;
   check(
     "offline compare/scale make zero network calls and leak no key material",
@@ -171,6 +177,15 @@ export function formatEvalBenchmarksReport(r: EvalBenchmarksReport): string {
   );
   lines.push("");
   return `${lines.join("\n")}\n`;
+}
+
+async function rejectsEmptyScaleBenchmark(): Promise<boolean> {
+  try {
+    await runScaleBenchmark({ sizes: [] });
+    return false;
+  } catch (e) {
+    return /at least one positive integer size/.test((e as Error).message);
+  }
 }
 
 function pct(x: number): string {
