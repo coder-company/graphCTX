@@ -159,11 +159,11 @@ export class Retriever {
         // CAPPED slice of active facts to recover pure-semantic matches. The cap
         // keeps this O(SEMANTIC_SCAN_CAP), not O(N), so the hot path stays flat.
         if (cand.size < k) {
-          let scanned = 0;
           const semCandidates: Array<{ fact: Fact; dist: number }> = [];
-          for (const f of this.repo.activeAsOf(wsScope)) {
-            if (scanned >= SEMANTIC_SCAN_CAP) break;
-            scanned++;
+          // Push the SEMANTIC_SCAN_CAP bound into SQL: activeAsOf returns the
+          // SAME first-N active rows (insertion order) the manual break sliced,
+          // but without loading/hydrating all N — keeping this O(cap), not O(N).
+          for (const f of this.repo.activeAsOf(wsScope, SEMANTIC_SCAN_CAP)) {
             if (cand.has(f.fact_id)) continue;
             const dist = this.vectors.cosineDistanceTo(qv, String(f.object));
             semCandidates.push({ fact: f, dist });

@@ -318,7 +318,7 @@ export class FactsRepo {
          WHERE f.status = 'expired' AND g.valid_until_commit IS NOT NULL`,
       )
       .all() as FactRow[];
-    return rows.map((r) => this.hydrate(r));
+    return this.hydrateMany(rows);
   }
 
   // Reactivate a fact whose invalidating commit was reverted (SPEC §8): clear
@@ -341,16 +341,21 @@ export class FactsRepo {
     const rows = this.db
       .prepare(`SELECT * FROM facts WHERE subject_id = ? AND predicate = ? ${clause}`)
       .all(s, p, ...params) as FactRow[];
-    return rows.map((r) => this.hydrate(r));
+    return this.hydrateMany(rows);
   }
 
   // Active facts in scope. Commit-anchor filtering happens in the retrieval layer.
-  activeAsOf(scope: ScopeFilter): Fact[] {
+  // An optional `limit` pushes a SQL LIMIT into the query so the bounded hot-path
+  // scan loads only the first-N active rows (insertion order) instead of all N;
+  // omit it to preserve the full O(N) scan for boot/compaction and eval callers.
+  activeAsOf(scope: ScopeFilter, limit?: number): Fact[] {
     const { clause, params } = scopeClause(scope);
+    const limitClause = limit !== undefined ? "LIMIT ?" : "";
+    const allParams = limit !== undefined ? [...params, limit] : params;
     const rows = this.db
-      .prepare(`SELECT * FROM facts WHERE status = 'active' ${clause}`)
-      .all(...params) as FactRow[];
-    return rows.map((r) => this.hydrate(r));
+      .prepare(`SELECT * FROM facts WHERE status = 'active' ${clause} ${limitClause}`)
+      .all(...allParams) as FactRow[];
+    return this.hydrateMany(rows);
   }
 
   // Active open loops in scope (M1 §7) — durable unfinished threads that must
@@ -360,7 +365,7 @@ export class FactsRepo {
     const rows = this.db
       .prepare(`SELECT * FROM facts WHERE status = 'active' AND fact_kind = 'open_loop' ${clause}`)
       .all(...params) as FactRow[];
-    return rows.map((r) => this.hydrate(r));
+    return this.hydrateMany(rows);
   }
 
   candidates(scope: ScopeFilter): Fact[] {
@@ -368,7 +373,7 @@ export class FactsRepo {
     const rows = this.db
       .prepare(`SELECT * FROM facts WHERE status = 'candidate' ${clause}`)
       .all(...params) as FactRow[];
-    return rows.map((r) => this.hydrate(r));
+    return this.hydrateMany(rows);
   }
 
   all(scope: ScopeFilter): Fact[] {
@@ -376,7 +381,7 @@ export class FactsRepo {
     const rows = this.db
       .prepare(`SELECT * FROM facts WHERE 1=1 ${clause}`)
       .all(...params) as FactRow[];
-    return rows.map((r) => this.hydrate(r));
+    return this.hydrateMany(rows);
   }
 
   // FTS5/BM25 search restricted to scope and active facts.
@@ -395,8 +400,9 @@ export class FactsRepo {
          LIMIT ?`,
       )
       .all(match, ...params, limit) as Array<FactRow & { bm: number }>;
-    return rows.map((r) => ({
-      fact: this.hydrate(r),
+    const facts = this.hydrateMany(rows);
+    return rows.map((r, i) => ({
+      fact: facts[i]!,
       // bm25 returns lower=better (negative-ish); convert to a positive score.
       score: 1 / (1 + Math.max(0, r.bm)),
       signals: { bm25: r.bm },
@@ -408,6 +414,25 @@ export class FactsRepo {
       .prepare("SELECT * FROM git_anchors WHERE fact_id = ?")
       .get(row.fact_id) as AnchorRow | undefined;
     return rowToFact(row, anchor);
+  }
+
+  // Batched anchor hydration: fetch every row's git anchor in ONE query per
+  // chunk (SELECT ... WHERE fact_id IN (...)) instead of N+1 single-row lookups.
+  // Chunked to stay under SQLite's bound-variable limit (~999). Preserves order:
+  // each fact gets its own anchor (or none) keyed by fact_id.
+  private hydrateMany(rows: FactRow[]): Fact[] {
+    if (rows.length === 0) return [];
+    const anchors = new Map<string, AnchorRow>();
+    const CHUNK = 900;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const placeholders = chunk.map(() => "?").join(", ");
+      const found = this.db
+        .prepare(`SELECT * FROM git_anchors WHERE fact_id IN (${placeholders})`)
+        .all(...chunk.map((r) => r.fact_id)) as AnchorRow[];
+      for (const a of found) anchors.set(a.fact_id, a);
+    }
+    return rows.map((r) => rowToFact(r, anchors.get(r.fact_id)));
   }
 }
 
@@ -435,6 +460,61 @@ function scopeClause(scope: ScopeFilter, prefix = ""): { clause: string; params:
   return { clause: parts.length ? `AND ${parts.join(" AND ")}` : "", params };
 }
 
+// High-frequency English function words carry no retrieval signal but, as bare
+// OR terms, force BM25 to score/sort a near–full-table posting list (O(N) tail
+// on non-selective queries). Dropping them is behavior-preserving: every gold
+// fact is matched by its content terms, not by stopwords. Skipped only when a
+// query is ALL stopwords (then we fall back to the full term set, see below).
+const FTS_STOPWORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "of",
+  "to",
+  "in",
+  "on",
+  "at",
+  "for",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "do",
+  "does",
+  "did",
+  "how",
+  "what",
+  "which",
+  "who",
+  "whom",
+  "where",
+  "when",
+  "why",
+  "this",
+  "that",
+  "these",
+  "those",
+  "it",
+  "its",
+  "i",
+  "we",
+  "you",
+  "they",
+  "he",
+  "she",
+  "my",
+  "our",
+  "your",
+  "with",
+  "by",
+  "from",
+  "as",
+  "so",
+]);
+
 // Sanitize free text into a safe FTS5 OR query of quoted terms.
 function toFtsMatch(text: string): string | null {
   const terms = text
@@ -443,6 +523,10 @@ function toFtsMatch(text: string): string | null {
     .map((t) => t.trim())
     .filter((t) => t.length >= 2);
   if (terms.length === 0) return null;
-  const unique = [...new Set(terms)];
+  const content = terms.filter((t) => !FTS_STOPWORDS.has(t));
+  // Fall back to the full term set only if the query is ALL stopwords, so a
+  // degenerate query still matches something rather than returning nothing.
+  const effective = content.length > 0 ? content : terms;
+  const unique = [...new Set(effective)];
   return unique.map((t) => `"${t.replace(/"/g, "")}"`).join(" OR ");
 }
