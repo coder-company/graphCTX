@@ -23,6 +23,14 @@ const SECRET_PATTERNS: Array<{ name: string; re: RegExp }> = [
     name: "discord_webhook",
     re: /https:\/\/discord(?:app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9._-]{20,}/,
   },
+  {
+    name: "authorization_header",
+    re: /\bAuthorization\s*:\s*(?:Bearer|Basic|Token)\s+[A-Za-z0-9._~+/=-]{12,}/i,
+  },
+  {
+    name: "cookie_secret",
+    re: /\b(?:Cookie|Set-Cookie)\s*:\s*[^;\n]*(?:session|token|auth|jwt)[^=;\s]*\s*=\s*[A-Za-z0-9._~+/=-]{12,}/i,
+  },
   { name: "private_key", re: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/ },
   {
     name: "generic_assignment",

@@ -21,6 +21,8 @@ describe("secret scanning (I3)", () => {
     expect(
       containsSecret("https://hooks.slack.com/services/T00000000/B00000000/FAKEfakeFAKEfake"),
     ).toBe(true);
+    expect(containsSecret("Authorization: Bearer plainlowentropytoken123")).toBe(true);
+    expect(containsSecret("Cookie: session_id=plainlowentropycookie123")).toBe(true);
   });
 
   it("does not flag ordinary command text", () => {
@@ -40,6 +42,12 @@ describe("secret scanning (I3)", () => {
     expect(redactSecrets(`token ${secret}`)).not.toContain(secret);
     expect(redactSecrets("DATABASE_URL=postgres://admin:FAKEpass123@db.example/app")).not.toContain(
       "FAKEpass123",
+    );
+    expect(redactSecrets("Authorization: Bearer plainlowentropytoken123")).not.toContain(
+      "plainlowentropytoken123",
+    );
+    expect(redactSecrets("Cookie: session_id=plainlowentropycookie123")).not.toContain(
+      "plainlowentropycookie123",
     );
     const value = redactSecretValue({ token: secret, safe: "npm test" });
     expect(JSON.stringify(value)).not.toContain(secret);

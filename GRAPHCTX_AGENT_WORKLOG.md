@@ -115,3 +115,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval retrieval`
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
+
+### Iteration 43 - auth and cookie header secret scanning
+
+- Added explicit secret patterns for Authorization headers and cookie/session
+  headers so low-entropy bearer/session material is blocked and redacted without
+  relying on entropy heuristics.
+- Extended secret scanner tests for detection and redaction of auth and cookie
+  headers.
+- Verification:
+  - `npx biome check src/security/secrets.ts test/security/secrets.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/security/secrets.test.ts test/security/promotion-injection.test.ts test/eval/security-adversarial.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval quality`
