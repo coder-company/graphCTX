@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { NewFact } from "../../src/core/types.js";
 import { Invalidator } from "../../src/invalidate/invalidator.js";
-import { why } from "../../src/provenance/why.js";
+import { formatWhy, redactWhyReport, why } from "../../src/provenance/why.js";
 import { EdgesRepo } from "../../src/store/edges.repo.js";
 import { EpisodesRepo } from "../../src/store/episodes.repo.js";
 import { FactsRepo } from "../../src/store/facts.repo.js";
@@ -113,5 +113,28 @@ describe("why() provenance reader", () => {
     const r = why(fact.fact_id, deps())!;
     expect(r.promotions.length).toBe(1);
     expect(r.promotions[0]!.gate).toBe("config_evidence");
+  });
+
+  it("redacts secrets from formatted and structured provenance output", () => {
+    const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+    const fact = facts.insert(
+      f({
+        object: secret,
+        source: {
+          asserted_by: "user",
+          event_ids: [],
+          raw_quote: `token is ${secret}`,
+        },
+      }),
+    );
+    const r = why(fact.fact_id, deps())!;
+    const formatted = formatWhy(r);
+    const structured = redactWhyReport(r);
+
+    expect(formatted).not.toContain(secret);
+    expect(JSON.stringify(structured)).not.toContain(secret);
+    expect(formatted).toContain("[REDACTED:openai]");
+    expect(structured.fact.object).toBe("[REDACTED:openai]");
+    expect(structured.raw_quote).toContain("[REDACTED:openai]");
   });
 });

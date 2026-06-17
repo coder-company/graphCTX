@@ -1,4 +1,5 @@
 import type { Episode, Fact, GitAnchor } from "../core/types.js";
+import { redactSecretValue, redactSecrets } from "../security/secrets.js";
 import type { Edge, EdgesRepo } from "../store/edges.repo.js";
 import type { EpisodesRepo } from "../store/episodes.repo.js";
 import type { FactsRepo } from "../store/facts.repo.js";
@@ -58,50 +59,74 @@ export function why(factId: string, deps: WhyDeps): WhyReport | null {
 }
 
 export function formatWhy(r: WhyReport): string {
+  const redacted = redactWhyReport(r);
   const lines: string[] = [];
-  const obj = typeof r.fact.object === "string" ? r.fact.object : JSON.stringify(r.fact.object);
+  const obj =
+    typeof redacted.fact.object === "string"
+      ? redacted.fact.object
+      : JSON.stringify(redacted.fact.object);
   lines.push(
-    `why [mem:${r.fact.fact_id.slice(-8)}] — ${r.fact.subject} ${r.fact.predicate}: ${obj}`,
+    `why [mem:${redacted.fact.fact_id.slice(-8)}] — ${redacted.fact.subject} ${redacted.fact.predicate}: ${obj}`,
   );
   lines.push("=".repeat(72));
-  lines.push(`  kind:          ${r.fact.fact_kind} / ${r.fact.temporal_kind}`);
-  lines.push(`  status:        ${r.fact.status}  (${r.fact.promotion_state})`);
-  lines.push(`  observed:      ${r.fact.time.t_observed}  recorded=${r.fact.time.t_recorded}`);
-  lines.push(`  trust:         ${r.fact.trust_tier}  sensitivity=${r.fact.sensitivity}`);
-  lines.push(`  asserted by:   ${r.asserted_by}`);
-  if (r.raw_quote) lines.push(`  raw quote:     "${r.raw_quote}"`);
-  if (r.git_anchor) {
-    const g = r.git_anchor;
+  lines.push(`  kind:          ${redacted.fact.fact_kind} / ${redacted.fact.temporal_kind}`);
+  lines.push(`  status:        ${redacted.fact.status}  (${redacted.fact.promotion_state})`);
+  lines.push(
+    `  observed:      ${redacted.fact.time.t_observed}  recorded=${redacted.fact.time.t_recorded}`,
+  );
+  lines.push(
+    `  trust:         ${redacted.fact.trust_tier}  sensitivity=${redacted.fact.sensitivity}`,
+  );
+  lines.push(`  asserted by:   ${redacted.asserted_by}`);
+  if (redacted.raw_quote) lines.push(`  raw quote:     "${redacted.raw_quote}"`);
+  if (redacted.git_anchor) {
+    const g = redacted.git_anchor;
     lines.push(
       `  git anchor:    branch=${g.branch ?? "-"} from=${short(g.valid_from_commit)} introduced=${short(g.introduced_by_commit)}${g.valid_until_commit ? ` until=${short(g.valid_until_commit)}` : ""}`,
     );
   }
   lines.push(
-    `  evidence:      ${r.evidence.length} event(s)${r.missing_evidence_ids.length ? `, ${r.missing_evidence_ids.length} missing` : ""}`,
+    `  evidence:      ${redacted.evidence.length} event(s)${redacted.missing_evidence_ids.length ? `, ${redacted.missing_evidence_ids.length} missing` : ""}`,
   );
-  for (const e of r.evidence)
+  for (const e of redacted.evidence)
     lines.push(`     - ${e.event_type} @ ${e.created_at} [${e.event_id.slice(-8)}]`);
-  if (r.promotions.length) {
+  if (redacted.promotions.length) {
     lines.push("  promotions:");
-    for (const p of r.promotions) {
+    for (const p of redacted.promotions) {
       lines.push(
         `     - ${p.from_state} → ${p.to_state}  [${p.decision}] gate=${p.gate ?? "-"}  ${p.reason ?? ""}`,
       );
     }
   }
-  if (r.edges.length) {
+  if (redacted.edges.length) {
     lines.push("  edges:");
-    for (const e of r.edges) {
-      const dir = e.from_id === r.fact.fact_id ? `→ ${short(e.to_id)}` : `← ${short(e.from_id)}`;
+    for (const e of redacted.edges) {
+      const dir =
+        e.from_id === redacted.fact.fact_id ? `→ ${short(e.to_id)}` : `← ${short(e.from_id)}`;
       lines.push(`     - ${e.edge_kind} ${dir}`);
     }
   }
   lines.push("");
   lines.push(
-    `  provenance chain: ${r.complete ? "✅ complete" : "⚠ incomplete (missing evidence)"}`,
+    `  provenance chain: ${redacted.complete ? "✅ complete" : "⚠ incomplete (missing evidence)"}`,
   );
   lines.push("");
   return `${lines.join("\n")}\n`;
+}
+
+export function redactWhyReport(r: WhyReport): WhyReport {
+  return {
+    ...r,
+    raw_quote: r.raw_quote ? redactSecrets(r.raw_quote) : undefined,
+    fact: {
+      ...r.fact,
+      object: redactSecretValue(r.fact.object),
+      source: {
+        ...r.fact.source,
+        raw_quote: r.fact.source.raw_quote ? redactSecrets(r.fact.source.raw_quote) : undefined,
+      },
+    },
+  };
 }
 
 function short(id?: string): string {

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { isDangerousDirective } from "../../src/security/sanitize.js";
-import { containsSecret, scanSecrets } from "../../src/security/secrets.js";
+import {
+  containsSecret,
+  redactSecretValue,
+  redactSecrets,
+  scanSecrets,
+} from "../../src/security/secrets.js";
 import { trustForSource } from "../../src/security/trust.js";
 
 describe("secret scanning (I3)", () => {
@@ -21,6 +26,14 @@ describe("secret scanning (I3)", () => {
   it("reports the matched pattern name", () => {
     const hits = scanSecrets("token gh" + "p_" + "abcdefghijklmnopqrstuvwxyz0123456789");
     expect(hits.some((h) => h.pattern === "github_token")).toBe(true);
+  });
+
+  it("redacts secret-shaped text and nested values for user-facing output", () => {
+    const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+    expect(redactSecrets(`token ${secret}`)).not.toContain(secret);
+    const value = redactSecretValue({ token: secret, safe: "npm test" });
+    expect(JSON.stringify(value)).not.toContain(secret);
+    expect(value).toEqual({ token: "[REDACTED:openai]", safe: "npm test" });
   });
 });
 

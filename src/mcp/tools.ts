@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { writeAgentsCapsule } from "../adapters/boot-capsule.js";
+import { redactWhyReport } from "../provenance/why.js";
 import { resolveConflicts } from "../resolve/conflicts.js";
 import type { Runtime } from "../runtime.js";
 
@@ -183,7 +184,7 @@ export const MCP_TOOLS: McpTool[] = [
       const a = whyInput.parse(args);
       const id = rt.resolveFactId(a.fact_id);
       const report = id ? rt.why(id) : null;
-      return report ?? { error: "fact not found" };
+      return report ? redactWhyReport(report) : { error: "fact not found" };
     },
   },
   {

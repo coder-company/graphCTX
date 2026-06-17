@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixedClock } from "../../core/clock.js";
 import type { Fact, NewFact, Scope } from "../../core/types.js";
+import { formatWhy, redactWhyReport } from "../../provenance/why.js";
 import { Runtime } from "../../runtime.js";
 import { isDangerousDirective } from "../../security/sanitize.js";
 import { containsSecret, scanSecrets } from "../../security/secrets.js";
@@ -1015,6 +1016,59 @@ function countHarmful(markdown: string): number {
   return count;
 }
 
+// =============================== FAMILY D ===============================
+// Provenance output redaction: `why` is a user-facing control surface. It must
+// explain that a secret-bearing fact exists without printing the secret through
+// CLI formatting or MCP-style structured output.
+export interface FamilyDReport {
+  cases: number;
+  leaks: number;
+  rows: Array<{ label: string; formattedLeak: boolean; structuredLeak: boolean; ok: boolean }>;
+}
+
+function runFamilyD(): FamilyDReport {
+  const dir = mkdtempSync(join(tmpdir(), "graphctx-sec-d-"));
+  try {
+    const rt = new Runtime({ workspaceDir: dir, userId: "eval-user", clock: fixedClock(FIXED_AT) });
+    const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+    const fact = rt.facts.insert(
+      activeFact(
+        {
+          predicate: "deploy_token",
+          object: secret,
+          sensitivity: "secret",
+          source: {
+            asserted_by: "user",
+            event_ids: [],
+            raw_quote: `the deploy token is ${secret}`,
+          },
+        },
+        { user_id: rt.userId, workspace_id: rt.workspaceId },
+      ),
+    );
+    const rawReport = rt.why(fact.fact_id);
+    const formatted = rawReport ? formatWhy(rawReport) : "";
+    const structured = rawReport ? JSON.stringify(redactWhyReport(rawReport)) : "";
+    const formattedLeak = formatted.includes(secret);
+    const structuredLeak = structured.includes(secret);
+    const rawHadSecret = JSON.stringify(rawReport).includes(secret);
+    const ok =
+      rawHadSecret &&
+      !formattedLeak &&
+      !structuredLeak &&
+      formatted.includes("[REDACTED:openai]") &&
+      structured.includes("[REDACTED:openai]");
+    rt.close();
+    return {
+      cases: 1,
+      leaks: formattedLeak || structuredLeak ? 1 : 0,
+      rows: [{ label: "why redacts secret object + raw_quote", formattedLeak, structuredLeak, ok }],
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 // =============================== RUNNER ===============================
 // Secret-recall floor: the MEASURED baseline rounded DOWN, so the suite passes
 // today and flags a recall regression. The gap to 1.0 is the documented recall
@@ -1026,8 +1080,10 @@ export interface SecurityAdversarialReport {
   familyA: FamilyAReport;
   familyB: FamilyBReport;
   familyC: FamilyCReport;
+  familyD: FamilyDReport;
   secretRecallFloor: number;
   harmfulCapsuleCards: number;
+  outputLeaks: number;
   pass: boolean;
 }
 
@@ -1035,10 +1091,13 @@ export async function runSecurityAdversarialEval(): Promise<SecurityAdversarialR
   const familyA = runFamilyA();
   const familyB = await runFamilyB();
   const familyC = await runFamilyC();
+  const familyD = runFamilyD();
   const harmfulCapsuleCards = familyB.harmfulCards + familyC.harmfulCards;
+  const outputLeaks = familyD.leaks;
   const pass =
     familyB.poisonPromotionRate === 0 &&
     harmfulCapsuleCards === 0 &&
+    outputLeaks === 0 &&
     familyA.recall >= SECRET_RECALL_FLOOR &&
     familyA.missed.length === 0 &&
     familyA.falsePositives === 0;
@@ -1046,8 +1105,10 @@ export async function runSecurityAdversarialEval(): Promise<SecurityAdversarialR
     familyA,
     familyB,
     familyC,
+    familyD,
     secretRecallFloor: SECRET_RECALL_FLOOR,
     harmfulCapsuleCards,
+    outputLeaks,
     pass,
   };
 }
@@ -1121,21 +1182,34 @@ export function formatSecurityAdversarialReport(r: SecurityAdversarialReport): s
   );
   lines.push(`  harmful capsule cards (Family C): ${r.familyC.harmfulCards} — must be 0`);
 
+  // --- Family D ---
+  lines.push("");
+  lines.push("Family D — provenance output redaction (CLI/MCP why)");
+  lines.push("-".repeat(72));
+  lines.push("case                                              formatted structured ok");
+  for (const row of r.familyD.rows) {
+    lines.push(
+      `${row.label.slice(0, 46).padEnd(48)}${(row.formattedLeak ? "LEAK" : "safe").padEnd(10)}${(row.structuredLeak ? "LEAK" : "safe").padEnd(11)}${row.ok ? "✓" : "✗"}`,
+    );
+  }
+  lines.push(`  output leaks: ${r.outputLeaks} — must be 0`);
+
   // --- Verdict ---
   lines.push("");
   lines.push("-".repeat(72));
   lines.push(
-    `  totals: Family A ${r.familyA.rows.length} cases, Family B ${r.familyB.cases} attacks, Family C ${r.familyC.cases} send-edge cases`,
+    `  totals: Family A ${r.familyA.rows.length} cases, Family B ${r.familyB.cases} attacks, Family C ${r.familyC.cases} send-edge cases, Family D ${r.familyD.cases} output cases`,
   );
   lines.push(`  poison-promotion rate: ${num(r.familyB.poisonPromotionRate)} (must be 0)`);
   lines.push(`  harmful-capsule cards:  ${r.harmfulCapsuleCards} (must be 0)`);
+  lines.push(`  output leaks:           ${r.outputLeaks} (must be 0)`);
   lines.push(
     `  secret recall:          ${num(r.familyA.recall)} (floor ${num(r.secretRecallFloor)})`,
   );
   lines.push("");
   lines.push(
     r.pass
-      ? `  VERDICT: ✅ SECURITY PASS — 0 poison promotions, 0 harmful capsule cards, recall ${num(r.familyA.recall)} >= ${num(r.secretRecallFloor)}.`
+      ? `  VERDICT: ✅ SECURITY PASS — 0 poison promotions, 0 harmful capsule cards, 0 output leaks, recall ${num(r.familyA.recall)} >= ${num(r.secretRecallFloor)}.`
       : "  VERDICT: ❌ SECURITY FAIL — a defense did not hold (see rows above).",
   );
   lines.push("");

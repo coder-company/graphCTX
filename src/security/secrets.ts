@@ -59,6 +59,36 @@ export function containsSecret(text: string): boolean {
   return scanSecrets(text).length > 0;
 }
 
+export function redactSecrets(text: string): string {
+  let redacted = text;
+  for (const { name, re } of SECRET_PATTERNS) {
+    redacted = redacted.replace(globalize(re), `[REDACTED:${name}]`);
+  }
+  for (const raw of redacted.split(/\s+/)) {
+    const tok = raw.replace(/^[`'"]+|[`'",;]+$/g, "");
+    if (isBenignOpaqueToken(tok)) continue;
+    if (
+      tok.length >= 24 &&
+      shannonEntropy(tok) > 4.0 &&
+      /[A-Za-z]/.test(tok) &&
+      /[0-9]/.test(tok)
+    ) {
+      redacted = redacted.replace(escapeRegExp(tok), "[REDACTED:high_entropy]");
+    }
+  }
+  return redacted;
+}
+
+export function redactSecretValue(value: unknown): unknown {
+  if (typeof value === "string") return redactSecrets(value);
+  if (value === null || value === undefined) return value;
+  try {
+    return JSON.parse(redactSecrets(JSON.stringify(value)));
+  } catch {
+    return "[REDACTED]";
+  }
+}
+
 // Classify a fact's text content; returns "secret" when any pattern matches so
 // the caller can stamp sensitivity at write time (I3, M1 §6).
 export function sensitivityForText(text: string): "secret" | "unknown" {
@@ -81,4 +111,14 @@ function isBenignOpaqueToken(s: string): boolean {
     /^[A-Za-z_][A-Za-z0-9_]*=\d+(?:\.\d+)+(?:[-+][A-Za-z0-9.]+)?$/.test(s) ||
     /^sha\d+-[A-Za-z0-9+/=]{8,}$/i.test(s)
   );
+}
+
+function globalize(re: RegExp): RegExp {
+  const flags = new Set(re.flags.split(""));
+  flags.add("g");
+  return new RegExp(re.source, [...flags].join(""));
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
