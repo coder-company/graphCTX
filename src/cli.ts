@@ -150,7 +150,7 @@ program
       budget_tokens: budget,
     });
     const { Retriever } = await import("./retrieve/retriever.js");
-    const retriever = new Retriever(rt.facts, rt.git);
+    const retriever = new Retriever(rt.facts, rt.git, rt.vectors);
     const scored = (await retriever.retrieve(ctx, { includeAllActive: true })).filter((s) =>
       safeForSend(s.fact),
     );

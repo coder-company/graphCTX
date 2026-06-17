@@ -129,3 +129,16 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx tsx src/cli.ts eval security`
   - `npx tsx src/cli.ts eval quality`
+
+### Iteration 44 - semantic CLI recall
+
+- Wired `graphctx recall` through the runtime's local vector index so pull
+  fallback ranking matches MCP/injection retrieval instead of BM25-only ranking.
+- Added a core-memory CLI eval check proving semantic recall ranks a
+  secret-handling preference ahead of an earlier broad-pass distractor.
+- Verification:
+  - `npx biome check src/cli.ts src/eval/suites/core-memory-lifecycle.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/eval/core-memory-lifecycle.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval memory`
+  - `npx tsx src/cli.ts eval quality`

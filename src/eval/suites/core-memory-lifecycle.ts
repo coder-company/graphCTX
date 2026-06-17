@@ -127,6 +127,59 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     recall.stdout.trim(),
   );
 
+  const semanticRecall = withRepo((dir) => {
+    const distractor = cli([
+      "remember",
+      "cache layer ownership belongs to the platform team",
+      "--subject",
+      "cache",
+      "--predicate",
+      "owner",
+      "-C",
+      dir,
+    ]);
+    const target = cli([
+      "remember",
+      "redact credentials before sharing",
+      "--subject",
+      "user",
+      "--predicate",
+      "prefers_safety",
+      "--kind",
+      "preference",
+      "-C",
+      dir,
+    ]);
+    const recall = cli([
+      "recall",
+      "how should I manage api keys before sending context",
+      "-C",
+      dir,
+    ]);
+    return { distractor, target, recall };
+  });
+  if (
+    semanticRecall.distractor.status !== 0 ||
+    semanticRecall.target.status !== 0 ||
+    semanticRecall.recall.status !== 0
+  ) {
+    cliFailures += 1;
+  }
+  const firstRecallLine = semanticRecall.recall.stdout
+    .split("\n")
+    .map((l) => l.trim())
+    .find(Boolean);
+  check(
+    "CLI recall uses local semantic retrieval to rank broad results",
+    semanticRecall.distractor.status === 0 &&
+      semanticRecall.target.status === 0 &&
+      semanticRecall.recall.status === 0 &&
+      !!firstRecallLine &&
+      firstRecallLine.includes("redact credentials before sharing") &&
+      !firstRecallLine.includes("cache layer ownership"),
+    compactRecall(semanticRecall.recall.stdout),
+  );
+
   const bootRefresh = withRepo((dir) => {
     const init = cli(["init", "-C", dir]);
     const remembered = cli([

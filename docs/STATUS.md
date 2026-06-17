@@ -76,7 +76,7 @@
 |---|---|---|
 | `hook <event>` p95 | < 150ms | 15.78ms ✅ |
 
-_Last updated: auth/cookie header secret scanning, scoped semantic retrieval expansion, workspace-confined injection staleness checks, package metadata extraction, high-trust test/Docker/tooling/tsconfig deterministic extraction, high-entropy redaction hardening, repo-id-isolated temporal validity, measured hook latency, fail-closed adapter install/uninstall, and typed CLI error formatting. 200 tests, 19 gate suites green, all I1-I9 hold._
+_Last updated: semantic CLI recall ranking, auth/cookie header secret scanning, scoped semantic retrieval expansion, workspace-confined injection staleness checks, package metadata extraction, high-trust test/Docker/tooling/tsconfig deterministic extraction, high-entropy redaction hardening, repo-id-isolated temporal validity, measured hook latency, fail-closed adapter install/uninstall, and typed CLI error formatting. 200 tests, 19 gate suites green, all I1-I9 hold._
 
 _Quality counters: Tests: 200. Gate suites: 19._
 
