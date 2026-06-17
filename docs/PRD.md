@@ -172,7 +172,7 @@ A fact is a temporal triplet `[subject] — [predicate] — [object]` plus:
 - Facts attach to the git DAG. Recall filters to facts whose `[valid_from_commit, valid_until_commit]` window contains the current HEAD (by ancestry).
 - **Branch divergence** → facts are branch-scoped, not leaked across branches.
 - **Revert** → re-validates the prior fact; **merge** → recompute against the merge commit tree.
-- `graphctx time-travel --commit <sha> recall "test command"` returns truth as of any commit.
+- Commit validity is exercised by temporal evals over real git histories; the public CLI answers as of the current HEAD.
 
 ### 7.3 Invalidation
 
@@ -246,20 +246,17 @@ Selection optimizes **marginal utility per token** with a diversity/redundancy p
 ```
 graphctx init                      # set up store + write AGENTS.md capsule
 graphctx serve --mcp               # run MCP server
-graphctx install claude|cursor|opencode
-graphctx remember "<fact>" --scope workspace
-graphctx recall "<query>" --workspace . --budget 1000
-graphctx inject --event PostCompact --session <id>
-graphctx checkpoint --session <id>
-graphctx promote pending --workspace .
-graphctx promote fact <id> --to user-static
-graphctx forget <id> --expire --reason "..."
-graphctx profile show|edit|diff
-graphctx conflicts list|resolve <id>
-graphctx why fact <id> | why injection <id>
-graphctx time-travel --commit <sha> recall "<query>"
+graphctx install claude|cursor|opencode|generic|auto
+graphctx uninstall claude
+graphctx remember "<fact>" -C .
+graphctx recall "<query>" -C . --budget 1000
+graphctx loop "<unfinished work>" -C .
+graphctx resolve <fact_id|last8> -C .
+graphctx extract -C .
+graphctx why <fact_id|last8> -C .
 graphctx doctor
-graphctx eval run --suite repo-drift
+graphctx bench
+graphctx eval <suite|all>
 ```
 
 ---

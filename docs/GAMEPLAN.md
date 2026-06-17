@@ -246,7 +246,7 @@ Selection optimizes **marginal utility per token** with a diversity/redundancy p
 - **Recall as of HEAD:** return facts whose window contains the current commit by ancestry.
 - **Branch divergence** → branch-scope facts; don't leak across branches.
 - **Revert** → re-validate the prior fact. **Merge** → recompute against the merge commit tree.
-- **Time-travel:** `graphctx time-travel --commit <sha> recall "<query>"`.
+- Temporal validity is exercised by real-git evals; the shipped CLI answers recall as of the current HEAD.
 
 ### Invalidation hierarchy
 - **Hard** — config/file/symbol deleted, script removed, revert detected, user says "wrong".
@@ -430,12 +430,10 @@ Default to global storage; `.graphctx/` opt-in (don't dump tool state into repos
 
 ### CLI surface
 ```
-graphctx init | serve --mcp | install claude|cursor|opencode
-graphctx remember | recall | inject | checkpoint | promote | forget
-graphctx profile show|edit|diff
-graphctx conflicts list|resolve | why fact|injection
-graphctx time-travel --commit <sha> recall "<q>"
-graphctx doctor | eval run --suite <name>
+graphctx init | serve --mcp | install claude|cursor|opencode|generic|auto
+graphctx remember | recall | loop | resolve | extract | why
+graphctx doctor | demo | tui | compare | bench
+graphctx eval <suite|all>
 ```
 
 ---
