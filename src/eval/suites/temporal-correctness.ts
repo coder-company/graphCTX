@@ -297,13 +297,11 @@ async function scRebase(): Promise<ScenarioResult> {
   });
 }
 
-// --- Scenario 6: cherry-pick / patch-id equivalence (THE KEY GAP) ---------
+// --- Scenario 6: cherry-pick / patch-id equivalence (THE KEY GATE) --------
 // Create change X on branch A, cherry-pick onto branch B (new SHA Y, same patch).
-// patch-id MUST recognize X and Y as the same change (a pure git capability that
-// already exists). We then measure whether graphCTX's fact-validity logic treats
-// the cherry-picked change as "present" on branch B. It does NOT today — validity
-// is ancestry-only and patch_id is never consulted — so the higher-level
-// recognition is reported as INFORMATIONAL, while the patch-id equality is GATED.
+// patch-id MUST recognize X and Y as the same change, and graphCTX's fact-validity
+// logic must treat the cherry-picked change as "present" on branch B even though
+// X is not an ancestor of Y.
 async function scCherryPick(): Promise<{
   result: ScenarioResult;
   patchIdEqual: boolean;
@@ -326,29 +324,22 @@ async function scCherryPick(): Promise<{
     const differentSha = x !== y;
 
     // Would graphCTX's validity logic see a fact anchored to X (on feat) as valid
-    // on main@Y? Validity is ancestry-only: X is NOT an ancestor of Y, so a
-    // branch-scoped fact anchored at X is NOT valid on main — even though the
-    // change IS present (as Y). That is the gap. patch_id is never read by
-    // isValidAsOf, so equivalence is NOT wired into validity.
+    // on main@Y? X is NOT an ancestor of Y, but the change IS present (as Y), so
+    // validity must consult patch-id equivalence for cross-branch anchors.
     const xAnchor = { branch: "feat", introduced_by_commit: x, valid_from_commit: x };
     const recognizedAsPresentOnB = await isValidAsOf(r.git, xAnchor, y, "main");
-    const patchIdWired = recognizedAsPresentOnB; // would only be true if validity consulted patch-id
-
-    // The CORRECT expected behaviour is recognizedAsPresentOnB === true (the
-    // change exists on main via Y). It is false today — documented as the gap.
+    const patchIdWired = recognizedAsPresentOnB;
     const informationalPass = recognizedAsPresentOnB === true;
 
     const result: ScenarioResult = {
       id: "6-cherry-pick",
-      label:
-        "cherry-pick: patch-id recognizes the same change across SHAs (gated); validity wiring (informational)",
-      // Gate only on the patch-id EQUALITY capability (pure git, must hold).
-      pass: patchIdEqual && differentSha,
+      label: "cherry-pick: patch-id recognizes the same change across SHAs and validity uses it",
+      pass: patchIdEqual && differentSha && recognizedAsPresentOnB,
       gated: true,
       detail:
         `patchId(X)=${pidX} patchId(Y)=${pidY} equal=${patchIdEqual} differentSha=${differentSha}` +
-        ` | [informational] change recognized as present on branch B via fact validity=${recognizedAsPresentOnB}` +
-        ` (correct=true; today=${recognizedAsPresentOnB ? "YES — wired" : "NO — patch-id not consulted by isValidAsOf (known gap)"})`,
+        ` | change recognized as present on branch B via fact validity=${recognizedAsPresentOnB}` +
+        ` (correct=true; patch-id validity=${recognizedAsPresentOnB ? "YES" : "NO"})`,
       informational: false,
     };
 
@@ -444,18 +435,18 @@ export async function runTemporalCorrectnessEval(): Promise<TemporalCorrectnessR
   const matrix = await scClassificationMatrix();
   scenarios.push(matrix.result);
 
-  // Informational line for the higher-level cherry-pick recognition (not gated
-  // unless it currently passes, per the verdict policy).
+  // Informationally tagged for report readability, but gated: patch-id equivalence
+  // is now part of fact validity, not just a measured capability.
   const informationalPass = cherry.informationalPass;
   scenarios.push({
     id: "6b-cherry-pick-validity",
-    label: "cherry-pick fact-validity recognition (informational; gated only if it passes today)",
+    label: "cherry-pick fact-validity recognition",
     pass: informationalPass,
-    gated: informationalPass, // only contributes to the gate if it already works
+    gated: true,
     informational: true,
     detail: informationalPass
       ? "fact anchored to X recognized as present on branch B via Y"
-      : "NOT recognized today — isValidAsOf is ancestry-only; patch-id equivalence is the known unbuilt capability",
+      : "NOT recognized — patch-id equivalence is not wired into isValidAsOf",
   });
 
   const gated = scenarios.filter((s) => s.gated);
@@ -499,7 +490,7 @@ export function formatTemporalCorrectnessReport(r: TemporalCorrectnessReport): s
   lines.push(`  gated scenarios: ${r.gatedPassed}/${r.gatedTotal}`);
   lines.push(
     r.pass
-      ? "  VERDICT: ✅ TEMPORAL CORRECTNESS PASS — real-git fast-forward/branch/revert/merge/rebase hold; patch-id recognizes cherry-picks."
+      ? "  VERDICT: ✅ TEMPORAL CORRECTNESS PASS — real-git fast-forward/branch/revert/merge/rebase hold; patch-id equivalence is wired into fact validity."
       : "  VERDICT: ❌ TEMPORAL CORRECTNESS FAIL.",
   );
   lines.push("");

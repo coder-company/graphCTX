@@ -7,6 +7,8 @@ export type SHA = string;
 // non-git directory beyond a typed GitError the caller can degrade from (I9).
 export class Git {
   private readonly git: SimpleGit;
+  private readonly patchIdByCommit = new Map<SHA, string | null>();
+  private readonly reachablePatchIdsByHead = new Map<SHA, Set<string>>();
   readonly cwd: string;
 
   constructor(cwd: string) {
@@ -114,16 +116,49 @@ export class Git {
   }
 
   async patchId(commit: SHA): Promise<string | null> {
+    if (this.patchIdByCommit.has(commit)) return this.patchIdByCommit.get(commit) ?? null;
     try {
       // --no-commit-id drops the leading commit SHA so the hash reflects only the
       // change (the patch), not the commit it lives in. Without it a cherry-picked
       // change would hash differently on each branch and patch-id would be useless.
       const diff = await this.git.raw(["diff-tree", "--no-commit-id", "-p", commit]);
+      if (diff.trim().length === 0) {
+        this.patchIdByCommit.set(commit, null);
+        return null;
+      }
       // patch-id reads a patch on stdin; emulate by hashing the diff deterministically.
-      return stableHash(diff);
+      const patchId = stableHash(diff);
+      this.patchIdByCommit.set(commit, patchId);
+      return patchId;
     } catch {
+      this.patchIdByCommit.set(commit, null);
       return null;
     }
+  }
+
+  async hasPatchEquivalent(target: SHA, head: SHA, knownTargetPatchId?: string): Promise<boolean> {
+    const targetPatchId = knownTargetPatchId?.trim() || (await this.patchId(target));
+    if (!targetPatchId) return false;
+    const reachable = await this.reachablePatchIds(head);
+    return reachable.has(targetPatchId);
+  }
+
+  private async reachablePatchIds(head: SHA): Promise<Set<string>> {
+    const cached = this.reachablePatchIdsByHead.get(head);
+    if (cached) return cached;
+    const ids = new Set<string>();
+    try {
+      const raw = await this.git.raw(["rev-list", "--no-merges", head]);
+      const commits = raw.split(/\s+/).filter(Boolean);
+      for (const commit of commits) {
+        const patchId = await this.patchId(commit);
+        if (patchId) ids.add(patchId);
+      }
+    } catch {
+      // Unknown/unreachable HEAD: conservative "no equivalent patch".
+    }
+    this.reachablePatchIdsByHead.set(head, ids);
+    return ids;
   }
 
   // repo_id: stable identifier — first commit sha if available, else hashed path.

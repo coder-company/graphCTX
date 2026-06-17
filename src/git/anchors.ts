@@ -29,22 +29,41 @@ export async function isValidAsOf(
   currentBranch: string,
 ): Promise<boolean> {
   if (!anchor) return true; // non-git facts are always valid
+  const allowPatchEquivalence = anchor.branch !== undefined && anchor.branch !== currentBranch;
+  const represented = new Map<SHA, boolean>();
+  const isRepresentedAtHead = async (commit: SHA): Promise<boolean> => {
+    const cached = represented.get(commit);
+    if (cached !== undefined) return cached;
+    const byAncestry = await git.isAncestor(commit, head);
+    const ok =
+      byAncestry ||
+      (allowPatchEquivalence &&
+        (await git.hasPatchEquivalent(commit, head, anchorPatchIdFor(anchor, commit))));
+    represented.set(commit, ok);
+    return ok;
+  };
 
   if (anchor.valid_from_commit) {
-    if (!(await git.isAncestor(anchor.valid_from_commit, head))) return false;
+    if (!(await isRepresentedAtHead(anchor.valid_from_commit))) return false;
   }
   if (anchor.valid_until_commit) {
-    if (await git.isAncestor(anchor.valid_until_commit, head)) return false;
+    if (await isRepresentedAtHead(anchor.valid_until_commit)) return false;
   }
   if (anchor.branch && anchor.branch !== currentBranch) {
     if (anchor.introduced_by_commit) {
-      if (!(await git.isAncestor(anchor.introduced_by_commit, head))) return false;
+      if (!(await isRepresentedAtHead(anchor.introduced_by_commit))) return false;
     } else {
       // branch-scoped with no anchor commit and different branch -> not valid here
       return false;
     }
   }
   return true;
+}
+
+function anchorPatchIdFor(anchor: GitAnchor, commit: SHA): string | undefined {
+  if (commit !== anchor.valid_from_commit && commit !== anchor.introduced_by_commit)
+    return undefined;
+  return anchor.patch_id;
 }
 
 // Synchronous variant for tests / non-git stores: validity with a provided
