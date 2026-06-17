@@ -15,6 +15,7 @@ import { DEMO_DEPLOY_CMD, setupDemo } from "../../adapters/claude-code/demo.js";
 import { defaultConfig } from "../../config/defaults.js";
 import { McpServer } from "../../mcp/server.js";
 import { MCP_TOOLS } from "../../mcp/tools.js";
+import { EXPECTED_COMMANDS, commandsFromHelp } from "../command-surface.js";
 import { EVAL_GATE_SUITES } from "../registry.js";
 
 // CLI/docs/demo parity gate. This suite protects the human/agent-facing surface:
@@ -40,26 +41,6 @@ interface CliResult {
   stdout: string;
   stderr: string;
 }
-
-const EXPECTED_COMMANDS = [
-  "init",
-  "install",
-  "uninstall",
-  "hook",
-  "recall",
-  "remember",
-  "loop",
-  "resolve",
-  "extract",
-  "serve",
-  "why",
-  "doctor",
-  "demo",
-  "tui",
-  "compare",
-  "bench",
-  "eval",
-] as const;
 
 const EXPECTED_ENABLED_EVENTS = [
   "SessionStart",
@@ -323,15 +304,6 @@ function shell(script: string, env: NodeJS.ProcessEnv = process.env): CliResult 
       stderr: String(err.stderr ?? ""),
     };
   }
-}
-
-function commandsFromHelp(help: string): string[] {
-  const commands = new Set<string>();
-  for (const line of help.split("\n")) {
-    const m = line.match(/^\s{2}([a-z][a-z-]*)\b/);
-    if (m?.[1] && m[1] !== "help") commands.add(m[1]);
-  }
-  return [...commands];
 }
 
 function parseQuotedArrayAssignment(text: string, key: string): string[] {

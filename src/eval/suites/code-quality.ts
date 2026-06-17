@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { EXPECTED_COMMANDS, EXPECTED_COMMAND_SET, commandsFromHelp } from "../command-surface.js";
 import { EVAL_GATE_SUITES, type EvalGateSuite } from "../registry.js";
 
 // Final code-quality gate. This keeps the cheap deterministic checks close to
@@ -28,27 +29,6 @@ interface CommandResult {
   stdout: string;
   stderr: string;
 }
-
-const EXPECTED_COMMANDS = [
-  "init",
-  "install",
-  "uninstall",
-  "hook",
-  "recall",
-  "remember",
-  "loop",
-  "resolve",
-  "extract",
-  "serve",
-  "why",
-  "doctor",
-  "demo",
-  "tui",
-  "compare",
-  "bench",
-  "eval",
-] as const;
-const EXPECTED_COMMAND_SET = new Set<string>(EXPECTED_COMMANDS);
 
 const DOC_COMMAND_SURFACE_FILES = [
   "README.md",
@@ -268,15 +248,6 @@ function command(file: string, args: string[]): CommandResult {
       stderr: String(err.stderr ?? ""),
     };
   }
-}
-
-function commandsFromHelp(help: string): string[] {
-  const commands = new Set<string>();
-  for (const line of help.split("\n")) {
-    const m = line.match(/^\s{2}([a-z][a-z-]*)\b/);
-    if (m?.[1] && m[1] !== "help") commands.add(m[1]);
-  }
-  return [...commands];
 }
 
 function tableRow(markdown: string, cell: string): string {
