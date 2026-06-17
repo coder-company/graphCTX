@@ -384,9 +384,11 @@ export class Runtime {
   ): Promise<InjectionContext> {
     let head = "";
     let branch = "";
+    let repoId = this.workspaceId;
     let dirty: string[] = [];
     if (await this.git.isRepo()) {
       try {
+        repoId = await this.git.repoId();
         head = await this.git.head();
         branch = await this.git.branch();
         dirty = await this.git.dirtyFiles();
@@ -397,7 +399,7 @@ export class Runtime {
     return {
       event,
       scope: this.scope(sessionId),
-      git: { repo_id: this.workspaceId, head, branch, dirty_files: dirty },
+      git: { repo_id: repoId, head, branch, dirty_files: dirty },
       ...extra,
     };
   }

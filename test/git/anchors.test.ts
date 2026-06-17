@@ -40,6 +40,12 @@ describe("commit-anchored validity (I-temporal)", () => {
     expect(isValidAsOfSync(a, "c1", "main", isAncestor)).toBe(true);
   });
 
+  it("invalid when the anchor repo id does not match the current repo id", () => {
+    const a: GitAnchor = { repo_id: "repo-other", valid_from_commit: "c1" };
+    expect(isValidAsOfSync(a, "c3", "main", isAncestor, "repo-current")).toBe(false);
+    expect(isValidAsOfSync(a, "c3", "main", isAncestor, "repo-other")).toBe(true);
+  });
+
   it("does not leak a branch-scoped fact onto a disjoint branch", () => {
     // fact introduced on feat at f1, branch-scoped to "feat"
     const a: GitAnchor = { branch: "feat", introduced_by_commit: "f1" };

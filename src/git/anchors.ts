@@ -27,8 +27,10 @@ export async function isValidAsOf(
   anchor: GitAnchor | undefined,
   head: SHA,
   currentBranch: string,
+  currentRepoId?: string,
 ): Promise<boolean> {
   if (!anchor) return true; // non-git facts are always valid
+  if (anchor.repo_id && currentRepoId && anchor.repo_id !== currentRepoId) return false;
   const allowPatchEquivalence = anchor.branch !== undefined && anchor.branch !== currentBranch;
   const represented = new Map<SHA, boolean>();
   const isRepresentedAtHead = async (commit: SHA): Promise<boolean> => {
@@ -73,8 +75,10 @@ export function isValidAsOfSync(
   head: SHA,
   currentBranch: string,
   isAncestor: (a: SHA, b: SHA) => boolean,
+  currentRepoId?: string,
 ): boolean {
   if (!anchor) return true;
+  if (anchor.repo_id && currentRepoId && anchor.repo_id !== currentRepoId) return false;
   if (anchor.valid_from_commit && !isAncestor(anchor.valid_from_commit, head)) return false;
   if (anchor.valid_until_commit && isAncestor(anchor.valid_until_commit, head)) return false;
   if (anchor.branch && anchor.branch !== currentBranch) {

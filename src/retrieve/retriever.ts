@@ -286,7 +286,7 @@ export class Retriever {
     if (fact.status !== "active") return false;
     if (!fact.git || !this.git) return true;
     try {
-      return await isValidAsOf(this.git, fact.git, ctx.git.head, ctx.git.branch);
+      return await isValidAsOf(this.git, fact.git, ctx.git.head, ctx.git.branch, ctx.git.repo_id);
     } catch {
       return true; // degrade open: if git check fails, don't drop the fact
     }

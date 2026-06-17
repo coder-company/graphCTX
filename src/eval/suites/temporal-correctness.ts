@@ -471,6 +471,59 @@ async function scEvidenceDisappearanceExpires(): Promise<ScenarioResult> {
   });
 }
 
+// --- Scenario 9: repo-id isolation -----------------------------------------
+// A fact whose commit SHA is reachable but whose repo_id belongs to another repo
+// must remain historical/provenance-visible but never inject into this repo.
+async function scRepoIdIsolation(): Promise<ScenarioResult> {
+  return withRepo(async (r) => {
+    const c1 = r.commit("package.json", JSON.stringify({ scripts: {} }), "base");
+    const rt = runtimeFor(r.dir);
+    try {
+      const repoId = await rt.git.repoId();
+      const foreignFact = rt.facts.insert({
+        subject: "repo",
+        predicate: "test_command",
+        object: "foreign-only-test-command",
+        fact_kind: "procedural",
+        temporal_kind: "static",
+        scope: { user_id: rt.userId, workspace_id: rt.workspaceId },
+        trust_tier: "high",
+        status: "active",
+        promotion_state: "workspace_active",
+        source: { asserted_by: "user", event_ids: [] },
+        git: {
+          repo_id: `${repoId}-foreign`,
+          branch: "main",
+          valid_from_commit: c1,
+          introduced_by_commit: c1,
+        },
+      });
+      const ctx = await rt.injectionContext("UserPromptSubmit", "temporal-repo-id", {
+        user_prompt: "how do I run the foreign-only test command",
+      });
+      const capsule = await rt.planner().plan(ctx, { bypassGate: true });
+      const whyReport = rt.why(foreignFact.fact_id);
+      const injected = capsule.markdown.includes("foreign-only-test-command");
+      const pass =
+        ctx.git.repo_id === repoId &&
+        whyReport?.fact.fact_id === foreignFact.fact_id &&
+        injected === false;
+      return {
+        id: "9-repo-id-isolation",
+        label:
+          "repo-id isolation: reachable foreign-repo commit anchor is historical but not injectable",
+        pass,
+        gated: true,
+        detail:
+          `ctxRepo=${ctx.git.repo_id} factRepo=${foreignFact.git?.repo_id ?? "-"} ` +
+          `whyVisible=${whyReport !== null} injected=${injected}`,
+      };
+    } finally {
+      rt.close();
+    }
+  });
+}
+
 export async function runTemporalCorrectnessEval(): Promise<TemporalCorrectnessReport> {
   const scenarios: ScenarioResult[] = [];
 
@@ -486,6 +539,7 @@ export async function runTemporalCorrectnessEval(): Promise<TemporalCorrectnessR
   const matrix = await scClassificationMatrix();
   scenarios.push(matrix.result);
   scenarios.push(await scEvidenceDisappearanceExpires());
+  scenarios.push(await scRepoIdIsolation());
 
   // Informationally tagged for report readability, but gated: patch-id equivalence
   // is now part of fact validity, not just a measured capability.
