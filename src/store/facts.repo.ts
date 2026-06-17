@@ -572,9 +572,10 @@ const FTS_STOPWORDS = new Set([
   "as",
   "so",
 ]);
+export const FTS_TERM_CAP = 24;
 
 // Sanitize free text into a safe FTS5 OR query of quoted terms.
-function toFtsMatch(text: string): string | null {
+export function toFtsMatch(text: string): string | null {
   const terms = text
     .toLowerCase()
     .split(/[^a-z0-9_.:/-]+/)
@@ -585,6 +586,6 @@ function toFtsMatch(text: string): string | null {
   // Fall back to the full term set only if the query is ALL stopwords, so a
   // degenerate query still matches something rather than returning nothing.
   const effective = content.length > 0 ? content : terms;
-  const unique = [...new Set(effective)];
+  const unique = [...new Set(effective)].slice(0, FTS_TERM_CAP);
   return unique.map((t) => `"${t.replace(/"/g, "")}"`).join(" OR ");
 }

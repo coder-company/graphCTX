@@ -76,9 +76,9 @@
 |---|---|---|
 | `hook <event>` p95 | < 150ms | 26.74ms ✅ |
 
-_Last updated: reversible Cursor adapter uninstall. 182 tests, 19 gate suites green, all I1-I9 hold._
+_Last updated: bounded long-prompt FTS retrieval. 184 tests, 19 gate suites green, all I1-I9 hold._
 
-_Quality counters: Tests: 182. Gate suites: 19._
+_Quality counters: Tests: 184. Gate suites: 19._
 
 ---
 
@@ -100,7 +100,7 @@ _Quality counters: Tests: 182. Gate suites: 19._
 | Adapters & channel ladder | ✅ | `eval mcp` now covers 30/30 adapter/channel checks: marked client detection, highest-tier selection, Tier 0/1/2 transport-only capsule invariance, reversible cursor install/uninstall preserving unrelated MCP config, parseable opencode installs, secure opt-in proxy, and Claude hook Tier-2/fail-soft behavior |
 | MCP server & 8-tool surface | ✅ | `eval mcp` now covers 63/63 adapter/MCP checks: MCP 2025-11-25 initialize shape, exact 8-tool live/static surface with count-drift hard error, per-tool zod input + output-shape contracts, JSON-RPC -32602/-32601 errors, bounded anti-repetition rider, last-8 provenance lookup, telemetry precedence, real `serve --mcp` stdio initialize/tools-list, Claude adapter detection, static-floor secret refusal, MCP `remember` secret refusal, and Cursor adapter reversibility |
 | Security (injection/secrets/trust) | ✅ | adversarial benchmark: secret recall 1.0/precision 1.0; 0 poison promoted across expanded attack families; 0 harmful capsule cards; deterministic fuzz cases. `eval security` guards it |
-| Performance (latency/scale) | ✅ | streaming bulk scale bench: default 1k/10k/50k/100k PASS, 1M p95 ~1.4ms, finite ingest timing, `bench --footprint` startup/RSS/heap gate, and impossible-budget FAIL path |
+| Performance (latency/scale) | ✅ | bounded long-prompt FTS term cap plus streaming bulk scale bench: 1k/10k/50k PASS with measured p95 1.59/1.73/1.76ms after this change, default 100k PASS, 1M p95 ~1.4ms, finite ingest timing, `bench --footprint` startup/RSS/heap gate, and impossible-budget FAIL path |
 | Storage & migrations | ✅ | new `eval storage` passes 10/10: schema_version 3, reopen migrations 0, v1→v3 rows preserved 3/3, append-only expire tombstones retained, malformed rows skipped, missing optional ledger table degrades, WAL/FK/busy_timeout enforced, cascades/edge trail consistent |
 | Telemetry & outcome learning | ✅ | new `eval telemetry` passes 8/8: classifier accuracy 1.00>=0.90 with harmful-over-helped precedence, local-only recording with 0 network calls and disabled-write=0, fail-soft missing-table handling, malformed summary rows skipped, learned ranking lift +1.00, and DB-backed ledger cross-channel/open_loop behavior |
 | Provenance / why() | ✅ | new `eval provenance` passes 5/5: deterministic extract→why chain complete, last-8 suffix equals full-id report, unknown id exits cleanly with `no fact found`, clean vs dangling evidence reports complete/incomplete, and git anchor/promotions/edges sections render when present |
@@ -110,4 +110,4 @@ _Quality counters: Tests: 182. Gate suites: 19._
 | Code quality | ✅ | new `eval quality` passes 6/6: full-repo Biome, strict TS config/scripts, CLI help/docs/README reachability, eval-suite runner/test coverage, final README docs-as-code, and generated migration packaging guard |
 
 _Loop note: composite metric = (failing_gates × 100) + (un-perfected aspects); within-aspect
-measured gains are recorded in the `memory` graph. Tests: 182, gate suites: 19 (`eval all` includes run/memory/promote/drift/retrieval/gate/security/branch/temporal/conflict/procedure/mcp/storage/telemetry/provenance/resilience/benchmarks/cli-docs-demo/quality)._
+measured gains are recorded in the `memory` graph. Tests: 184, gate suites: 19 (`eval all` includes run/memory/promote/drift/retrieval/gate/security/branch/temporal/conflict/procedure/mcp/storage/telemetry/provenance/resilience/benchmarks/cli-docs-demo/quality)._
