@@ -167,10 +167,11 @@ export class Retriever {
         // keeps this O(SEMANTIC_SCAN_CAP), not O(N), so the hot path stays flat.
         if (cand.size < k) {
           const semCandidates: Array<{ fact: Fact; dist: number }> = [];
-          // Push the SEMANTIC_SCAN_CAP bound into SQL: activeAsOf returns the
-          // SAME first-N active rows (insertion order) the manual break sliced,
-          // but without loading/hydrating all N — keeping this O(cap), not O(N).
-          for (const f of this.repo.activeAsOf(wsScope, SEMANTIC_SCAN_CAP)) {
+          // Expand across every eligible scope, not only workspace facts. Keep
+          // the total SQL/hydration bound at SEMANTIC_SCAN_CAP so sparse-query
+          // semantic recovery stays flat while user/session memories can still
+          // be found when BM25 has no lexical overlap.
+          for (const f of this.semanticExpansionFacts(ctx, wsScope)) {
             if (cand.has(f.fact_id)) continue;
             const dist = this.vectors.cosineDistanceTo(qv, semanticText(f));
             semCandidates.push({ fact: f, dist });
@@ -290,6 +291,34 @@ export class Retriever {
     } catch {
       return true; // degrade open: if git check fails, don't drop the fact
     }
+  }
+
+  private semanticExpansionFacts(
+    ctx: InjectionContext,
+    wsScope: { user_id: string; workspace_id: string | undefined },
+  ): Fact[] {
+    const facts: Fact[] = [];
+    const seen = new Set<string>();
+    const add = (scopeFacts: Fact[]) => {
+      for (const f of scopeFacts) {
+        if (facts.length >= SEMANTIC_SCAN_CAP) return;
+        if (seen.has(f.fact_id)) continue;
+        seen.add(f.fact_id);
+        facts.push(f);
+      }
+    };
+
+    if (ctx.scope.session_id) {
+      add(
+        this.repo.activeAsOf(
+          { user_id: ctx.scope.user_id, session_id: ctx.scope.session_id },
+          Math.min(128, SEMANTIC_SCAN_CAP),
+        ),
+      );
+    }
+    add(this.repo.userScopedActive(ctx.scope.user_id, Math.min(128, SEMANTIC_SCAN_CAP)));
+    add(this.repo.activeAsOf(wsScope, SEMANTIC_SCAN_CAP - facts.length));
+    return facts;
   }
 }
 

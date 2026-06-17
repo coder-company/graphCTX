@@ -100,3 +100,18 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
+
+### Iteration 42 - scoped semantic retrieval expansion
+
+- Extended bounded semantic expansion to scan current session and user-scoped
+  active facts before workspace facts, capped at the existing semantic scan cap.
+- Added a regression test proving a user-scoped secret-handling preference with
+  no BM25 keyword overlap is still retrieved semantically.
+- Updated README and STATUS counters from 199 to 200 Vitest tests.
+- Verification:
+  - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx vitest run test/retrieve/retriever.test.ts test/retrieve/vectors.test.ts test/eval/retrieval-quality.test.ts`
+  - `npx tsc --noEmit`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
