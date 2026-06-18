@@ -20,6 +20,7 @@ describe("secret scanning (I3)", () => {
     expect(containsSecret("export OPENAI_KEY=sk-abcdefghijklmnopqrstuvwx")).toBe(true);
     expect(containsSecret("AKIAIOSFODNN7EXAMPLE")).toBe(true);
     expect(containsSecret("ASIAIOSFODNN7EXAMPLE")).toBe(true);
+    expect(containsSecret("AWS_SECRET_ACCESS_KEY=aaaaaaaaaaaaaaaaaaaa")).toBe(true);
     expect(containsSecret("GOOGLE_API_KEY=AIzaSyB1c2D3e4F5g6H7i8J9k0L1m2N3o4P5q6R7")).toBe(true);
     expect(containsSecret("https://blob.example/c?sv=1&sig=FAKEa1B2c3D4e5F6g7H8i9J0")).toBe(true);
     expect(containsSecret("api_key: 'A1b2C3d4E5f6G7h8'")).toBe(true);
@@ -53,6 +54,9 @@ describe("secret scanning (I3)", () => {
     const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
     expect(redactSecrets(`token ${secret}`)).not.toContain(secret);
     expect(redactSecrets("ASIAIOSFODNN7EXAMPLE")).toBe("[REDACTED:aws_access_key]");
+    expect(redactSecrets("AWS_SECRET_ACCESS_KEY=aaaaaaaaaaaaaaaaaaaa")).toBe(
+      "[REDACTED:aws_secret_access_key]",
+    );
     expect(redactSecrets("GOOGLE_API_KEY=AIzaSyB1c2D3e4F5g6H7i8J9k0L1m2N3o4P5q6R7")).toContain(
       "[REDACTED:google_api_key]",
     );

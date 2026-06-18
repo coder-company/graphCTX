@@ -47,6 +47,11 @@ const SECRET_CASES: SecretCase[] = [
     isSecret: true,
   },
   {
+    label: "aws secret access key assignment",
+    text: "AWS_SECRET_ACCESS_KEY=aaaaaaaaaaaaaaaaaaaa",
+    isSecret: true,
+  },
+  {
     label: "github pat ghp_",
     text: "token ghp_FAKEfakeFAKEfakeFAKEfake0123456789ab",
     isSecret: true,

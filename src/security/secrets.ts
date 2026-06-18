@@ -5,6 +5,10 @@ const SECRET_PATTERNS: Array<{ name: string; re: RegExp }> = [
   { name: "openai", re: /sk-[A-Za-z0-9]{20,}/ },
   { name: "anthropic", re: /sk-ant-[A-Za-z0-9_-]{20,}/ },
   { name: "aws_access_key", re: /(?:AKIA|ASIA)[0-9A-Z]{16}/ },
+  {
+    name: "aws_secret_access_key",
+    re: /\bAWS_SECRET_ACCESS_KEY\s*[:=]\s*['"]?[A-Za-z0-9/+=]{12,}/i,
+  },
   { name: "google_api_key", re: /AIza[0-9A-Za-z_-]{20,}/ },
   { name: "github_token", re: /gh[pousr]_[A-Za-z0-9]{20,}/ },
   { name: "github_fine_grained_pat", re: /github_pat_[A-Za-z0-9_]{20,}/ },

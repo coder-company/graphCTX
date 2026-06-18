@@ -1594,3 +1594,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx biome check src/security/secrets.ts test/security/secrets.test.ts src/eval/suites/security-adversarial.ts`
   - `git diff --check`
+
+### Iteration 137 - type AWS secret access key detection
+
+- Added a dedicated `aws_secret_access_key` scanner for
+  `AWS_SECRET_ACCESS_KEY=...` assignments so detection does not depend on
+  high-entropy fallback.
+- Added unit redaction/detection assertions and an adversarial security
+  positive for a low-entropy placeholder value that previously missed scanning.
+- Verification:
+  - `npx vitest run test/security/secrets.test.ts test/eval/security-adversarial.test.ts`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsc --noEmit`
+  - `npx biome check src/security/secrets.ts test/security/secrets.test.ts src/eval/suites/security-adversarial.ts`
+  - `git diff --check`
