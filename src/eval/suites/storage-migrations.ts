@@ -125,6 +125,10 @@ export function runStorageMigrationsEval(): StorageMigrationsReport {
         "forward-compat: new migration tables exist",
         tableExists(db, "promotions") && tableExists(db, "inject_ledger"),
       );
+      check(
+        "forward-compat: hot-path fact scope index exists",
+        indexExists(db, "idx_facts_status_scope"),
+      );
     } finally {
       db.close();
     }
@@ -468,6 +472,13 @@ function countWhere(db: DB, table: string, where: string, ...params: unknown[]):
 function tableExists(db: DB, name: string): boolean {
   const row = db
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .get(name) as { name: string } | undefined;
+  return !!row;
+}
+
+function indexExists(db: DB, name: string): boolean {
+  const row = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
     .get(name) as { name: string } | undefined;
   return !!row;
 }

@@ -1325,3 +1325,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval temporal`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 121 - active fact scope index
+
+- Added migration `0005_fact_query_indexes.sql` with
+  `idx_facts_status_scope` so hot-path active fact lookups can use one composite
+  status+scope index instead of choosing between separate status and scope
+  indexes.
+- Regenerated the inlined migration module and extended the storage eval to
+  assert the index exists after forward migration.
+- Verification:
+  - `npm run gen`
+  - `npx vitest run test/eval/storage-migrations.test.ts test/store/facts-repo.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/store/migrations.generated.ts src/eval/suites/storage-migrations.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval storage`
+  - `npx tsx src/cli.ts eval benchmarks`
+  - `git diff --check`

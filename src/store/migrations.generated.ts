@@ -27,4 +27,9 @@ export const MIGRATIONS: Migration[] = [
     file: "0004_temporal_observed.sql",
     sql: "-- M3: first-class fact observation time.\n--\n-- `t_created` says when graphCTX created the row and `t_recorded` says when it\n-- persisted the row. Temporal graph provenance also needs the source-world time\n-- when the fact was observed. Existing rows predate this distinction, so backfill\n-- observation time from `t_recorded`.\nALTER TABLE facts ADD COLUMN t_observed TEXT;\nUPDATE facts SET t_observed = t_recorded WHERE t_observed IS NULL;\nCREATE INDEX idx_facts_observed ON facts(scope_user_id, t_observed);\n",
   },
+  {
+    version: 5,
+    file: "0005_fact_query_indexes.sql",
+    sql: "-- M4: hot-path fact lookup indexes.\n--\n-- Retrieval, injection, boot capsules, and MCP listing all ask for active facts\n-- within a user/workspace/session scope. Earlier migrations had separate status\n-- and scope indexes; this composite index lets SQLite satisfy the common\n-- status+scope predicate directly.\nCREATE INDEX idx_facts_status_scope ON facts(\n  status,\n  scope_user_id,\n  scope_workspace_id,\n  scope_session_id\n);\n",
+  },
 ];
