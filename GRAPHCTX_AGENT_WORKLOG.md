@@ -1181,3 +1181,18 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval telemetry`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 112 - vector cache runtime clock
+
+- Routed the runtime's injected clock into `VectorIndex` so deterministic local
+  embedding cache rows use runtime-controlled `created_at` timestamps.
+- Added a vector cache regression asserting the exact persisted cache timestamp.
+- Updated live test counters from 251 to 252.
+- Verification:
+  - `npx vitest run test/retrieve/vectors.test.ts test/retrieve/retriever.test.ts test/store/facts-repo.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/retrieve/vectors.ts src/runtime.ts test/retrieve/vectors.test.ts docs/STATUS.md README.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { fixedClock } from "../../src/core/clock.js";
 import { VectorIndex, distanceToScore } from "../../src/retrieve/vectors.js";
 import { runMigrations } from "../../src/store/migrate.js";
 
@@ -33,6 +34,15 @@ describe("VectorIndex (local-first semantic retrieval)", () => {
     const a = v.embed("run the tests with npm test");
     const b = v.embed("run the tests with npm test");
     expect(Array.from(a)).toEqual(Array.from(b));
+  });
+
+  it("uses the injected clock for embedding cache timestamps", () => {
+    const v = new VectorIndex(db, 128, fixedClock("2026-03-04T05:06:07.000Z"));
+    v.embed("run the tests with npm test");
+    const row = db.prepare("SELECT created_at FROM embedding_cache").get() as {
+      created_at: string;
+    };
+    expect(row.created_at).toBe("2026-03-04T05:06:07.000Z");
   });
 
   it("distanceToScore is monotonically decreasing in distance", () => {

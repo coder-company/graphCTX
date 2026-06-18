@@ -79,7 +79,7 @@ export class Runtime {
     );
     this.db = openDb(this.loaded.paths.workspaceDb);
     this.facts = new FactsRepo(this.db, this.clock);
-    this.vectors = new VectorIndex(this.db);
+    this.vectors = new VectorIndex(this.db, undefined, this.clock);
     this.facts.attachVectorIndex(this.vectors);
     this.episodes = new EpisodesRepo(this.db, this.clock);
     this.injections = new InjectionsRepo(this.db, this.clock);

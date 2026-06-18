@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
+import { type Clock, systemClock } from "../core/clock.js";
 import type { DB } from "../store/db.js";
 
 const require = createRequire(import.meta.url);
@@ -26,10 +27,12 @@ export class VectorIndex {
   readonly enabled: boolean;
   private readonly db: DB;
   private readonly dim: number;
+  private readonly clock: Clock;
 
-  constructor(db: DB, dim = EMBED_DIM) {
+  constructor(db: DB, dim = EMBED_DIM, clock: Clock = systemClock) {
     this.db = db;
     this.dim = dim;
+    this.clock = clock;
     this.enabled = this.tryInit();
   }
 
@@ -159,7 +162,7 @@ export class VectorIndex {
         .prepare(
           "INSERT OR REPLACE INTO embedding_cache(content_hash, dim, embedding, created_at) VALUES (?, ?, ?, ?)",
         )
-        .run(hash, this.dim, buf, new Date().toISOString());
+        .run(hash, this.dim, buf, this.clock.iso());
     } catch {
       // cache is best-effort
     }
