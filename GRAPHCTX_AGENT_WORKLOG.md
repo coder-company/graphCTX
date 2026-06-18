@@ -1779,6 +1779,30 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/extract/pipeline.ts src/extract/deterministic/python.ts test/extract/extractors.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 147 - Python package-manager retrieval expansion
+
+- Expanded deterministic package-manager query repair to include Python
+  toolchain answers (`uv`, `poetry`, `pip`, `pyproject.toml`,
+  `requirements.txt`) alongside JS package managers.
+- Added a regression where 50 generic package-manager distractors no longer
+  bury a high-trust `python package_manager uv` fact.
+- Measured retrieval and benchmark gates after the fix:
+  - `eval retrieval`: recall@1 94%, recall@5/10 100%, MRR 0.972.
+  - `eval benchmarks`: deep local recall 10/10 p95 12.06ms.
+  - `compare --deep`: 100% recall; medium p50/p95/p99 8.02/8.88/10.58ms;
+    large p95 28.64ms.
+- Updated live docs counters to 275 tests.
+- Verification:
+  - `npx vitest run test/retrieve/retriever.test.ts test/retrieve/vectors.test.ts test/eval/eval-benchmarks.test.ts test/bench/compare.test.ts`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval benchmarks`
+  - `npx tsx src/cli.ts compare --deep -C .`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsc --noEmit`
+  - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 141 - width-aware TUI layout
 
 - Made dashboard recent-memory columns adapt to terminal width instead of using

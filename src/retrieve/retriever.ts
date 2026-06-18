@@ -392,7 +392,7 @@ interface QueryExpansion {
 
 const QUERY_EXPANSIONS: QueryExpansion[] = [
   {
-    text: "pnpm npm yarn bun package.json packageManager",
+    text: "pnpm npm yarn bun uv poetry pip package.json pyproject.toml requirements.txt packageManager",
     triggers: ["package manager", "dependency manager", "package operations", "install packages"],
   },
   {

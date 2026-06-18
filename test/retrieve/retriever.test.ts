@@ -97,6 +97,49 @@ describe("Retriever", () => {
     }
   });
 
+  it("expands package-manager queries to Python toolchain facts", async () => {
+    const db = openDb(":memory:");
+    try {
+      const facts = new FactsRepo(db);
+      for (let i = 0; i < 50; i++) {
+        facts.insert(
+          fact({
+            object: `Package manager planning note ${i}: review dependency governance, but no chosen tool is specified.`,
+            scope: { user_id: "u", workspace_id: "w" },
+            promotion_state: "workspace_active",
+            source: { asserted_by: "user", event_ids: [] },
+          }),
+        );
+      }
+      const target = facts.insert(
+        fact({
+          subject: "python",
+          predicate: "package_manager",
+          object: "uv",
+          fact_kind: "semantic",
+          scope: { user_id: "u", workspace_id: "w" },
+          promotion_state: "workspace_active",
+          source: {
+            asserted_by: "deterministic_parser",
+            event_ids: [],
+            raw_quote: 'uv.lock -> Python package manager uv (commands usually run via "uv run")',
+          },
+          tags: ["python", "dependency", "command", "config_file"],
+        }),
+      );
+
+      const ranked = await new Retriever(facts, null).retrieve(
+        { ...ctx(), user_prompt: "which package manager should I use" },
+        { k: 10 },
+      );
+
+      expect(ranked[0]?.fact.fact_id).toBe(target.fact_id);
+      expect(ranked[0]?.signals?.answer).toBe(1);
+    } finally {
+      db.close();
+    }
+  });
+
   it("does not return commit-scoped facts when no Git adapter is available", async () => {
     const db = openDb(":memory:");
     try {
