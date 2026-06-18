@@ -329,3 +329,18 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check --write src/extract/llm/procedure-miner.ts src/eval/suites/procedure-memory.ts`
   - `npx tsx src/cli.ts eval procedure`
   - `npx tsc --noEmit`
+
+### Iteration 58 - generated-marker symlink skip
+
+- Switched generated-marker extraction from `statSync` to `lstatSync` and skip
+  symlinks, preventing deterministic extraction from walking outside the
+  workspace through symlinked directories.
+- Added a regression with a symlinked external generated file and updated
+  README/STATUS counters to 210 Vitest tests.
+- Verification:
+  - `npx biome check --write src/extract/deterministic/generated-markers.ts test/extract/extractors.test.ts`
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`

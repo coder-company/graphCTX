@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -300,6 +300,21 @@ describe("deterministic extractors", () => {
     const g = res.inserted.find((f) => f.predicate === "do_not_edit");
     expect(g).toBeDefined();
     expect(String(g!.subject)).toContain("g.ts");
+  });
+
+  it("generated-markers does not follow symlinked directories outside the workspace", () => {
+    const outside = mkdtempSync(join(tmpdir(), "gctx-ex-outside-"));
+    try {
+      writeFileSync(
+        join(outside, "external.ts"),
+        "// @generated DO NOT EDIT\nexport const x = 1;\n",
+      );
+      symlinkSync(outside, join(dir, "linked"), "dir");
+      const { res } = extract();
+      expect(res.inserted.find((f) => f.predicate === "do_not_edit")).toBeUndefined();
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 
   it("I3: secret-bearing extracted subjects are skipped before storage", () => {

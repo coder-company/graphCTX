@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { NewFact } from "../../core/types.js";
 import { type ExtractContext, type Extractor, structuredFact } from "./types.js";
@@ -32,12 +32,13 @@ export const generatedMarkersExtractor: Extractor = {
         if (scanned >= MAX_FILES) return;
         if (SKIP_DIRS.has(entry)) continue;
         const full = join(dir, entry);
-        let st: ReturnType<typeof statSync>;
+        let st: ReturnType<typeof lstatSync>;
         try {
-          st = statSync(full);
+          st = lstatSync(full);
         } catch {
           continue;
         }
+        if (st.isSymbolicLink()) continue;
         if (st.isDirectory()) {
           walk(full);
         } else if (st.isFile() && isSource(entry) && st.size < 200_000) {
