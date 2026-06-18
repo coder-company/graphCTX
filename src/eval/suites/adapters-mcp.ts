@@ -860,6 +860,7 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       `MCP serve --mcp stdio tools/list returns 8 tools (${stdio.toolNames.join(", ")})`,
       stdio.toolNames.length === 8 && sameList(stdio.toolNames, EXPECTED_MCP_TOOL_NAMES),
     );
+    check("MCP serve --mcp stdio reports parse errors as JSON-RPC", stdio.parseError);
   } finally {
     rmSync(mcpDir, { recursive: true, force: true });
   }
@@ -1152,13 +1153,18 @@ function initGitRepo(dir: string): void {
   );
 }
 
-function runServeMcpStdio(workspaceDir: string): { initialized: boolean; toolNames: string[] } {
+function runServeMcpStdio(workspaceDir: string): {
+  initialized: boolean;
+  toolNames: string[];
+  parseError: boolean;
+} {
   try {
     execFileSync("git", ["-C", workspaceDir, "init", "-q"], { stdio: "ignore" });
     const stdout = execFileSync(tsxBin, [cliPath, "serve", "--mcp", "-C", workspaceDir], {
       cwd: repoRoot,
       env: { ...process.env, GRAPHCTX_USER_ID: "mcp-stdio-eval" },
       input: [
+        "{bad json",
         JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }),
         JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }),
         "",
@@ -1174,6 +1180,7 @@ function runServeMcpStdio(workspaceDir: string): { initialized: boolean; toolNam
       .map((line) => JSON.parse(line) as Record<string, unknown>);
     const init = responses.find((r) => r.id === 1);
     const list = responses.find((r) => r.id === 2);
+    const parse = responses.find((r) => isRecord(r.error) && r.error.code === -32700);
     const initResult = isRecord(init?.result) ? init.result : null;
     const listResult = isRecord(list?.result) ? list.result : null;
     const initialized =
@@ -1182,9 +1189,9 @@ function runServeMcpStdio(workspaceDir: string): { initialized: boolean; toolNam
     const names = tools
       .map((t) => (isRecord(t) && typeof t.name === "string" ? t.name : ""))
       .filter(Boolean);
-    return { initialized, toolNames: names };
+    return { initialized, toolNames: names, parseError: !!parse };
   } catch {
-    return { initialized: false, toolNames: [] };
+    return { initialized: false, toolNames: [], parseError: false };
   }
 }
 

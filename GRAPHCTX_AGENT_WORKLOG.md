@@ -1803,6 +1803,19 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 159 - MCP stdio parse-error coverage
+
+- Extended the `serve --mcp` stdio eval to send malformed JSON before valid
+  initialize/tools requests.
+- The eval now proves parse errors are returned as JSON-RPC `-32700` responses
+  and the stdio server continues serving later valid requests without protocol
+  noise.
+- Verification:
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsc --noEmit`
+  - `npx biome check src/eval/suites/adapters-mcp.ts GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 158 - FTS path-query fail-soft hardening
 
 - Wrapped FTS/BM25 search execution in a fail-closed guard so malformed SQLite
