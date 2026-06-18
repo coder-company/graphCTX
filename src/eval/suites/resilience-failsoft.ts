@@ -170,6 +170,13 @@ export async function runResilienceFailsoftEval(): Promise<ResilienceFailsoftRep
     `secretLeaked=${promptRedaction.secretLeaked} redacted=${promptRedaction.redacted}`,
   );
 
+  const toolArgsRedaction = await evaluateHookToolArgsRedaction();
+  check(
+    "secret-bearing tool args are redacted before retrieval context",
+    toolArgsRedaction.ok,
+    `secretLeaked=${toolArgsRedaction.secretLeaked} redacted=${toolArgsRedaction.redacted}`,
+  );
+
   const provider = await evaluateProviderFailsoft();
   check(
     "provider resolution fail-soft: missing key and missing adapter return nullProvider",
@@ -436,6 +443,39 @@ async function evaluateHookPromptRedaction(): Promise<{
       });
       const secretLeaked = seenPrompt?.includes(secret) ?? false;
       const redacted = seenPrompt?.includes("[REDACTED:") ?? false;
+      return { ok: !secretLeaked && redacted, secretLeaked, redacted };
+    } finally {
+      rt.close();
+    }
+  });
+}
+
+async function evaluateHookToolArgsRedaction(): Promise<{
+  ok: boolean;
+  secretLeaked: boolean;
+  redacted: boolean;
+}> {
+  return withTempDirAsync(async (dir) => {
+    const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+    const rt = new Runtime({ workspaceDir: dir, userId: "resilience-eval" });
+    let seenToolArgs = "";
+    const originalInjectionContext = rt.injectionContext.bind(rt);
+    rt.injectionContext = async (event, sessionId, extra) => {
+      seenToolArgs = JSON.stringify(extra?.planned_tool?.args ?? {});
+      return originalInjectionContext(event, sessionId, extra);
+    };
+    try {
+      await handleHook(rt, "PreToolUse", {
+        session_id: "s-tool",
+        cwd: dir,
+        tool_name: "Bash",
+        tool_input: {
+          command: `curl -H 'Authorization: Bearer ${secret}' https://example.invalid`,
+          env: { GITHUB_TOKEN: secret },
+        },
+      });
+      const secretLeaked = seenToolArgs.includes(secret);
+      const redacted = seenToolArgs.includes("[REDACTED:");
       return { ok: !secretLeaked && redacted, secretLeaked, redacted };
     } finally {
       rt.close();

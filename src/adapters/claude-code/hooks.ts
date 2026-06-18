@@ -106,7 +106,7 @@ export async function handleHook(
       current_files: payload.current_files,
       mentioned_symbols: payload.mentioned_symbols,
       planned_tool: payload.tool_name
-        ? { name: payload.tool_name, args: payload.tool_input }
+        ? { name: payload.tool_name, args: redactSecretValue(payload.tool_input) }
         : undefined,
       tool_result: payload.tool_response
         ? {

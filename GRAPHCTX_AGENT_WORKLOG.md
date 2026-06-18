@@ -628,3 +628,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 80 - hook tool-arg redaction before retrieval
+
+- Redacted Claude hook planned tool arguments before they enter
+  `InjectionContext`, preventing PreToolUse retrieval query text from seeing
+  raw secrets in command args or env payloads.
+- Added hook resilience unit coverage and an `eval resilience` gate case proving
+  secret-bearing tool args are redacted before retrieval context.
+- Updated STATUS/README/DEMO counters.
+- Verification:
+  - `npx vitest run test/resilience/hook-degrades.test.ts`
+  - `npx tsx src/cli.ts eval resilience`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
