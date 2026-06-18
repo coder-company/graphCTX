@@ -5,8 +5,9 @@
 import { renderCard } from "../render/cards.js";
 import { Runtime } from "../runtime.js";
 import { assertSafeMemoryWrite } from "../security/intake.js";
+import { redactSecrets } from "../security/secrets.js";
 import { safeForSend } from "../security/send-edge.js";
-import { padEnd, style, term, truncate, visibleLen } from "./ansi.js";
+import { padEnd, stripAnsi, style, term, truncate, visibleLen } from "./ansi.js";
 import { type Column, badge, bar, kv, panel, table } from "./box.js";
 import { type FactView, type MemoryStats, factViews, memoryStats } from "./data.js";
 import { type Key, readKeys } from "./keys.js";
@@ -313,7 +314,7 @@ export class TuiApp {
   private footer(): string {
     if (this.state.prompt?.active) {
       const p = this.state.prompt;
-      return `\n${style.bold(style.yellow(`${p.label}: `))}${p.value}${style.inverse(" ")}  ${style.gray("(enter=ok esc=cancel)")}`;
+      return `\n${renderPromptFooter(p.label, p.value, this.contentWidth()).join("\n")}`;
     }
     const parts = [
       `${keycap("tab/left/right")} switch`,
@@ -612,8 +613,39 @@ export function wrapFooterParts(parts: string[], width: number): string[] {
   return lines.length > 0 ? lines : [""];
 }
 
+export function renderPromptFooter(label: string, value: string, width: number): string[] {
+  const safe = clampTuiWidth(width);
+  const labelBudget = Math.max(6, safe - 8);
+  const promptLabel = truncate(label, labelBudget);
+  const prefix = style.bold(style.yellow(`${promptLabel}: `));
+  const inputWidth = Math.max(1, safe - visibleLen(prefix) - 1);
+  const shownValue = promptInput(value, inputWidth);
+  const cursor = style.inverse(" ");
+  const line = `${prefix}${shownValue}${cursor}`;
+  const hint = style.gray("(enter=ok esc=cancel)");
+  if (visibleLen(line) + 2 + visibleLen(hint) <= safe) return [`${line}  ${hint}`];
+  return [line, hint];
+}
+
 function keycap(label: string): string {
   return style.inverse(` ${label} `);
+}
+
+function promptInput(value: string, width: number): string {
+  const safeWidth = Math.max(1, width);
+  const redacted = redactSecrets(value);
+  if (redacted.length === 0) return style.gray(truncate("type memory", safeWidth));
+  if (visibleLen(redacted) <= safeWidth) return redacted;
+  const marker = redacted.match(/\[REDACTED:[^\]]+\]/)?.[0];
+  if (marker) {
+    if (visibleLen(marker) >= safeWidth) return truncate(marker, safeWidth);
+    const tailWidth = safeWidth - visibleLen(marker) - 1;
+    const suffix = tailWidth > 1 ? `…${stripAnsi(redacted).slice(-(tailWidth - 1))}` : "";
+    return `${marker}${suffix ? " " : ""}${suffix}`;
+  }
+  if (safeWidth === 1) return "…";
+  const plain = stripAnsi(redacted);
+  return `…${plain.slice(-(safeWidth - 1))}`;
 }
 
 function dashboardEmptyLines(width: number): string[] {

@@ -9,6 +9,7 @@ import {
   clampTuiWidth,
   clampWindowStart,
   renderFactList,
+  renderPromptFooter,
   wrapFooterParts,
 } from "../../src/tui/app.js";
 import { factViews, memoryStats } from "../../src/tui/data.js";
@@ -297,6 +298,22 @@ describe("tui/app — responsive terminal layout", () => {
     expect(lines.length).toBeGreaterThan(1);
     for (const line of lines) {
       expect(visibleLen(line)).toBeLessThanOrEqual(48);
+    }
+  });
+
+  it("keeps active prompts bounded and redacts typed secrets", () => {
+    const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+    const lines = renderPromptFooter(
+      "New fact (remember)",
+      `store this ${secret} and then keep typing past the edge`,
+      42,
+    );
+
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.join("\n")).not.toContain(secret);
+    expect(lines.join("\n")).toContain("[REDACTED:openai]");
+    for (const line of lines) {
+      expect(visibleLen(line)).toBeLessThanOrEqual(42);
     }
   });
 });

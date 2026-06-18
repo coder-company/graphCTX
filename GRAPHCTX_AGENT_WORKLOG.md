@@ -1803,6 +1803,22 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 160 - bounded secret-redacted TUI prompts
+
+- Routed active TUI prompts through a width-bounded renderer so long typed
+  input cannot overflow narrow terminals.
+- Redacts secret-shaped typed input before echoing it in the prompt footer and
+  keeps the redaction marker visible even when the prompt is tail-truncated.
+- Added regression coverage for narrow prompt rendering and updated live docs
+  counters to 282 tests.
+- Verification:
+  - `npx vitest run test/tui/data.test.ts test/tui/ansi.test.ts test/tui/keys.test.ts`
+  - `npx vitest list`
+  - `npx vitest list | wc -l`
+  - `npx tsc --noEmit`
+  - `npx biome check src/tui/app.ts test/tui/data.test.ts`
+  - `git diff --check`
+
 ### Iteration 159 - MCP stdio parse-error coverage
 
 - Extended the `serve --mcp` stdio eval to send malformed JSON before valid
