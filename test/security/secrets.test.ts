@@ -19,6 +19,7 @@ describe("secret scanning (I3)", () => {
   it("detects API-key-shaped tokens", () => {
     expect(containsSecret("export OPENAI_KEY=sk-abcdefghijklmnopqrstuvwx")).toBe(true);
     expect(containsSecret("AKIAIOSFODNN7EXAMPLE")).toBe(true);
+    expect(containsSecret("ASIAIOSFODNN7EXAMPLE")).toBe(true);
     expect(containsSecret("api_key: 'A1b2C3d4E5f6G7h8'")).toBe(true);
     expect(containsSecret("github_pat_11AAFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE")).toBe(true);
     expect(containsSecret("xoxc-0000000000-FAKEfakeFAKEfake")).toBe(true);
@@ -46,6 +47,7 @@ describe("secret scanning (I3)", () => {
   it("redacts secret-shaped text and nested values for user-facing output", () => {
     const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
     expect(redactSecrets(`token ${secret}`)).not.toContain(secret);
+    expect(redactSecrets("ASIAIOSFODNN7EXAMPLE")).toBe("[REDACTED:aws_access_key]");
     expect(redactSecrets("DATABASE_URL=postgres://admin:FAKEpass123@db.example/app")).not.toContain(
       "FAKEpass123",
     );

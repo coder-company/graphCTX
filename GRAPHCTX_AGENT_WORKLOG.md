@@ -1240,3 +1240,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval benchmarks`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 116 - AWS STS access key secret scanning
+
+- Expanded the AWS access-key detector from long-lived `AKIA...` IDs to include
+  temporary STS `ASIA...` access key IDs.
+- Strengthened the secret scanner regression to assert ASIA detection and
+  user-facing redaction.
+- Verification:
+  - `npx vitest run test/security/secrets.test.ts test/security/promotion-injection.test.ts test/promote/gates.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/security/secrets.ts test/security/secrets.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

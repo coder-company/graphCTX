@@ -83,6 +83,9 @@ _Quality counters: Tests: 253. Gate suites: 19._
 _Runtime-clock note: direct CLI, eval, and benchmark retrievers pass
 `Runtime.clock`, so pull and push retrieval use the same recency clock seam._
 
+_Safety note: AWS temporary STS access key IDs (`ASIA...`) are classified and
+redacted with the same send-edge protections as long-lived `AKIA...` keys._
+
 ---
 
 ## Perfection Mission — Aspect Ledger
