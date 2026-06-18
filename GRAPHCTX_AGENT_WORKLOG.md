@@ -1196,3 +1196,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 113 - deterministic ranking and conflict fixtures
+
+- Replaced random fact IDs in rank, precedence, and parallel-conflict fixtures
+  with deterministic per-file sequences.
+- Replaced a wall-clock `Date.now()` in the rank determinism regression with a
+  fixed timestamp.
+- Verification:
+  - `npx vitest run test/retrieve/rank.test.ts test/resolve/precedence.test.ts test/eval/parallel-conflict.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check test/retrieve/rank.test.ts test/resolve/precedence.test.ts src/eval/suites/parallel-conflict.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval conflict`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

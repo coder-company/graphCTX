@@ -70,9 +70,12 @@ export interface ParallelConflictReport {
 
 // ---- fact builder -----------------------------------------------------------
 
+let factSeq = 0;
+
 function fact(over: Partial<Fact>): Fact {
+  const { fact_id, ...rest } = over;
   return {
-    fact_id: Math.random().toString(36).slice(2),
+    fact_id: fact_id ?? `parallel_conflict_fact_${++factSeq}`,
     subject: "repo",
     predicate: "package_manager",
     object: "npm",
@@ -94,7 +97,7 @@ function fact(over: Partial<Fact>): Fact {
     },
     source: { asserted_by: "user", event_ids: [] },
     tags: [],
-    ...over,
+    ...rest,
   };
 }
 

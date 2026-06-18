@@ -3,9 +3,12 @@ import type { Fact } from "../../src/core/types.js";
 import { resolveConflicts } from "../../src/resolve/conflicts.js";
 import { byPrecedence, precedenceRank } from "../../src/resolve/precedence.js";
 
+let factSeq = 0;
+
 function fact(over: Partial<Fact>): Fact {
+  const { fact_id, ...rest } = over;
   return {
-    fact_id: Math.random().toString(36).slice(2),
+    fact_id: fact_id ?? `precedence_fact_${++factSeq}`,
     subject: "repo",
     predicate: "p",
     object: "o",
@@ -27,7 +30,7 @@ function fact(over: Partial<Fact>): Fact {
     },
     source: { asserted_by: "user", event_ids: [] },
     tags: [],
-    ...over,
+    ...rest,
   };
 }
 

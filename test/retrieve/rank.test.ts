@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { Fact, ScoredFact } from "../../src/core/types.js";
 import { fuse } from "../../src/retrieve/rank.js";
 
+let factSeq = 0;
+
 function fact(over: Partial<Fact>): Fact {
+  const { fact_id, ...rest } = over;
   return {
-    fact_id: Math.random().toString(36).slice(2),
+    fact_id: fact_id ?? `rank_fact_${++factSeq}`,
     subject: "repo",
     predicate: "p",
     object: "o",
@@ -26,7 +29,7 @@ function fact(over: Partial<Fact>): Fact {
     },
     source: { asserted_by: "user", event_ids: [] },
     tags: [],
-    ...over,
+    ...rest,
   };
 }
 
@@ -98,7 +101,7 @@ describe("fuse — confidence + recency rerank (M2, S5)", () => {
   });
 
   it("is deterministic across runs (content-key tiebreak)", () => {
-    const now = Date.now();
+    const now = Date.parse("2026-01-01T00:00:00Z");
     const a: ScoredFact = { fact: fact({ object: "alpha" }), score: 1 };
     const b: ScoredFact = { fact: fact({ object: "beta" }), score: 1 };
     const r1 = fuse([a, b], now).map((s) => s.fact.object);
