@@ -170,4 +170,25 @@ describe("I9 resilience — agent still runs when graphCTX is broken", () => {
     expect(redactedRows).toHaveLength(1);
     expect(JSON.stringify(redactedRows)).not.toContain(sessionSecret);
   });
+
+  it("secret-bearing transcript tails are redacted before retrieval context", async () => {
+    const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+    const rt = new Runtime({ workspaceDir: dir, userId: "u" });
+    let seenTranscript: string | undefined;
+    const originalInjectionContext = rt.injectionContext.bind(rt);
+    rt.injectionContext = async (event, sessionId, extra) => {
+      seenTranscript = extra.transcript_tail;
+      return originalInjectionContext(event, sessionId, extra);
+    };
+    await handleHook(rt, "PostCompact", {
+      session_id: "s-transcript",
+      cwd: dir,
+      transcript_tail: `prior turn leaked ${secret}`,
+    });
+    rt.close();
+
+    expect(seenTranscript).toBeDefined();
+    expect(seenTranscript).not.toContain(secret);
+    expect(seenTranscript).toContain("[REDACTED:");
+  });
 });

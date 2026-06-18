@@ -100,8 +100,9 @@ export async function handleHook(
   try {
     const ctx = await rt.injectionContext(event, sessionId, {
       user_prompt: payload.prompt,
-      transcript_tail:
-        payload.transcript_tail ?? (await readTranscriptTail(payload.transcript_path)),
+      transcript_tail: payload.transcript_tail
+        ? sanitizeTranscriptTail(payload.transcript_tail)
+        : await readTranscriptTail(payload.transcript_path),
       current_files: payload.current_files,
       mentioned_symbols: payload.mentioned_symbols,
       planned_tool: payload.tool_name
@@ -174,8 +175,12 @@ async function readTranscriptTail(path?: string): Promise<string | undefined> {
   try {
     const { readFileSync } = await import("node:fs");
     const text = readFileSync(path, "utf8");
-    return text.slice(-4000);
+    return sanitizeTranscriptTail(text.slice(-4000));
   } catch {
     return undefined;
   }
+}
+
+function sanitizeTranscriptTail(text: string): string {
+  return truncate(redactSecrets(text), 4000) ?? "";
 }
