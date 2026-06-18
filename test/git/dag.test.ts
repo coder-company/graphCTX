@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { detectEvent } from "../../src/git/dag.js";
+import type { Fact } from "../../src/core/types.js";
+import { detectEvent, revalidateOnRevert } from "../../src/git/dag.js";
 import type { Git } from "../../src/git/git.js";
+import type { FactsRepo } from "../../src/store/facts.repo.js";
 
 // Tiny DAG:  c0 ── c1 ── c2 (revert)   and feat branch b1 off c0.
 const ANCESTRY: Record<string, string[]> = {
@@ -19,6 +21,35 @@ function fakeGit(): Git {
     parentsOf: async (sha: string) => PARENTS[sha] ?? [],
     commitMessage: async (sha: string) => MESSAGES[sha] ?? "regular commit",
   } as unknown as Git;
+}
+
+function fact(factId: string, validUntil: string): Fact {
+  return {
+    fact_id: factId,
+    subject: "repo",
+    predicate: "test_command",
+    object: "vitest run",
+    fact_kind: "procedural",
+    temporal_kind: "static",
+    scope: { user_id: "u", workspace_id: "w" },
+    status: "expired",
+    promotion_state: "workspace_active",
+    trust_tier: "high",
+    sensitivity: "public",
+    confidence: 0.9,
+    evidence_count: 1,
+    contradiction_count: 0,
+    injection_count: 0,
+    time: {
+      t_observed: "2026-01-01T00:00:00.000Z",
+      t_created: "2026-01-01T00:00:00.000Z",
+      t_recorded: "2026-01-01T00:00:00.000Z",
+      t_expired: "2026-01-02T00:00:00.000Z",
+    },
+    git: { valid_until_commit: validUntil },
+    source: { asserted_by: "deterministic_parser", event_ids: [] },
+    tags: [],
+  };
 }
 
 describe("git/dag detectEvent", () => {
@@ -43,5 +74,27 @@ describe("git/dag detectEvent", () => {
 
   it("switch when branch label changes and history diverges", async () => {
     expect((await detectEvent(git, "c1", "b1", "main", "feat")).kind).toBe("switch");
+  });
+
+  it("revalidateOnRevert skips bad historical anchors and restores other facts", async () => {
+    const restoredIds: string[] = [];
+    const facts = {
+      expiredWithValidUntil: () => [fact("bad", "missing"), fact("good", "gone")],
+      reactivate: (id: string) => {
+        restoredIds.push(id);
+      },
+    } as unknown as FactsRepo;
+    const gitWithBadAnchor = {
+      isAncestor: async (target: string) => {
+        if (target === "missing") throw new Error("unknown revision");
+        return false;
+      },
+      isRevertedBy: async () => false,
+    } as unknown as Git;
+
+    const restored = await revalidateOnRevert(gitWithBadAnchor, facts, "head", "main");
+
+    expect(restored.map((f) => f.fact_id)).toEqual(["good"]);
+    expect(restoredIds).toEqual(["good"]);
   });
 });

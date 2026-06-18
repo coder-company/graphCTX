@@ -1071,3 +1071,19 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval storage`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 105 - fail-soft revert revalidation
+
+- Made `revalidateOnRevert` skip one stale/foreign/missing historical commit
+  anchor without aborting the whole revert revalidation pass.
+- Added a DAG regression with one bad expired anchor and one restorable expired
+  fact to prove the good fact still revives.
+- Updated live test counters from 247 to 248.
+- Verification:
+  - `npx vitest run test/git/dag.test.ts test/git/anchors.test.ts test/store/facts-repo.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/git/dag.ts test/git/dag.test.ts docs/STATUS.md README.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

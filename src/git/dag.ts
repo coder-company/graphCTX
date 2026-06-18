@@ -74,19 +74,23 @@ export async function revalidateOnRevert(
     return restored;
   }
   for (const f of expired) {
-    const vu = f.git?.valid_until_commit;
-    if (!vu) continue;
-    // The fact comes back to life iff the invalidating commit's change is gone
-    // from HEAD's history. Two ways that happens:
-    //   (a) it is no longer reachable (reset/branch moved off it), or
-    //   (b) a real `git revert` appended a commit that undoes it — the
-    //       invalidating commit stays reachable, so reachability alone misses
-    //       this; we detect the "This reverts commit <vu>" trailer instead.
-    const unreachable = !(await git.isAncestor(vu, head));
-    const revertedForward = unreachable ? false : await git.isRevertedBy(vu, head);
-    if (unreachable || revertedForward) {
-      facts.reactivate(f.fact_id);
-      restored.push(f);
+    try {
+      const vu = f.git?.valid_until_commit;
+      if (!vu) continue;
+      // The fact comes back to life iff the invalidating commit's change is gone
+      // from HEAD's history. Two ways that happens:
+      //   (a) it is no longer reachable (reset/branch moved off it), or
+      //   (b) a real `git revert` appended a commit that undoes it — the
+      //       invalidating commit stays reachable, so reachability alone misses
+      //       this; we detect the "This reverts commit <vu>" trailer instead.
+      const unreachable = !(await git.isAncestor(vu, head));
+      const revertedForward = unreachable ? false : await git.isRevertedBy(vu, head);
+      if (unreachable || revertedForward) {
+        facts.reactivate(f.fact_id);
+        restored.push(f);
+      }
+    } catch {
+      // One stale or foreign commit anchor must not abort the whole revert pass.
     }
   }
   return restored;
