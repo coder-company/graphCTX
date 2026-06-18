@@ -356,3 +356,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx vitest run test/inject/planner.test.ts`
   - `npx tsc --noEmit`
   - `npx biome check src test`
+
+### Iteration 60 - shared workspace evidence realpath checks
+
+- Added a shared workspace path evidence helper that requires both lexical
+  containment and canonical real-path containment.
+- Reused the helper in injection staleness and invalidation relation checks so
+  stale-fact suppression and evidence disappearance use the same semantics.
+- Added an invalidation regression where a path anchor exists only through a
+  symlink resolving outside the workspace and updated README/STATUS counters to
+  212 Vitest tests.
+- Verification:
+  - `npx vitest run test/invalidate/invalidator.test.ts test/inject/planner.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`

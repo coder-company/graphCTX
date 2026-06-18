@@ -1,7 +1,6 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import type { Fact } from "../core/types.js";
 import { precedenceRank } from "../resolve/precedence.js";
+import { existingWorkspacePath, realWorkspaceRoot } from "../security/workspace-path.js";
 
 // The six relations an incoming fact can have to an existing one (SPEC §11).
 export type Relation = "same" | "refines" | "invalidates" | "conflicts" | "coexists" | "unrelated";
@@ -137,5 +136,7 @@ function targetRemoved(existing: Fact, workspaceDir: string): boolean {
     if (!g.includes("*")) paths.push(g);
   }
   if (paths.length === 0) return false;
-  return paths.every((p) => !existsSync(join(workspaceDir, p)));
+  const rootRealPath = realWorkspaceRoot(workspaceDir);
+  if (!rootRealPath) return false;
+  return paths.every((p) => !existingWorkspacePath(workspaceDir, p, rootRealPath));
 }

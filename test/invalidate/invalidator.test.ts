@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Fact, NewFact } from "../../src/core/types.js";
@@ -100,6 +103,40 @@ describe("relation classifier (deterministic-first)", () => {
     const v = classifyRelation(a, b);
     expect(v.relation).toBe("unrelated");
     expect(v.deterministic).toBe(true);
+  });
+
+  it("treats symlink-escaped path anchors as removed workspace evidence", () => {
+    const parent = mkdtempSync(join(tmpdir(), "gctx-invalid-link-"));
+    const workspace = join(parent, "repo");
+    const outside = join(parent, "outside");
+    mkdirSync(workspace);
+    mkdirSync(outside);
+    writeFileSync(join(outside, "generated.ts"), "// outside evidence\n");
+    symlinkSync(outside, join(workspace, "linked"), "dir");
+
+    try {
+      const existing = facts.insert(
+        base({
+          subject: "linked/generated.ts",
+          object: "do not edit",
+          fact_kind: "constraint",
+          git: { path_globs: ["linked/generated.ts"] },
+        }),
+      );
+      const incoming = facts.insert(
+        base({
+          subject: "linked/generated.ts",
+          object: "new structured evidence",
+          fact_kind: "constraint",
+        }),
+      );
+
+      const v = classifyRelation(incoming, existing, { workspaceDir: workspace });
+      expect(v.relation).toBe("invalidates");
+      expect(v.reason).toContain("target path no longer exists");
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
   });
 });
 

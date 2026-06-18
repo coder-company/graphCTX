@@ -1,6 +1,5 @@
-import { realpathSync } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
 import type { Fact } from "../core/types.js";
+import { existingWorkspacePath, realWorkspaceRoot } from "../security/workspace-path.js";
 
 // Synchronous perishable-fact verification before injection (I4, SPEC §11).
 // For procedural/path-bearing facts, confirm the referenced path still exists.
@@ -23,33 +22,6 @@ export function verifyBeforeInject(fact: Fact, workspaceDir: string): boolean {
     paths.push(fact.subject);
   }
   if (paths.length === 0) return true; // nothing concrete to verify
-  let rootRealPath: string;
-  try {
-    rootRealPath = realpathSync(workspaceDir);
-  } catch {
-    return false;
-  }
-  return paths.every((p) => {
-    const fullPath = resolveWorkspacePath(workspaceDir, p);
-    return !!fullPath && existingWorkspacePath(rootRealPath, fullPath);
-  });
-}
-
-function existingWorkspacePath(rootRealPath: string, fullPath: string): boolean {
-  try {
-    const targetRealPath = realpathSync(fullPath);
-    const rel = relative(rootRealPath, targetRealPath);
-    return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-  } catch {
-    return false;
-  }
-}
-
-function resolveWorkspacePath(workspaceDir: string, path: string): string | undefined {
-  if (!path || path.includes("\0")) return undefined;
-  const root = resolve(workspaceDir);
-  const fullPath = resolve(root, path);
-  const rel = relative(root, fullPath);
-  if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) return fullPath;
-  return undefined;
+  const rootRealPath = realWorkspaceRoot(workspaceDir);
+  return paths.every((p) => existingWorkspacePath(workspaceDir, p, rootRealPath));
 }
