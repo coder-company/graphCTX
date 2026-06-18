@@ -244,6 +244,39 @@ describe("deterministic extractors", () => {
     );
   });
 
+  it("python commands can be inferred from pyproject dependency groups", () => {
+    writeFileSync(
+      join(dir, "pyproject.toml"),
+      [
+        "[project]",
+        'name = "example"',
+        "",
+        "[dependency-groups]",
+        'dev = ["pytest>=8", "ruff", "pyright"]',
+      ].join("\n"),
+    );
+
+    const { res } = extract();
+
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({ subject: "python", predicate: "test_command", object: "pytest" }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "python",
+        predicate: "lint_command",
+        object: "ruff check .",
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "python",
+        predicate: "typecheck_command",
+        object: "pyright",
+      }),
+    );
+  });
+
   it("runtime pin files → high-trust version constraints", () => {
     writeFileSync(join(dir, ".nvmrc"), "20.11.1\n");
     writeFileSync(join(dir, ".tool-versions"), "nodejs 20.11.1\npnpm 10.12.0\n");

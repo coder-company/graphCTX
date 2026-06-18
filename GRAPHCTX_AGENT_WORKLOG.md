@@ -1803,6 +1803,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 156 - Python dependency-group command extraction
+
+- Extended deterministic Python extraction to infer test/lint/typecheck commands
+  from `pyproject.toml` `[dependency-groups]` and
+  `[project.optional-dependencies]` sections.
+- Added regression coverage for pyproject-only dev dependencies containing
+  `pytest`, `ruff`, and `pyright`.
+- Updated live docs counters to 280 tests.
+- Verification:
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsc --noEmit`
+  - `npx biome check src/extract/deterministic/python.ts test/extract/extractors.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 155 - temporal benchmark report counts
 
 - Made the deep benchmark temporal section report explicit hit counts alongside

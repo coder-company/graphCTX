@@ -127,19 +127,28 @@ function pyprojectFacts(ctx: ExtractContext, text: string): NewFact[] {
     );
   }
 
-  if (hasSection(text, "tool.pytest") || hasSection(text, "tool.pytest.ini_options")) {
-    facts.push(pythonCommandFact(ctx, "test_command", "pytest", "pyproject.toml [tool.pytest]"));
+  const hasPytest =
+    hasSection(text, "tool.pytest") ||
+    hasSection(text, "tool.pytest.ini_options") ||
+    dependencySectionsMention(text, ["pytest"]);
+  const hasRuff = hasSection(text, "tool.ruff") || dependencySectionsMention(text, ["ruff"]);
+  const hasMypy = hasSection(text, "tool.mypy") || dependencySectionsMention(text, ["mypy"]);
+  const hasPyright =
+    hasSection(text, "tool.pyright") || dependencySectionsMention(text, ["pyright"]);
+
+  if (hasPytest) {
+    facts.push(pythonCommandFact(ctx, "test_command", "pytest", "pyproject.toml pytest config"));
   }
-  if (hasSection(text, "tool.ruff")) {
+  if (hasRuff) {
     facts.push(
-      pythonCommandFact(ctx, "lint_command", "ruff check .", "pyproject.toml [tool.ruff]"),
+      pythonCommandFact(ctx, "lint_command", "ruff check .", "pyproject.toml ruff config"),
     );
   }
-  if (hasSection(text, "tool.mypy")) {
-    facts.push(pythonCommandFact(ctx, "typecheck_command", "mypy .", "pyproject.toml [tool.mypy]"));
-  } else if (hasSection(text, "tool.pyright")) {
+  if (hasMypy) {
+    facts.push(pythonCommandFact(ctx, "typecheck_command", "mypy .", "pyproject.toml mypy config"));
+  } else if (hasPyright) {
     facts.push(
-      pythonCommandFact(ctx, "typecheck_command", "pyright", "pyproject.toml [tool.pyright]"),
+      pythonCommandFact(ctx, "typecheck_command", "pyright", "pyproject.toml pyright config"),
     );
   }
 
@@ -190,6 +199,21 @@ function projectScripts(text: string): Array<{ name: string; target: string }> {
     if (m?.[1] && m[2]) out.push({ name: m[1], target: m[2] });
   }
   return out;
+}
+
+function dependencySectionsMention(text: string, packageNames: string[]): boolean {
+  const body = [
+    sectionBody(text, "dependency-groups"),
+    sectionBody(text, "project.optional-dependencies"),
+  ]
+    .filter(Boolean)
+    .join("\n")
+    .toLowerCase();
+  if (!body) return false;
+  return packageNames.some((name) => {
+    const needle = escapeRegExp(name.toLowerCase());
+    return new RegExp(`(^|[^a-z0-9_-])${needle}([^a-z0-9_-]|$)`).test(body);
+  });
 }
 
 function sectionBody(text: string, section: string): string | null {
