@@ -51,8 +51,30 @@ export function formatScenarios(r: ScenarioReport): string {
   );
   out.push("");
 
+  // --- temporal correctness ---
+  out.push(style.bold("2 · temporal correctness (current truth, stale suppression)"));
+  out.push(
+    ...table(
+      [
+        { header: "scenario", width: 18 },
+        { header: "current hit", width: 14, align: "right" },
+        { header: "stale blocked", width: 14, align: "right" },
+        { header: "p95", width: 8, align: "right" },
+      ],
+      [
+        [
+          "superseded facts",
+          `${pct(r.local.temporal.currentHits, r.local.temporal.total)}`,
+          `${pct(r.local.temporal.staleSuppressed, r.local.temporal.total)}`,
+          `${r.local.temporal.retrievalMs.p95}`,
+        ],
+      ],
+    ),
+  );
+  out.push("");
+
   // --- local vs cloud ---
-  out.push(style.bold("2 · local vs cloud (same fact set, same queries)"));
+  out.push(style.bold("3 · local vs cloud (same fact set, same queries)"));
   if (r.cloud) {
     out.push(
       ...table(
@@ -95,7 +117,7 @@ export function formatScenarios(r: ScenarioReport): string {
   out.push("");
 
   // --- push vs pull ---
-  out.push(style.bold("3 · push vs pull (the thesis — post-compaction solve)"));
+  out.push(style.bold("4 · push vs pull (the thesis — post-compaction solve)"));
   if (r.pushPull) {
     const p = r.pushPull;
     out.push(

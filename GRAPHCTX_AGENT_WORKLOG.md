@@ -1803,6 +1803,23 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 149 - temporal coding-memory benchmark gate
+
+- Added a deep local temporal benchmark scenario with superseded coding facts
+  competing against current facts under distractor load.
+- The benchmark now reports current-hit rate, stale-suppression rate, and
+  retrieval latency separately so stale history cannot hide inside aggregate
+  recall.
+- Wired the scenario into `eval benchmarks`, the deep benchmark report, and the
+  eval regression test.
+- Updated docs to show `eval benchmarks` as 8/8.
+- Verification:
+  - `npx vitest run test/eval/eval-benchmarks.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/bench/scenarios.ts src/bench/scenarios-report.ts src/eval/suites/eval-benchmarks.ts test/eval/eval-benchmarks.test.ts docs/STATUS.md`
+  - `npx tsx src/cli.ts eval benchmarks`
+  - `git diff --check`
+
 ### Iteration 148 - pyproject package-manager extraction
 
 - Added Python package-manager extraction from `pyproject.toml` tool sections

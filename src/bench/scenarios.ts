@@ -103,6 +103,52 @@ export const PROBES: Probe[] = [
   },
 ];
 
+export interface TemporalProbe {
+  stale: string;
+  current: string;
+  query: string;
+  expect: string;
+  reject: string;
+}
+
+export const TEMPORAL_PROBES: TemporalProbe[] = [
+  {
+    stale: "Historical fact: the deploy command used to be ./scripts/release-v1.sh --fast",
+    current: "Current fact: the deploy command is ./scripts/release-v3.sh --canary --wait",
+    query: "how do I deploy",
+    expect: "release-v3",
+    reject: "release-v1",
+  },
+  {
+    stale: "Historical fact: this repo used npm for package operations",
+    current: "Current fact: this repo uses pnpm for every package operation",
+    query: "which package manager should I use",
+    expect: "pnpm",
+    reject: "used npm",
+  },
+  {
+    stale: "Historical fact: tests used to run with npm test -- --watch",
+    current: "Current fact: tests now run with pnpm vitest run --coverage",
+    query: "how do I run tests",
+    expect: "vitest",
+    reject: "npm test",
+  },
+  {
+    stale: "Historical fact: src/generated/api.ts was safe to edit manually",
+    current: "Current fact: do not edit src/generated/api.ts because it is generated",
+    query: "can I edit the generated api file",
+    expect: "do not edit",
+    reject: "safe to edit",
+  },
+  {
+    stale: "Historical fact: production migrations used pnpm migrate:old",
+    current: "Current fact: production migrations use pnpm migrate:prod --confirm",
+    query: "how do I run production migrations",
+    expect: "migrate:prod",
+    reject: "migrate:old",
+  },
+];
+
 // Filler facts to test retrieval precision at scale (distractors).
 export function fillerAt(i: number): string {
   const verbs = ["refactor", "optimize", "document", "test", "review", "profile", "cache", "index"];
@@ -151,6 +197,14 @@ export interface LocalScenario {
   retrievalMs: Dist;
   recallHits: number;
   recallTotal: number;
+  scaleFacts: number;
+}
+
+export interface TemporalScenario {
+  retrievalMs: Dist;
+  currentHits: number;
+  staleSuppressed: number;
+  total: number;
   scaleFacts: number;
 }
 
@@ -203,6 +257,58 @@ export async function runLocal(scaleFacts: number, repeats = 20): Promise<LocalS
     retrievalMs: dist(retr),
     recallHits: hits,
     recallTotal: PROBES.length,
+    scaleFacts,
+  };
+}
+
+// Measures temporal graph hygiene: historical facts remain auditable in storage
+// but must not leak into current hot-path retrieval once superseded.
+export async function runTemporalLocal(
+  scaleFacts: number,
+  repeats = 20,
+): Promise<TemporalScenario> {
+  const dir = mkdtempSync(join(tmpdir(), "graphctx-bench-temporal-"));
+  const rt = new Runtime({ workspaceDir: dir });
+  const retr: number[] = [];
+  let currentHits = 0;
+  let staleSuppressed = 0;
+  try {
+    for (const f of filler(scaleFacts)) insertFact(rt, f);
+    for (const p of TEMPORAL_PROBES) {
+      const stale = insertFact(rt, p.stale);
+      const current = insertFact(rt, p.current);
+      rt.facts.supersede(stale.fact_id, current.fact_id);
+    }
+    const { Retriever } = await import("../retrieve/retriever.js");
+    const retriever = new Retriever(rt.facts, rt.git, rt.vectors, rt.clock);
+    for (let r = 0; r < repeats; r++) {
+      for (const p of TEMPORAL_PROBES) {
+        const ctx = await rt.injectionContext("UserPromptSubmit", "bench-temporal", {
+          user_prompt: p.query,
+          budget_tokens: 1000,
+        });
+        const t0 = performance.now();
+        const scored = await retriever.retrieve(ctx, { k: 10 });
+        retr.push(performance.now() - t0);
+        if (r === 0) {
+          const top = scored
+            .slice(0, 5)
+            .map((s) => String(s.fact.object).toLowerCase())
+            .join(" ");
+          if (top.includes(p.expect.toLowerCase())) currentHits++;
+          if (!top.includes(p.reject.toLowerCase())) staleSuppressed++;
+        }
+      }
+    }
+  } finally {
+    rt.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+  return {
+    retrievalMs: dist(retr),
+    currentHits,
+    staleSuppressed,
+    total: TEMPORAL_PROBES.length,
     scaleFacts,
   };
 }
@@ -295,6 +401,7 @@ export interface ScenarioReport {
     small: LocalScenario;
     medium: LocalScenario;
     large: LocalScenario;
+    temporal: TemporalScenario;
   };
   cloud: CloudScenario | null;
   pushPull: PushPull | null;
@@ -312,6 +419,7 @@ export async function runScenarios(opts: { baseDir?: string } = {}): Promise<Sce
   const small = await runLocal(0);
   const medium = await runLocal(500);
   const large = await runLocal(5000);
+  const temporal = await runTemporalLocal(500);
   const cloud = await runCloud();
   const pushPull = await runPushPull(baseDir);
 
@@ -319,7 +427,7 @@ export async function runScenarios(opts: { baseDir?: string } = {}): Promise<Sce
   const cloudP50 = cloud?.retrievalMs.p50 ?? null;
   return {
     generatedAt: new Date().toISOString(),
-    local: { small, medium, large },
+    local: { small, medium, large, temporal },
     cloud,
     pushPull,
     headline: {
