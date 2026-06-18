@@ -1,4 +1,5 @@
 import type { Fact } from "../core/types.js";
+import { containsSecret } from "../security/secrets.js";
 
 // Promotion engine — HARD BOOLEAN GATES, no weighted scoring (SPEC §12, D6).
 // These are PURE functions over a fact + context; all side effects (state
@@ -30,7 +31,13 @@ export interface PromotionContext {
 const BAD_LIFECYCLE = new Set(["disputed", "expired", "rejected", "superseded"]);
 
 function isSecret(f: Fact): boolean {
-  return f.sensitivity === "secret" || f.sensitivity === "credential";
+  return (
+    f.sensitivity === "secret" ||
+    f.sensitivity === "credential" ||
+    containsSecret(
+      `${f.subject} ${f.predicate} ${stringify(f.object)} ${f.source.raw_quote ?? ""} ${f.tags.join(" ")}`,
+    )
+  );
 }
 
 // A user-asserted fact that explicitly concerns the repo/project (vs personal).

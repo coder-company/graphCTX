@@ -43,6 +43,25 @@ describe("sessionToWorkspace hard gates (SPEC §12)", () => {
     expect(d.gate).toBe("secret");
   });
 
+  it("rejects secret-shaped fact identity even when sensitivity is stale", () => {
+    const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+
+    expect(sessionToWorkspace(fact({ subject: `repo-${secret}` }), ctx()).kind).toBe("reject");
+    expect(
+      workspaceToUser(
+        fact({
+          fact_kind: "preference",
+          predicate: `pref_${secret}`,
+          source: {
+            asserted_by: "user",
+            event_ids: [],
+            raw_quote: "always use functional TS in every project",
+          },
+        }),
+      ).kind,
+    ).toBe("reject");
+  });
+
   it("rejects task_state (session-local)", () => {
     const d = sessionToWorkspace(fact({ fact_kind: "task_state" }), ctx());
     expect(d.kind).toBe("reject");

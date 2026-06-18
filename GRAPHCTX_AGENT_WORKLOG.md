@@ -1117,3 +1117,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval temporal`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 108 - promotion gate identity secret scan
+
+- Added a promotion-time secret scan over fact subject, predicate, object, raw
+  quote, and tags so stale or caller-forced `sensitivity: public` cannot bypass
+  promotion safety gates.
+- Added a regression covering secret-shaped identity fields for both
+  session-to-workspace and workspace-to-user promotion paths.
+- Updated live test counters from 248 to 249.
+- Verification:
+  - `npx vitest run test/promote/gates.test.ts test/security/promotion-injection.test.ts test/security/secrets.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/promote/gates.ts test/promote/gates.test.ts docs/STATUS.md README.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval promote`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
