@@ -482,3 +482,16 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx vitest run test/extract/extractors.test.ts`
   - `npx tsc --noEmit`
   - `npx biome check src test`
+
+### Iteration 70 - workspace-confined CI workflow extraction
+
+- Hardened CI extraction so both `.github/workflows` and each workflow file must
+  resolve inside the workspace before creating `ci_command` facts.
+- Added a regression covering an external symlinked workflows directory and an
+  external symlinked workflow file.
+- Updated README/STATUS counters to 222 Vitest tests.
+- Verification:
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check --write test/extract/extractors.test.ts`
+  - `npx biome check src test`

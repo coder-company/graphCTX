@@ -489,6 +489,34 @@ describe("deterministic extractors", () => {
     }
   });
 
+  it("ci extraction ignores workflow evidence symlinked outside the workspace", () => {
+    const outside = mkdtempSync(join(tmpdir(), "gctx-ex-ci-outside-"));
+    try {
+      mkdirSync(join(outside, "workflows"), { recursive: true });
+      writeFileSync(
+        join(outside, "workflows", "ci.yml"),
+        "jobs:\n  test:\n    steps:\n      - run: npm test\n",
+      );
+
+      mkdirSync(join(dir, ".github"), { recursive: true });
+      symlinkSync(join(outside, "workflows"), join(dir, ".github", "workflows"), "dir");
+      const externalDir = extract();
+      expect(externalDir.res.inserted.find((f) => f.predicate === "ci_command")).toBeUndefined();
+
+      rmSync(join(dir, ".github"), { recursive: true, force: true });
+      mkdirSync(join(dir, ".github", "workflows"), { recursive: true });
+      symlinkSync(
+        join(outside, "workflows", "ci.yml"),
+        join(dir, ".github", "workflows", "ci.yml"),
+        "file",
+      );
+      const externalFile = extract();
+      expect(externalFile.res.inserted.find((f) => f.predicate === "ci_command")).toBeUndefined();
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it("I3: secret-bearing prose lines are not stored", () => {
     writeFileSync(
       join(dir, "AGENTS.md"),

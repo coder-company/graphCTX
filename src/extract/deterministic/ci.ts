@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { NewFact } from "../../core/types.js";
+import { existingWorkspacePath } from "../../security/workspace-path.js";
 import { type ExtractContext, type Extractor, structuredFact } from "./types.js";
 
 // Extracts canonical CI run commands from .github/workflows/*.yml.
@@ -8,7 +9,7 @@ export const ciExtractor: Extractor = {
   id: "ci",
   extract(ctx: ExtractContext): NewFact[] {
     const wfDir = join(ctx.workspaceDir, ".github", "workflows");
-    if (!existsSync(wfDir)) return [];
+    if (!existingWorkspacePath(ctx.workspaceDir, join(".github", "workflows"))) return [];
     let files: string[];
     try {
       files = readdirSync(wfDir).filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"));
@@ -17,9 +18,11 @@ export const ciExtractor: Extractor = {
     }
     const commands = new Set<string>();
     for (const f of files) {
+      const workflowPath = join(".github", "workflows", f);
+      if (!existingWorkspacePath(ctx.workspaceDir, workflowPath)) continue;
       let text: string;
       try {
-        text = readFileSync(join(wfDir, f), "utf8");
+        text = readFileSync(join(ctx.workspaceDir, workflowPath), "utf8");
       } catch {
         continue;
       }
