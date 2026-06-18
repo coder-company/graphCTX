@@ -414,17 +414,25 @@ export class FactsRepo {
     });
   }
 
-  // Expired facts that carry a valid_until_commit anchor — candidates for
-  // revert-driven reactivation (git/dag.ts).
-  expiredWithValidUntil(): Fact[] {
+  // Closed facts that carry a valid_until_commit anchor — candidates for
+  // revert-driven reactivation (git/dag.ts). Expiration and supersession both
+  // close a temporal validity window; either can revive when the closing commit
+  // is reverted away.
+  closedWithValidUntil(): Fact[] {
     const rows = this.db
       .prepare(
         `SELECT f.* FROM facts f
          JOIN git_anchors g ON g.fact_id = f.fact_id
-         WHERE f.status = 'expired' AND g.valid_until_commit IS NOT NULL`,
+         WHERE f.status IN ('expired', 'superseded') AND g.valid_until_commit IS NOT NULL`,
       )
       .all() as FactRow[];
     return this.hydrateMany(rows);
+  }
+
+  // Backward-compatible narrow view for callers that specifically audit
+  // expiration, rather than general temporal closeout.
+  expiredWithValidUntil(): Fact[] {
+    return this.closedWithValidUntil().filter((fact) => fact.status === "expired");
   }
 
   // Reactivate a fact whose invalidating commit was reverted (SPEC §8): clear

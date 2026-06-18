@@ -56,10 +56,11 @@ export async function detectEvent(
   }
 }
 
-// On a REVERT, a previously-expired fact whose invalidating change was undone
+// On a REVERT, a previously-closed fact whose invalidating change was undone
 // should become live again (SPEC §8): clear valid_until + invalidated_by and
-// set status active. We re-validate facts whose valid_until_commit is no longer
-// reachable from HEAD (the invalidating commit was reverted away).
+// set status active. We re-validate expired and superseded facts whose
+// valid_until_commit is no longer reachable from HEAD (the invalidating or
+// superseding commit was reverted away).
 export async function revalidateOnRevert(
   git: Git,
   facts: FactsRepo,
@@ -67,13 +68,13 @@ export async function revalidateOnRevert(
   currentBranch: string,
 ): Promise<Fact[]> {
   const restored: Fact[] = [];
-  let expired: Fact[];
+  let closed: Fact[];
   try {
-    expired = facts.expiredWithValidUntil();
+    closed = facts.closedWithValidUntil();
   } catch {
     return restored;
   }
-  for (const f of expired) {
+  for (const f of closed) {
     try {
       const vu = f.git?.valid_until_commit;
       if (!vu) continue;

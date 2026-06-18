@@ -23,7 +23,12 @@ function fakeGit(): Git {
   } as unknown as Git;
 }
 
-function fact(factId: string, validUntil: string, git: Partial<Fact["git"]> = {}): Fact {
+function fact(
+  factId: string,
+  validUntil: string,
+  git: Partial<Fact["git"]> = {},
+  status: Fact["status"] = "expired",
+): Fact {
   return {
     fact_id: factId,
     subject: "repo",
@@ -32,7 +37,7 @@ function fact(factId: string, validUntil: string, git: Partial<Fact["git"]> = {}
     fact_kind: "procedural",
     temporal_kind: "static",
     scope: { user_id: "u", workspace_id: "w" },
-    status: "expired",
+    status,
     promotion_state: "workspace_active",
     trust_tier: "high",
     sensitivity: "public",
@@ -76,16 +81,17 @@ describe("git/dag detectEvent", () => {
     expect((await detectEvent(git, "c1", "b1", "main", "feat")).kind).toBe("switch");
   });
 
-  it("revalidateOnRevert skips bad historical anchors and restores other facts", async () => {
+  it("revalidateOnRevert skips bad historical anchors and restores closed facts", async () => {
     const restoredIds: string[] = [];
     const facts = {
-      expiredWithValidUntil: () => [
+      closedWithValidUntil: () => [
         fact("bad", "missing"),
         fact("foreign-branch", "gone", {
           branch: "feature",
           introduced_by_commit: "feature-intro",
         }),
-        fact("good", "gone"),
+        fact("good-expired", "gone"),
+        fact("good-superseded", "gone", {}, "superseded"),
       ],
       reactivate: (id: string) => {
         restoredIds.push(id);
@@ -103,7 +109,7 @@ describe("git/dag detectEvent", () => {
 
     const restored = await revalidateOnRevert(gitWithBadAnchor, facts, "head", "main");
 
-    expect(restored.map((f) => f.fact_id)).toEqual(["good"]);
-    expect(restoredIds).toEqual(["good"]);
+    expect(restored.map((f) => f.fact_id)).toEqual(["good-expired", "good-superseded"]);
+    expect(restoredIds).toEqual(["good-expired", "good-superseded"]);
   });
 });

@@ -232,6 +232,74 @@ async function scRevertRestores(): Promise<ScenarioResult> {
   });
 }
 
+// --- Scenario 3b: revert restores superseded truth ------------------------
+// Supersession is temporal closeout, not deletion. If the commit that introduced
+// the superseding evidence is reverted, the older fact's validity window should
+// reopen just like an expired fact's window.
+async function scRevertRestoresSuperseded(): Promise<ScenarioResult> {
+  return withRepo(async (r) => {
+    r.commit("f.txt", "base\n", "c0");
+    const c1 = r.commit("f.txt", "base\nv1\n", "c1 introduce");
+    const c2 = r.commit("f.txt", "base\nv2\n", "c2 supersede");
+    r.run(["revert", "--no-edit", c2]);
+    const c3 = r.head();
+
+    const rt = runtimeFor(r.dir);
+    try {
+      const scope = { user_id: rt.userId, workspace_id: rt.workspaceId };
+      const f1 = rt.facts.insert({
+        subject: "repo",
+        predicate: "setting",
+        object: "v1",
+        fact_kind: "decision",
+        temporal_kind: "static",
+        scope,
+        trust_tier: "high",
+        status: "active",
+        promotion_state: "workspace_active",
+        source: { asserted_by: "user", event_ids: [] },
+        git: { valid_from_commit: c1, introduced_by_commit: c1 },
+      });
+      const f2 = rt.facts.insert({
+        subject: "repo",
+        predicate: "setting",
+        object: "v2",
+        fact_kind: "decision",
+        temporal_kind: "static",
+        scope,
+        trust_tier: "high",
+        status: "active",
+        promotion_state: "workspace_active",
+        source: { asserted_by: "user", event_ids: [] },
+        git: { valid_from_commit: c2, introduced_by_commit: c2 },
+      });
+      rt.facts.supersede(f1.fact_id, f2.fact_id, c2);
+      const supersededBefore = rt.facts.get(f1.fact_id)?.status === "superseded";
+
+      const restored = await revalidateOnRevert(rt.git, rt.facts, c3, "main");
+      const activeAfter = rt.facts.get(f1.fact_id)?.status === "active";
+      const refreshed = rt.facts.get(f1.fact_id);
+      const validAtHead = await isValidAsOf(rt.git, refreshed?.git, c3, "main");
+
+      const pass =
+        supersededBefore &&
+        restored.some((f) => f.fact_id === f1.fact_id) &&
+        activeAfter &&
+        validAtHead;
+      return {
+        id: "3b-revert-restores-superseded",
+        label:
+          "revert restores superseded truth: reverting newer structured evidence reactivates the prior fact",
+        pass,
+        gated: true,
+        detail: `supersededBefore=${supersededBefore} restored=${restored.length} activeAfter=${activeAfter} validAtNewHead=${validAtHead}`,
+      };
+    } finally {
+      rt.close();
+    }
+  });
+}
+
 // --- Scenario 4: merge ----------------------------------------------------
 // A feature fact becomes valid on main AFTER the feature merges into main; the
 // HEAD move main->mergeHead classifies as 'merge'.
@@ -530,6 +598,7 @@ export async function runTemporalCorrectnessEval(): Promise<TemporalCorrectnessR
   scenarios.push(await scFastForward());
   scenarios.push(await scBranchIsolation());
   scenarios.push(await scRevertRestores());
+  scenarios.push(await scRevertRestoresSuperseded());
   scenarios.push(await scMerge());
   scenarios.push(await scRebase());
 

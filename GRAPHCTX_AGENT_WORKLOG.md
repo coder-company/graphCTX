@@ -1299,7 +1299,7 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
 
-### Iteration 120 - live test counter sync
+### Iteration 119 follow-up - live test counter sync
 
 - Updated STATUS and README live test counters from 253 to 254 after the
   supersession store regression increased the Vitest total.
@@ -1307,4 +1307,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx vitest run test/eval/cli-docs-demo.test.ts`
   - `npx biome check --no-errors-on-unmatched docs/STATUS.md README.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
+### Iteration 120 - superseded revert revalidation
+
+- Broadened revert revalidation from expired-only facts to all closed temporal
+  windows, so superseded facts with `valid_until_commit` can revive when the
+  superseding commit is reverted.
+- Added a real-git temporal eval scenario proving a superseded fact becomes
+  active and commit-valid again after the superseding commit is reverted.
+- Updated the DAG unit regression to restore both expired and superseded closed
+  facts while still skipping bad or foreign-branch anchors.
+- Verification:
+  - `npx vitest run test/git/dag.test.ts test/eval/temporal-correctness.test.ts test/store/facts-repo.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/store/facts.repo.ts src/git/dag.ts src/eval/suites/temporal-correctness.ts test/git/dag.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
