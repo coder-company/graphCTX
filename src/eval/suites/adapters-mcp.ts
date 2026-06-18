@@ -459,6 +459,31 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
     // @ts-expect-error rider is a GenericAdapter extra
     const rider: string = generic.rider(capsule);
     check("generic Tier 1 produces a bounded rider", rider.includes("graphCTX rider"));
+
+    const symlinkAgentsDir = mkdtempSync(join(tmpdir(), "gctx-agents-symlink-"));
+    const outsideAgentsDir = mkdtempSync(join(tmpdir(), "gctx-agents-outside-"));
+    try {
+      cpSync(fixture, symlinkAgentsDir, { recursive: true });
+      const outsideAgentsPath = join(outsideAgentsDir, "AGENTS.md");
+      const outsideAgents = "# Outside instructions\n";
+      writeFileSync(outsideAgentsPath, outsideAgents, "utf8");
+      rmSync(join(symlinkAgentsDir, "AGENTS.md"), { force: true });
+      symlinkSync(outsideAgentsPath, join(symlinkAgentsDir, "AGENTS.md"), "file");
+      let deliverThrew = false;
+      try {
+        await makeAdapter("generic", symlinkAgentsDir).deliver(capsule, {} as never, 0);
+      } catch {
+        deliverThrew = true;
+      }
+      check(
+        "generic Tier 0 refuses symlinked AGENTS.md without modifying the target",
+        deliverThrew && readFileSync(outsideAgentsPath, "utf8") === outsideAgents,
+      );
+    } finally {
+      rmSync(symlinkAgentsDir, { recursive: true, force: true });
+      rmSync(outsideAgentsDir, { recursive: true, force: true });
+    }
+
     const hookPayload = JSON.parse(buildHookPayload("UserPromptSubmit", capsule)) as {
       hookSpecificOutput?: { additionalContext?: string };
     };

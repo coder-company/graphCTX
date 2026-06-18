@@ -6,6 +6,7 @@ import { renderCard } from "../render/cards.js";
 import type { Runtime } from "../runtime.js";
 import { containsSecret } from "../security/secrets.js";
 import { AGENTS_BEGIN, AGENTS_END, renderAgentsCapsule } from "./claude-code/templates/agents.js";
+import { assertWritableConfigPath } from "./config-path.js";
 
 const DEFAULT_FACT_LIMIT = 12;
 
@@ -24,6 +25,7 @@ export function writeAgentsCapsuleFacts(
     generatedAt,
   });
   const path = join(workspaceDir, "AGENTS.md");
+  assertWritableConfigPath(path, "AGENTS.md boot capsule file");
   let content = `${capsule}\n`;
 
   if (existsSync(path)) {

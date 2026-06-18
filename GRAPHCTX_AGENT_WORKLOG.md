@@ -547,3 +547,15 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval mcp`
   - `npx tsc --noEmit`
   - `npx biome check src test`
+
+### Iteration 75 - symlink-safe AGENTS.md boot capsule writes
+
+- Hardened the AGENTS.md boot capsule writer so symlinked `AGENTS.md` files are
+  refused before merge/read/write mutation.
+- Added adapters/MCP eval coverage for generic Tier 0 delivery against a
+  symlinked `AGENTS.md` target, raising the gate to 84/84 checks.
+- Updated STATUS/DEMO adapter/MCP check counters.
+- Verification:
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`
