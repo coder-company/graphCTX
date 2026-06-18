@@ -1254,3 +1254,16 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval security`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 117 - AWS STS adversarial eval coverage
+
+- Added an `ASIA...` temporary AWS access key case to the adversarial security
+  Family A recall/precision corpus so the broad gate covers STS credentials, not
+  just the unit scanner regression.
+- Verification:
+  - `npx tsx src/cli.ts eval security`
+  - `npx vitest run test/eval/security-adversarial.test.ts test/security/secrets.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/eval/suites/security-adversarial.ts GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

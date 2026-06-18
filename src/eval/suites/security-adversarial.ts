@@ -42,6 +42,11 @@ const SECRET_CASES: SecretCase[] = [
   },
   { label: "aws access key id", text: "aws_key AKIAIOSFODNN7EXAMPLE", isSecret: true },
   {
+    label: "aws sts temporary access key id",
+    text: "aws_sts ASIAIOSFODNN7EXAMPLE",
+    isSecret: true,
+  },
+  {
     label: "github pat ghp_",
     text: "token ghp_FAKEfakeFAKEfakeFAKEfake0123456789ab",
     isSecret: true,
