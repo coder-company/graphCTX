@@ -83,6 +83,35 @@ describe("deterministic extractors", () => {
     );
   });
 
+  it("package-scripts ignore package and lockfile evidence symlinked outside the workspace", () => {
+    const outside = mkdtempSync(join(tmpdir(), "gctx-ex-pkg-outside-"));
+    try {
+      writeFileSync(
+        join(outside, "package.json"),
+        JSON.stringify({ name: "external", scripts: { test: "vitest run" } }),
+      );
+      symlinkSync(join(outside, "package.json"), join(dir, "package.json"), "file");
+      const externalPackage = extract();
+      expect(
+        externalPackage.res.inserted.find((f) => f.predicate === "test_command"),
+      ).toBeUndefined();
+      expect(
+        externalPackage.res.inserted.find((f) => f.predicate === "package_name"),
+      ).toBeUndefined();
+
+      rmSync(join(dir, "package.json"), { force: true });
+      writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: { test: "vitest" } }));
+      writeFileSync(join(outside, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+      symlinkSync(join(outside, "pnpm-lock.yaml"), join(dir, "pnpm-lock.yaml"), "file");
+      const externalLockfile = extract();
+      expect(
+        externalLockfile.res.inserted.find((f) => f.predicate === "test_command")?.object,
+      ).toBe("npm run test");
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it("lockfile → package manager detection", () => {
     writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: {} }));
     writeFileSync(join(dir, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");

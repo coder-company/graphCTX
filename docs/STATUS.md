@@ -76,9 +76,9 @@
 |---|---|---|
 | `hook <event>` p95 | < 150ms | 15.78ms ✅ |
 
-_Last updated: shared realpath workspace evidence checks, symlink-aware injection staleness checks, generated-marker symlink skip, procedure verifier secret scanning, extraction subject secret scanning, hook session-id redaction, MCP session-reference secret refusal, open-loop session metadata secret refusal, explicit memory metadata secret refusal, packageManager canonical facts, package-manager-aware script extraction, runtime-version deterministic extraction, multi-cookie session redaction, MCP error redaction, fail-closed retrieval for unvalidated commit-scoped facts, semantic CLI recall ranking, auth/cookie header secret scanning, scoped semantic retrieval expansion, workspace-confined injection staleness checks, package metadata extraction, high-trust test/Docker/tooling/tsconfig deterministic extraction, high-entropy redaction hardening, repo-id-isolated temporal validity, measured hook latency, fail-closed adapter install/uninstall, and typed CLI error formatting. 212 tests, 19 gate suites green, all I1-I9 hold._
+_Last updated: workspace-confined package script evidence, shared realpath workspace evidence checks, symlink-aware injection staleness checks, generated-marker symlink skip, procedure verifier secret scanning, extraction subject secret scanning, hook session-id redaction, MCP session-reference secret refusal, open-loop session metadata secret refusal, explicit memory metadata secret refusal, packageManager canonical facts, package-manager-aware script extraction, runtime-version deterministic extraction, multi-cookie session redaction, MCP error redaction, fail-closed retrieval for unvalidated commit-scoped facts, semantic CLI recall ranking, auth/cookie header secret scanning, scoped semantic retrieval expansion, workspace-confined injection staleness checks, package metadata extraction, high-trust test/Docker/tooling/tsconfig deterministic extraction, high-entropy redaction hardening, repo-id-isolated temporal validity, measured hook latency, fail-closed adapter install/uninstall, and typed CLI error formatting. 213 tests, 19 gate suites green, all I1-I9 hold._
 
-_Quality counters: Tests: 212. Gate suites: 19._
+_Quality counters: Tests: 213. Gate suites: 19._
 
 ---
 
@@ -110,4 +110,4 @@ _Quality counters: Tests: 212. Gate suites: 19._
 | Code quality | ✅ | new `eval quality` passes 6/6: full-repo Biome, strict TS config/scripts, shared command-surface helpers for CLI help/docs/README reachability, eval-suite runner/test coverage, final README docs-as-code, and generated migration packaging guard |
 
 _Loop note: composite metric = (failing_gates × 100) + (un-perfected aspects); within-aspect
-measured gains are recorded in the `memory` graph. Tests: 212, gate suites: 19 (`eval all` includes run/memory/promote/drift/retrieval/gate/security/branch/temporal/conflict/procedure/mcp/storage/telemetry/provenance/resilience/benchmarks/cli-docs-demo/quality)._
+measured gains are recorded in the `memory` graph. Tests: 213, gate suites: 19 (`eval all` includes run/memory/promote/drift/retrieval/gate/security/branch/temporal/conflict/procedure/mcp/storage/telemetry/provenance/resilience/benchmarks/cli-docs-demo/quality)._

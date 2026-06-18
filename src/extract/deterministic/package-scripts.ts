@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { NewFact } from "../../core/types.js";
+import { existingWorkspacePath } from "../../security/workspace-path.js";
 import { type ExtractContext, type Extractor, structuredFact } from "./types.js";
 
 interface PackageJson {
@@ -30,7 +31,7 @@ export const packageScriptsExtractor: Extractor = {
   id: "package.json",
   extract(ctx: ExtractContext): NewFact[] {
     const pkgPath = join(ctx.workspaceDir, "package.json");
-    if (!existsSync(pkgPath)) return [];
+    if (!existingWorkspacePath(ctx.workspaceDir, "package.json")) return [];
     let pkg: PackageJson;
     try {
       pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
@@ -65,11 +66,11 @@ export const packageScriptsExtractor: Extractor = {
 function detectScriptRunner(ctx: ExtractContext, pkg: PackageJson): ScriptRunner {
   const declared = parseDeclaredPackageManager(pkg.packageManager);
   if (declared) return declared;
-  if (existsSync(join(ctx.workspaceDir, "pnpm-lock.yaml"))) return "pnpm";
-  if (existsSync(join(ctx.workspaceDir, "yarn.lock"))) return "yarn";
+  if (existingWorkspacePath(ctx.workspaceDir, "pnpm-lock.yaml")) return "pnpm";
+  if (existingWorkspacePath(ctx.workspaceDir, "yarn.lock")) return "yarn";
   if (
-    existsSync(join(ctx.workspaceDir, "bun.lock")) ||
-    existsSync(join(ctx.workspaceDir, "bun.lockb"))
+    existingWorkspacePath(ctx.workspaceDir, "bun.lock") ||
+    existingWorkspacePath(ctx.workspaceDir, "bun.lockb")
   ) {
     return "bun";
   }

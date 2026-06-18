@@ -370,3 +370,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx vitest run test/invalidate/invalidator.test.ts test/inject/planner.test.ts`
   - `npx tsc --noEmit`
   - `npx biome check src test`
+
+### Iteration 61 - workspace-confined package script evidence
+
+- Hardened package script extraction so `package.json` and lockfile runner
+  evidence must resolve inside the workspace before becoming structured memory.
+- Added a regression covering an external symlinked `package.json` and an
+  external symlinked `pnpm-lock.yaml`; the latter no longer changes the runner
+  from npm to pnpm.
+- Updated README/STATUS counters to 213 Vitest tests.
+- Verification:
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check --write test/extract/extractors.test.ts`
+  - `npx biome check src test`
