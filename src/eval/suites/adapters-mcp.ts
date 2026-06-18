@@ -415,6 +415,30 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
     check("detectClient falls back to generic", detectClient(genericDir) === "generic");
 
     // --- (3) generic Tier 0 + Tier 1 ---
+    const symlinkGenericDir = mkdtempSync(join(tmpdir(), "gctx-generic-symlink-"));
+    const outsideGenericDir = mkdtempSync(join(tmpdir(), "gctx-generic-outside-"));
+    try {
+      cpSync(fixture, symlinkGenericDir, { recursive: true });
+      rmSync(join(symlinkGenericDir, ".graphctx"), { recursive: true, force: true });
+      symlinkSync(outsideGenericDir, join(symlinkGenericDir, ".graphctx"), "dir");
+      let installThrew = false;
+      try {
+        await makeAdapter("generic", symlinkGenericDir).install({
+          workspaceDir: symlinkGenericDir,
+          binPath: "graphctx",
+        });
+      } catch {
+        installThrew = true;
+      }
+      check(
+        "generic install refuses symlinked .graphctx without writing outside marker",
+        installThrew && !existsSync(join(outsideGenericDir, "adapters", "generic.json")),
+      );
+    } finally {
+      rmSync(symlinkGenericDir, { recursive: true, force: true });
+      rmSync(outsideGenericDir, { recursive: true, force: true });
+    }
+
     const generic = makeAdapter("generic", genericDir);
     const cap = await generic.detect();
     check("generic exposes Tier 0 + Tier 1", cap.tiers.includes(0) && cap.tiers.includes(1));

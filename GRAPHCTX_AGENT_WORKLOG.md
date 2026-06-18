@@ -535,3 +535,15 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval mcp`
   - `npx tsc --noEmit`
   - `npx biome check src test`
+
+### Iteration 74 - symlink-safe generic adapter marker writes
+
+- Hardened generic adapter install so symlinked `.graphctx`, adapter marker
+  directories, or marker files are refused before writing the install marker.
+- Added adapters/MCP eval coverage for a symlinked `.graphctx` directory,
+  raising the gate to 83/83 checks.
+- Updated STATUS/DEMO adapter/MCP check counters.
+- Verification:
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`

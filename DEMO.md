@@ -256,7 +256,7 @@ graphctx eval mcp            # install per client + MCP 8-tool smoke + secure pr
   ✓ MCP exposes EXACTLY 8 tools (I8) — got 8
   ✓ MCP remember refuses secret-bearing memory without echoing the secret
   ✓ proxy (enabled) refuses a capsule that trips the secret scanner (I3)
-  checks: 82/82   MCP tools: 8 (must be 8)   proxy leaks: 0 (must be 0)
+  checks: 83/83   MCP tools: 8 (must be 8)   proxy leaks: 0 (must be 0)
   VERDICT: ✅ M4 GATE PASS — multi-client install, MCP 8-tool surface, secure proxy, telemetry classifies.
 ```
 

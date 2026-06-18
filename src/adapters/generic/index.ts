@@ -4,6 +4,7 @@ import type { Capsule, InjectionContext } from "../../core/types.js";
 import type { Adapter, Capability, ChannelTier, InstallOptions } from "../adapter.js";
 import { factsFromCapsule, writeAgentsCapsuleFacts } from "../boot-capsule.js";
 import { buildRider } from "../channel.js";
+import { assertWritableConfigPath } from "../config-path.js";
 
 // Generic adapter for ANY client (SPEC §17). No native hooks → we deliver via:
 //   Tier 0 — write/refresh an AGENTS.md boot capsule (grounding floor), and
@@ -28,6 +29,9 @@ export class GenericAdapter implements Adapter {
     // by the CLI after extraction, but init also writes AGENTS.md; the marker
     // lets doctor distinguish "installed generic" from "just initialized".
     const marker = genericInstallMarker(this.workspaceDir);
+    assertWritableConfigPath(join(this.workspaceDir, ".graphctx"), "graphCTX directory");
+    assertWritableConfigPath(dirname(marker), "graphCTX adapter marker directory");
+    assertWritableConfigPath(marker, "generic adapter marker file");
     mkdirSync(dirname(marker), { recursive: true });
     writeFileSync(marker, `${JSON.stringify({ adapter: "generic" }, null, 2)}\n`, "utf8");
   }
