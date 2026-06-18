@@ -769,3 +769,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 88 - tag update sensitivity restamping
+
+- Made `FactsRepo.update(..., { tags })` restamp a fact's sensitivity to
+  `secret` when new tags contain secret-shaped material.
+- Kept tag index writes redacted and vector upserts free of raw tag secrets on
+  metadata updates.
+- Added a store regression for secret-bearing tag updates.
+- Updated STATUS/README counters to 236 Vitest tests.
+- Verification:
+  - `npx vitest run test/store/facts-repo.test.ts test/security/promotion-injection.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/store/facts.repo.ts test/store/facts-repo.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

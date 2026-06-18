@@ -148,4 +148,46 @@ describe("FactsRepo secondary indexes", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("restamps sensitivity and redacts indexes when tag updates add secrets", () => {
+    const dir = mkdtempSync(join(tmpdir(), "graphctx-facts-repo-"));
+    const db = openDb(join(dir, "facts.db"));
+    try {
+      const facts = new FactsRepo(db);
+      let vectorText = "";
+      facts.attachVectorIndex({
+        upsert(_factId, text) {
+          vectorText = text;
+        },
+        remove() {},
+      });
+      const fact = facts.insert({
+        subject: "repo",
+        predicate: "release_note",
+        object: "ship the stable channel",
+        fact_kind: "semantic",
+        temporal_kind: "static",
+        scope: { user_id: "u", workspace_id: "w" },
+        trust_tier: "high",
+        status: "active",
+        promotion_state: "workspace_active",
+        source: { asserted_by: "user", event_ids: [] },
+        tags: [],
+      });
+      const tagSecret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+
+      facts.update(fact.fact_id, { tags: [tagSecret] });
+
+      const indexed = db
+        .prepare("SELECT tags FROM facts_fts WHERE fact_id = ?")
+        .get(fact.fact_id) as { tags: string };
+      expect(facts.get(fact.fact_id)?.sensitivity).toBe("secret");
+      expect(indexed.tags).not.toContain(tagSecret);
+      expect(vectorText).not.toContain(tagSecret);
+      expect(`${indexed.tags} ${vectorText}`).toContain("[REDACTED:");
+    } finally {
+      db.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

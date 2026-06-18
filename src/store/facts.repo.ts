@@ -324,6 +324,10 @@ export class FactsRepo {
     if (patch.tags !== undefined) {
       sets.push("tags_json = @tags_json");
       params.tags_json = JSON.stringify(patch.tags);
+      if (sensitivityForText(patch.tags.join(" ")) === "secret") {
+        sets.push("sensitivity = @sensitivity");
+        params.sensitivity = "secret";
+      }
     }
     if (sets.length === 0) return;
     this.db.prepare(`UPDATE facts SET ${sets.join(", ")} WHERE fact_id = @fact_id`).run(params);
