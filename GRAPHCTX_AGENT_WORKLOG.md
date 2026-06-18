@@ -1298,3 +1298,13 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval temporal`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 120 - live test counter sync
+
+- Updated STATUS and README live test counters from 253 to 254 after the
+  supersession store regression increased the Vitest total.
+- Verification:
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx vitest run test/eval/cli-docs-demo.test.ts`
+  - `npx biome check --no-errors-on-unmatched docs/STATUS.md README.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
