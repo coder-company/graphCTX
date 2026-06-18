@@ -1,5 +1,6 @@
 import { formatReport as formatCompareReport, runBenchmark } from "../../bench/compare.js";
 import { runScaleBenchmark } from "../../bench/scale.js";
+import { runLocal } from "../../bench/scenarios.js";
 import { runEval } from "../harness.js";
 import { EVAL_GATE_SUITES, type EvalGateSuite } from "../registry.js";
 import { evalReportPass } from "../report.js";
@@ -39,6 +40,8 @@ export interface EvalBenchmarksReport {
     controlRepos: number;
   };
   scorecardAxes: number;
+  deepLocalRecall: number;
+  deepLocalP95: number;
   scaleSizes: number[];
   scaleP95: number[];
   networkCalls: number;
@@ -92,8 +95,9 @@ export async function runEvalBenchmarksEval(): Promise<EvalBenchmarksReport> {
     const compareText = formatCompareReport(compare);
     const liveSkip = await runBenchmark({ live: true });
     const liveSkipText = formatCompareReport(liveSkip);
+    const deepLocal = await runLocal(500, 2);
     const scale = await runScaleBenchmark({ sizes: [1000, 10000], repeats: 3 });
-    return { compare, compareText, liveSkip, liveSkipText, scale };
+    return { compare, compareText, liveSkip, liveSkipText, deepLocal, scale };
   });
 
   check(
@@ -105,6 +109,13 @@ export async function runEvalBenchmarksEval(): Promise<EvalBenchmarksReport> {
       offline.value.liveSkip.liveSkippedReason?.includes("SUPERMEMORY_API_KEY") === true &&
       offline.value.liveSkipText.includes("export SUPERMEMORY_API_KEY"),
     `axes=${offline.value.compare.axes.length} liveSkip=${offline.value.liveSkip.liveSkippedReason ?? "-"}`,
+  );
+
+  check(
+    "deep local coding-memory benchmark uses hybrid retrieval with perfect recall",
+    offline.value.deepLocal.recallHits === offline.value.deepLocal.recallTotal &&
+      offline.value.deepLocal.retrievalMs.p95 < 150,
+    `recall=${offline.value.deepLocal.recallHits}/${offline.value.deepLocal.recallTotal} p95=${offline.value.deepLocal.retrievalMs.p95}ms`,
   );
 
   check(
@@ -145,6 +156,11 @@ export async function runEvalBenchmarksEval(): Promise<EvalBenchmarksReport> {
       controlRepos: n?.repos ?? s?.repos ?? 0,
     },
     scorecardAxes: offline.value.compare.axes.length,
+    deepLocalRecall:
+      offline.value.deepLocal.recallTotal === 0
+        ? 0
+        : offline.value.deepLocal.recallHits / offline.value.deepLocal.recallTotal,
+    deepLocalP95: offline.value.deepLocal.retrievalMs.p95,
     scaleSizes: offline.value.scale.points.map((p) => p.scaleFacts),
     scaleP95: offline.value.scale.points.map((p) => p.retrievalMs.p95),
     networkCalls: offline.networkCalls,
@@ -164,6 +180,7 @@ export function formatEvalBenchmarksReport(r: EvalBenchmarksReport): string {
   lines.push(
     `  checks: ${r.passed}/${r.checks}   suites: ${r.suiteCount}   scorecard axes: ${r.scorecardAxes}   network calls: ${r.networkCalls}`,
   );
+  lines.push(`  deep local: recall ${pct(r.deepLocalRecall)} p95=${r.deepLocalP95}ms`);
   lines.push(
     `  ablation: push ${pct(r.ablation.pushSolveRate)} > pull ${pct(r.ablation.pullSolveRate)}; controls N=${r.ablation.negativeControlsPassed}/${r.ablation.controlRepos} S=${r.ablation.staleControlsPassed}/${r.ablation.controlRepos}`,
   );

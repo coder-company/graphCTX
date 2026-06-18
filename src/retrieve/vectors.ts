@@ -115,8 +115,8 @@ export class VectorIndex {
 
   // KNN search over the vec0 index. Returns [] when disabled (BM25 fallback).
   // NOTE: sqlite-vec does a brute-force scan (no ANN index), so this is O(N) in
-  // corpus size. Prefer cosineDistanceTo() over a BM25 candidate pool on the hot
-  // path; reserve this for offline/broad passes.
+  // corpus size. Use it only as a bounded sparse-query expansion path; lexical
+  // hits should still be reranked with cosineDistanceTo() over the candidate set.
   search(queryText: string, k: number): VectorHit[] {
     if (!this.enabled) return [];
     try {

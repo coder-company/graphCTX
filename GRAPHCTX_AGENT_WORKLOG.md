@@ -1629,3 +1629,29 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts`
   - `git diff --check`
+
+### Iteration 139 - make deep memory bench use hybrid retrieval
+
+- Fixed the graphCTX-vs-Supermemory and deep scenario harnesses to benchmark the
+  real runtime retrieval stack (`rt.vectors`) instead of BM25-only retrieval.
+- Replaced sparse semantic expansion's insertion-order active-row scan with
+  indexed vec0 KNN candidates, then kept the existing scope, lifecycle,
+  send-edge, and git-validity filters before output.
+- Tuned the sparse semantic distance gate to admit real coding-memory concept
+  hits such as package-manager -> pnpm while rejecting unrelated filler.
+- Added an eval-benchmark guard requiring the deep local coding-memory benchmark
+  to hit all probes with p95 under budget.
+- Measurement:
+  - `npx tsx src/cli.ts compare --deep -C .` now reports recall 100% at
+    10/510/5,010 facts; medium p50/p95/p99 7.88/8.94/11.19ms; large p95
+    28.57ms.
+  - `npx tsx src/cli.ts eval benchmarks` reports deep local recall 10/10 and
+    p95 12.33ms.
+- Verification:
+  - `npx tsx src/cli.ts compare --deep -C .`
+  - `npx vitest run test/retrieve/retriever.test.ts test/retrieve/vectors.test.ts test/eval/eval-benchmarks.test.ts test/bench/compare.test.ts`
+  - `npx tsx src/cli.ts eval benchmarks`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsc --noEmit`
+  - `npx biome check src/retrieve/retriever.ts src/retrieve/vectors.ts src/bench/compare.ts src/bench/scenarios.ts src/eval/suites/eval-benchmarks.ts test/eval/eval-benchmarks.test.ts`
+  - `git diff --check`

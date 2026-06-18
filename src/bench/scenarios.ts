@@ -171,7 +171,7 @@ export async function runLocal(scaleFacts: number, repeats = 20): Promise<LocalS
       ingest.push(performance.now() - t0);
     }
     const { Retriever } = await import("../retrieve/retriever.js");
-    const retriever = new Retriever(rt.facts, rt.git, null, rt.clock);
+    const retriever = new Retriever(rt.facts, rt.git, rt.vectors, rt.clock);
     // warm + measured retrieval, repeated for a real distribution
     for (let r = 0; r < repeats; r++) {
       for (const p of PROBES) {

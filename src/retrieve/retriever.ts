@@ -13,7 +13,7 @@ import type { VectorIndex } from "./vectors.js";
 // bounds the embed-rerank scan for sparse queries; the max-distance gate avoids
 // surfacing weak semantic matches as noise.
 const SEMANTIC_SCAN_CAP = 512;
-const SEMANTIC_MAX_DIST = 1.05;
+const SEMANTIC_MAX_DIST = 1.1;
 
 // Reciprocal Rank Fusion (RRF, Cormack 2009) constants. We fuse BM25/lexical and
 // semantic signals by RANK position rather than by raw score — BM25 and cosine
@@ -173,29 +173,22 @@ export class Retriever {
           c.semDist = dist;
           c.foundSem = true;
         }
-        // 2) Bounded semantic expansion: when the lexical pass surfaced few
+        // 2) Indexed semantic expansion: when the lexical pass surfaced few
         // candidates (a sparse/short query, or one whose answer shares no
-        // keywords — e.g. "which package manager" → "pnpm"), embed-rerank a
-        // CAPPED slice of active facts to recover pure-semantic matches. The cap
-        // keeps this O(SEMANTIC_SCAN_CAP), not O(N), so the hot path stays flat.
+        // keywords — e.g. "which package manager" → "pnpm"), ask vec0 for the
+        // nearest active-index entries. This avoids insertion-order caps that
+        // can miss late facts in large stores, while lifecycle/scope/git/send
+        // filters still run below before anything can leave the retriever.
         if (cand.size < k) {
-          const semCandidates: Array<{ fact: Fact; dist: number }> = [];
-          // Expand across every eligible scope, not only workspace facts. Keep
-          // the total SQL/hydration bound at SEMANTIC_SCAN_CAP so sparse-query
-          // semantic recovery stays flat while user/session memories can still
-          // be found when BM25 has no lexical overlap.
-          for (const f of this.semanticExpansionFacts(ctx, wsScope)) {
-            if (cand.has(f.fact_id)) continue;
-            const dist = this.vectors.cosineDistanceTo(qv, semanticText(f));
-            semCandidates.push({ fact: f, dist });
-          }
-          semCandidates.sort((a, b) => a.dist - b.dist);
-          for (const sc of semCandidates.slice(0, k)) {
-            if (sc.dist > SEMANTIC_MAX_DIST) continue;
-            if (!eligible(sc.fact)) continue;
-            const c = ensure(sc.fact);
-            c.semDist = sc.dist;
+          for (const hit of this.vectors.search(query, SEMANTIC_SCAN_CAP)) {
+            if (hit.distance > SEMANTIC_MAX_DIST) continue;
+            const fact = this.repo.get(hit.fact_id);
+            if (!fact || cand.has(fact.fact_id)) continue;
+            if (!eligible(fact)) continue;
+            const c = ensure(fact);
+            c.semDist = hit.distance;
             c.foundSem = true;
+            if (cand.size >= k) break;
           }
         }
       } catch {
@@ -309,29 +302,6 @@ export class Retriever {
       // successful Git validation before injection or recall.
       return !requiresGitValidation(fact.git);
     }
-  }
-
-  private semanticExpansionFacts(
-    ctx: InjectionContext,
-    wsScope: { user_id: string; workspace_id: string | undefined },
-  ): Fact[] {
-    const facts: Fact[] = [];
-    const seen = new Set<string>();
-    const add = (scopeFacts: Fact[]) => {
-      for (const f of scopeFacts) {
-        if (facts.length >= SEMANTIC_SCAN_CAP) return;
-        if (seen.has(f.fact_id)) continue;
-        seen.add(f.fact_id);
-        facts.push(f);
-      }
-    };
-
-    if (ctx.scope.session_id) {
-      add(this.repo.activeAsOf(sessionScope(ctx), Math.min(128, SEMANTIC_SCAN_CAP)));
-    }
-    add(this.repo.userScopedActive(ctx.scope.user_id, Math.min(128, SEMANTIC_SCAN_CAP)));
-    add(this.repo.activeAsOf(wsScope, SEMANTIC_SCAN_CAP - facts.length));
-    return facts;
   }
 }
 
