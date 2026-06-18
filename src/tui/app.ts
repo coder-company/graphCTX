@@ -6,13 +6,14 @@ import { renderCard } from "../render/cards.js";
 import { Runtime } from "../runtime.js";
 import { assertSafeMemoryWrite } from "../security/intake.js";
 import { safeForSend } from "../security/send-edge.js";
-import { padEnd, style, term, truncate } from "./ansi.js";
-import { badge, bar, kv, panel, table } from "./box.js";
+import { padEnd, style, term, truncate, visibleLen } from "./ansi.js";
+import { type Column, badge, bar, kv, panel, table } from "./box.js";
 import { type FactView, type MemoryStats, factViews, memoryStats } from "./data.js";
 import { type Key, readKeys } from "./keys.js";
 
 type Tab = "dashboard" | "control" | "monitor";
 const TABS: Tab[] = ["dashboard", "control", "monitor"];
+type RecentColumn = Column & { key: "id" | "kind" | "scope" | "status" | "fact" };
 
 interface AppState {
   tab: Tab;
@@ -290,48 +291,38 @@ export class TuiApp {
       const p = this.state.prompt;
       return `\n${style.bold(style.yellow(`${p.label}: `))}${p.value}${style.inverse(" ")}  ${style.gray("(enter=ok esc=cancel)")}`;
     }
-    const common = "tab/1-3 switch | up/down move | f filter | r refresh | q quit";
-    const extra =
-      this.state.tab === "control"
-        ? " | n new | o open-loop | p promote | x forget | enter resolve"
-        : this.state.tab === "monitor"
-          ? " | s SessionStart | c PostCompact"
-          : "";
-    const status = this.state.status ? `  ${style.green(`ok ${this.state.status}`)}` : "";
-    return `\n${style.gray(common + extra)}${status}`;
+    const parts = ["tab/1-3 switch", "up/down move", "f filter", "r refresh", "q quit"];
+    if (this.state.tab === "control") {
+      parts.push("n new", "o open-loop", "p promote", "x forget", "enter resolve");
+    } else if (this.state.tab === "monitor") {
+      parts.push("s SessionStart", "c PostCompact");
+    }
+    const styledParts = parts.map((part) => style.gray(part));
+    if (this.state.status) styledParts.push(style.green(`ok ${this.state.status}`));
+    return `\n${wrapFooterParts(styledParts, this.contentWidth()).join("\n")}`;
   }
 
   private renderDashboard(): string[] {
     const s = memoryStats(this.rt);
+    const width = this.contentWidth();
     const out: string[] = [];
     out.push("");
-    out.push(...this.statsPanel(s));
+    out.push(...this.statsPanel(s, width));
     out.push("");
     const views = this.currentViews().slice(0, 12);
+    const cols = recentColumns(width);
     out.push(style.bold(`Recent memory (filter: ${this.state.filter})`));
     out.push(
       ...table(
-        [
-          { header: "id", width: 8 },
-          { header: "kind", width: 11 },
-          { header: "scope", width: 9 },
-          { header: "status", width: 10 },
-          { header: "fact", width: 40 },
-        ],
-        views.map((v) => [
-          style.gray(v.id8),
-          this.kindColor(v.kind),
-          v.scope,
-          this.statusColor(v.status),
-          truncate(v.text, 40),
-        ]),
+        cols,
+        views.map((v) => cols.map((col) => this.recentCell(v, col))),
       ),
     );
     if (views.length === 0) out.push(style.gray("  (no facts — run `graphctx init` or `extract`)"));
     return out;
   }
 
-  private statsPanel(s: MemoryStats): string[] {
+  private statsPanel(s: MemoryStats, width: number): string[] {
     const left = [
       kv("Total facts", style.bold(String(s.total))),
       kv("Active", style.green(String(s.active))),
@@ -354,12 +345,13 @@ export class TuiApp {
     for (let i = 0; i < h; i++) {
       rows.push(`${padEnd(left[i] ?? "", 38)}${right[i] ?? ""}`);
     }
-    return [panel(rows, { title: "Memory overview", width: 78, color: style.cyan })];
+    return [panel(rows, { title: "Memory overview", width, color: style.cyan })];
   }
 
   private renderControl(): string[] {
     const views = this.currentViews();
     const pageSize = this.controlPageSize();
+    const width = this.contentWidth();
     this.state.scroll = clampWindowStart(
       this.state.cursor,
       this.state.scroll,
@@ -381,9 +373,7 @@ export class TuiApp {
     win.forEach((v, i) => {
       const idx = this.state.scroll + i;
       const sel = idx === this.state.cursor;
-      const marker = sel ? style.cyan("> ") : "  ";
-      const row = `${padEnd(this.kindColor(v.kind), 11)} ${padEnd(this.statusColor(v.status), 10)} ${truncate(v.text, 46)}`;
-      out.push(marker + (sel ? style.bold(row) : row) + style.gray(`  [${v.id8}]`));
+      out.push(this.controlRow(v, sel, width));
     });
     if (views.length === 0) out.push(style.gray("  (nothing to manage)"));
     return out;
@@ -425,6 +415,73 @@ export class TuiApp {
     // control mode to stay useful in short terminals while scaling up smoothly.
     return Math.max(5, Math.min(24, term.height() - 8));
   }
+
+  private contentWidth(): number {
+    return clampTuiWidth(term.width());
+  }
+
+  private recentCell(v: FactView, col: RecentColumn): string {
+    if (col.key === "id") return style.gray(v.id8);
+    if (col.key === "kind") return this.kindColor(v.kind);
+    if (col.key === "scope") return v.scope;
+    if (col.key === "status") return this.statusColor(v.status);
+    return truncate(v.text, col.width);
+  }
+
+  private controlRow(v: FactView, selected: boolean, width: number): string {
+    const marker = selected ? style.cyan("> ") : "  ";
+    const id = style.gray(`  [${v.id8}]`);
+    if (width < 64) {
+      const textWidth = Math.max(6, width - 24);
+      const row = `${padEnd(this.statusColor(v.status), 9)} ${truncate(v.text, textWidth)}`;
+      return marker + (selected ? style.bold(row) : row) + id;
+    }
+    const textWidth = Math.max(12, width - 36);
+    const row = `${padEnd(this.kindColor(v.kind), 11)} ${padEnd(this.statusColor(v.status), 10)} ${truncate(v.text, textWidth)}`;
+    return marker + (selected ? style.bold(row) : row) + id;
+  }
+}
+
+export function clampTuiWidth(columns: number): number {
+  const safe = Number.isFinite(columns) ? Math.floor(columns) : 80;
+  return Math.max(40, Math.min(112, safe));
+}
+
+function recentColumns(width: number): RecentColumn[] {
+  const safe = clampTuiWidth(width);
+  if (safe < 70) {
+    const factWidth = Math.max(10, safe - 21);
+    return [
+      { key: "id", header: "id", width: 8 },
+      { key: "status", header: "status", width: 9 },
+      { key: "fact", header: "fact", width: factWidth },
+    ];
+  }
+  return [
+    { key: "id", header: "id", width: 8 },
+    { key: "kind", header: "kind", width: 11 },
+    { key: "scope", header: "scope", width: 9 },
+    { key: "status", header: "status", width: 10 },
+    { key: "fact", header: "fact", width: Math.max(16, safe - 46) },
+  ];
+}
+
+export function wrapFooterParts(parts: string[], width: number): string[] {
+  const safe = clampTuiWidth(width);
+  const gap = style.gray(" | ");
+  const lines: string[] = [];
+  let line = "";
+  for (const part of parts) {
+    const next = line ? `${line}${gap}${part}` : part;
+    if (line && visibleLen(next) > safe) {
+      lines.push(line);
+      line = part;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.length > 0 ? lines : [""];
 }
 
 export function clampWindowStart(

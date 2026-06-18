@@ -1677,3 +1677,25 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx biome check src/tui/app.ts test/tui/data.test.ts`
   - `git diff --check`
+
+### Iteration 141 - width-aware TUI layout
+
+- Made dashboard recent-memory columns adapt to terminal width instead of using
+  fixed desktop-sized columns.
+- Made control rows collapse to a compact status/fact/id layout on narrow
+  terminals while preserving the richer kind/status/fact/id layout on wider
+  terminals.
+- Wrapped dense footer controls across multiple terminal-width-safe lines
+  instead of letting command hints overflow.
+- Added regression coverage proving dashboard/control snapshots and footer
+  control hints stay within narrow terminal widths.
+- Updated live docs counters to 269 tests after adding responsive TUI coverage.
+- Verification:
+  - `npx vitest run test/tui/data.test.ts test/tui/ansi.test.ts`
+  - `NO_COLOR=1 npx tsx src/cli.ts tui --tab dashboard`
+  - `NO_COLOR=1 npx tsx src/cli.ts tui --tab control`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsc --noEmit`
+  - `npx biome check src/tui/app.ts test/tui/data.test.ts`
+  - `git diff --check`

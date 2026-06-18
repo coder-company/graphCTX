@@ -3,7 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Runtime } from "../../src/runtime.js";
-import { TuiApp, clampWindowStart, renderFactList } from "../../src/tui/app.js";
+import { visibleLen } from "../../src/tui/ansi.js";
+import {
+  TuiApp,
+  clampTuiWidth,
+  clampWindowStart,
+  renderFactList,
+  wrapFooterParts,
+} from "../../src/tui/app.js";
 import { factViews, memoryStats } from "../../src/tui/data.js";
 
 describe("tui/data — memory stats from a live runtime", () => {
@@ -174,3 +181,82 @@ describe("tui/app — non-interactive snapshots", () => {
     }
   });
 });
+
+describe("tui/app — responsive terminal layout", () => {
+  it("keeps dashboard and control snapshots inside the terminal width", () => {
+    withStdoutColumns(58, () => {
+      const dir = mkdtempSync(join(tmpdir(), "graphctx-tui-width-"));
+      const rt = new Runtime({ workspaceDir: dir });
+      try {
+        rt.facts.insert({
+          subject: "repo",
+          predicate: "note",
+          object:
+            "this is a deliberately long operational memory that should truncate cleanly in narrow terminals",
+          fact_kind: "decision",
+          temporal_kind: "static",
+          scope: { user_id: rt.userId, workspace_id: rt.workspaceId },
+          trust_tier: "high",
+          status: "active",
+          promotion_state: "workspace_active",
+          source: { asserted_by: "user", event_ids: [] },
+          tags: [],
+        });
+
+        for (const tab of ["dashboard", "control"] as const) {
+          const app = new TuiApp(dir, tab);
+          try {
+            for (const line of app.snapshot().split("\n")) {
+              expect(visibleLen(line)).toBeLessThanOrEqual(58);
+            }
+          } finally {
+            app.close();
+          }
+        }
+      } finally {
+        rt.close();
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  it("wraps dense footer controls without overflowing", () => {
+    const lines = wrapFooterParts(
+      [
+        "tab/1-3 switch",
+        "up/down move",
+        "f filter",
+        "r refresh",
+        "q quit",
+        "n new",
+        "o open-loop",
+        "p promote",
+        "x forget",
+        "enter resolve",
+      ],
+      clampTuiWidth(48),
+    );
+
+    expect(lines.length).toBeGreaterThan(1);
+    for (const line of lines) {
+      expect(visibleLen(line)).toBeLessThanOrEqual(48);
+    }
+  });
+});
+
+function withStdoutColumns<T>(columns: number, run: () => T): T {
+  const current = Object.getOwnPropertyDescriptor(process.stdout, "columns");
+  Object.defineProperty(process.stdout, "columns", {
+    configurable: true,
+    value: columns,
+  });
+  try {
+    return run();
+  } finally {
+    if (current) {
+      Object.defineProperty(process.stdout, "columns", current);
+    } else {
+      Reflect.deleteProperty(process.stdout, "columns");
+    }
+  }
+}
