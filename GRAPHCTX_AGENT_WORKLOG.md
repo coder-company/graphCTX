@@ -1460,3 +1460,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx biome check src/core/types.ts src/cli.ts src/mcp/tools.ts src/eval/suites/core-memory-lifecycle.ts`
   - `git diff --check`
+
+### Iteration 129 - TUI tab argument validation
+
+- Replaced silent fallback for invalid `graphctx tui --tab` values with a
+  fail-fast parser that reports the allowed tabs.
+- Extended the CLI docs/demo argument-validation gate to cover invalid TUI tab
+  input.
+- Verification:
+  - `npx vitest run test/eval/cli-docs-demo.test.ts test/eval/command-surface.test.ts test/tui/data.test.ts`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsc --noEmit`
+  - `npx biome check src/cli.ts src/eval/suites/cli-docs-demo.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`

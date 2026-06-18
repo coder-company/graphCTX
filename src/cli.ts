@@ -381,7 +381,7 @@ program
   .option("--tab <tab>", "initial tab: dashboard | control | monitor", "dashboard")
   .action(async (opts) => {
     const { TuiApp } = await import("./tui/app.js");
-    const tab = ["dashboard", "control", "monitor"].includes(opts.tab) ? opts.tab : "dashboard";
+    const tab = parseTuiTabOption(opts.tab);
     const app = new TuiApp(opts.cwd, tab);
     await app.run();
   });
@@ -781,6 +781,14 @@ function parsePositiveNumberOption(raw: string, flag: string): number {
 function parseFactKindOption(raw: string): FactKind {
   if ((FACT_KINDS as readonly string[]).includes(raw)) return raw as FactKind;
   fail(`--kind must be one of: ${FACT_KINDS.join(", ")}`);
+}
+
+const TUI_TABS = ["dashboard", "control", "monitor"] as const;
+type TuiTab = (typeof TUI_TABS)[number];
+
+function parseTuiTabOption(raw: string): TuiTab {
+  if ((TUI_TABS as readonly string[]).includes(raw)) return raw as TuiTab;
+  fail(`--tab must be one of: ${TUI_TABS.join(", ")}`);
 }
 
 function fail(msg: string): never {

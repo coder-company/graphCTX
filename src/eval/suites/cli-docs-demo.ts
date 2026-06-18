@@ -500,6 +500,11 @@ function evaluateNumericArgValidation(): { failures: number; detail: string } {
       result: cli(["bench", "--scale", "--sizes", "1000", "--budget-ms", "nope"]),
       expected: "--budget-ms must be a positive number",
     },
+    {
+      label: "tui --tab",
+      result: cli(["tui", "--tab", "unknown"]),
+      expected: "--tab must be one of:",
+    },
   ];
   const failed = cases.filter(
     (c) =>
