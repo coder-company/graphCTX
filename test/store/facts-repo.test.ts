@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { fixedClock } from "../../src/core/clock.js";
 import { openDb } from "../../src/store/db.js";
 import { FactsRepo } from "../../src/store/facts.repo.js";
 
@@ -236,6 +237,64 @@ describe("FactsRepo secondary indexes", () => {
       expect(reactivated?.time.invalidated_by).toBeUndefined();
       expect(reactivated?.git?.valid_until_commit).toBeUndefined();
       expect(reactivated?.git?.invalidated_by_commit).toBeUndefined();
+    } finally {
+      db.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("closes superseded facts with temporal and commit validity", () => {
+    const dir = mkdtempSync(join(tmpdir(), "graphctx-facts-repo-"));
+    const db = openDb(join(dir, "facts.db"));
+    try {
+      const facts = new FactsRepo(db, fixedClock("2026-04-05T06:07:08.000Z"));
+      const events: string[] = [];
+      facts.attachVectorIndex({
+        upsert(factId) {
+          events.push(`upsert:${factId}`);
+        },
+        remove(factId) {
+          events.push(`remove:${factId}`);
+        },
+      });
+      const fact = facts.insert({
+        subject: "repo",
+        predicate: "test_command",
+        object: "npm test",
+        fact_kind: "procedural",
+        temporal_kind: "static",
+        scope: { user_id: "u", workspace_id: "w" },
+        trust_tier: "high",
+        status: "active",
+        promotion_state: "workspace_active",
+        source: { asserted_by: "deterministic_parser", event_ids: [] },
+        git: { repo_id: "repo", branch: "main", valid_from_commit: "c1" },
+        tags: [],
+      });
+      const replacement = facts.insert({
+        subject: "repo",
+        predicate: "test_command",
+        object: "pnpm test",
+        fact_kind: "procedural",
+        temporal_kind: "static",
+        scope: { user_id: "u", workspace_id: "w" },
+        trust_tier: "high",
+        status: "active",
+        promotion_state: "workspace_active",
+        source: { asserted_by: "deterministic_parser", event_ids: [] },
+        tags: [],
+      });
+      events.length = 0;
+
+      facts.supersede(fact.fact_id, replacement.fact_id, "c2");
+
+      const superseded = facts.get(fact.fact_id);
+      expect(events).toEqual([`remove:${fact.fact_id}`]);
+      expect(superseded?.status).toBe("superseded");
+      expect(superseded?.time.t_expired).toBe("2026-04-05T06:07:08.000Z");
+      expect(superseded?.time.invalidated_by).toBe(replacement.fact_id);
+      expect(superseded?.git?.valid_until_commit).toBe("c2");
+      expect(superseded?.git?.invalidated_by_commit).toBe("c2");
     } finally {
       db.close();
       rmSync(dir, { recursive: true, force: true });

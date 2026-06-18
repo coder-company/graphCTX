@@ -112,16 +112,13 @@ export class Invalidator {
         });
         edges.add(existing.fact_id, "SUPPORTED_BY", incoming.fact_id, incoming.fact_id);
         edges.add(incoming.fact_id, "SUPERSEDED_BY", existing.fact_id, existing.fact_id);
-        facts.update(incoming.fact_id, {
-          status: "superseded",
-          invalidated_by: existing.fact_id,
-        });
+        facts.supersede(incoming.fact_id, existing.fact_id, this.deps.currentHead);
         return "merged evidence into existing fact and retired duplicate";
       }
       case "refines": {
         edges.add(incoming.fact_id, "SUPERSEDES", existing.fact_id, incoming.fact_id);
         edges.add(existing.fact_id, "SUPERSEDED_BY", incoming.fact_id, incoming.fact_id);
-        facts.update(existing.fact_id, { status: "superseded", invalidated_by: incoming.fact_id });
+        facts.supersede(existing.fact_id, incoming.fact_id, this.deps.currentHead);
         return "superseded older value";
       }
       case "invalidates": {
@@ -160,9 +157,9 @@ export class Invalidator {
   resolve(resolvedFactId: string, byFactId?: string): void {
     if (byFactId) {
       this.deps.edges.add(resolvedFactId, "SUPERSEDED_BY", byFactId, byFactId);
-      this.deps.facts.update(resolvedFactId, { status: "superseded", invalidated_by: byFactId });
+      this.deps.facts.supersede(resolvedFactId, byFactId, this.deps.currentHead);
       return;
     }
-    this.deps.facts.update(resolvedFactId, { status: "superseded" });
+    this.deps.facts.supersede(resolvedFactId, undefined, this.deps.currentHead);
   }
 }

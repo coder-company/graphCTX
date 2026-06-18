@@ -1281,3 +1281,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval security`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 119 - supersession temporal closeout
+
+- Added a store-level `supersede()` lifecycle transition that closes superseded
+  facts with `t_expired`, `invalidated_by`, and commit closeout anchors.
+- Routed invalidator duplicate/refinement/open-loop resolution through the new
+  transition so superseded facts remain queryable through `why()` as historical
+  graph facts without staying valid for injection or vector retrieval.
+- Added invalidator and store regressions for supersession timestamps, commit
+  validity windows, and vector removal.
+- Verification:
+  - `npx vitest run test/invalidate/invalidator.test.ts test/store/facts-repo.test.ts test/provenance/why.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/store/facts.repo.ts src/invalidate/invalidator.ts test/invalidate/invalidator.test.ts test/store/facts-repo.test.ts`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

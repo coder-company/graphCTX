@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { fixedClock } from "../../src/core/clock.js";
 import type { Fact, NewFact } from "../../src/core/types.js";
 import { Invalidator } from "../../src/invalidate/invalidator.js";
 import type { LlmInvalidationAgent } from "../../src/invalidate/llm-agent.js";
@@ -16,11 +17,12 @@ let db: Database.Database;
 let facts: FactsRepo;
 let edges: EdgesRepo;
 let episodes: EpisodesRepo;
+const clock = fixedClock("2026-04-05T06:07:08.000Z");
 
 beforeEach(() => {
   db = new Database(":memory:");
   runMigrations(db);
-  facts = new FactsRepo(db);
+  facts = new FactsRepo(db, clock);
   edges = new EdgesRepo(db);
   episodes = new EpisodesRepo(db);
 });
@@ -154,6 +156,7 @@ describe("invalidator effects + injection suppression", () => {
     expect(res.actions.some((a) => a.relation === "same")).toBe(true);
     expect(merged.evidence_count).toBe(5);
     expect(duplicate.status).toBe("superseded");
+    expect(duplicate.time.t_expired).toBe("2026-04-05T06:07:08.000Z");
     expect(duplicate.time.invalidated_by).toBe(existing.fact_id);
     expect(active.find((f) => f.fact_id === existing.fact_id)).toBeDefined();
     expect(active.find((f) => f.fact_id === incoming.fact_id)).toBeUndefined();
@@ -181,13 +184,20 @@ describe("invalidator effects + injection suppression", () => {
   });
 
   it("refines: existing fact becomes superseded and stops being active", async () => {
-    const existing = facts.insert(base({ object: "npm test" }));
+    const existing = facts.insert(
+      base({ object: "npm test", git: { branch: "main", valid_from_commit: "c1" } }),
+    );
     const incoming = facts.insert(base({ object: "pnpm test" }));
-    const inv = new Invalidator({ facts, edges, episodes });
+    const inv = new Invalidator({ facts, edges, episodes, currentHead: "c2" });
     const res = await inv.processIncomingFact(incoming);
 
+    const superseded = facts.get(existing.fact_id)!;
     expect(res.actions.some((a) => a.relation === "refines")).toBe(true);
-    expect(facts.get(existing.fact_id)!.status).toBe("superseded");
+    expect(superseded.status).toBe("superseded");
+    expect(superseded.time.t_expired).toBe("2026-04-05T06:07:08.000Z");
+    expect(superseded.time.invalidated_by).toBe(incoming.fact_id);
+    expect(superseded.git?.valid_until_commit).toBe("c2");
+    expect(superseded.git?.invalidated_by_commit).toBe("c2");
     // superseded → no longer returned by activeAsOf (won't be injected)
     const active = facts.activeAsOf({ user_id: "u", workspace_id: "ws1" });
     expect(active.find((f) => f.fact_id === existing.fact_id)).toBeUndefined();
@@ -222,12 +232,22 @@ describe("invalidator effects + injection suppression", () => {
 
   it("resolve(): an open loop is superseded and stops being active", async () => {
     const loop = facts.insert(
-      base({ predicate: "open_loop", object: "finish the retry logic", fact_kind: "open_loop" }),
+      base({
+        predicate: "open_loop",
+        object: "finish the retry logic",
+        fact_kind: "open_loop",
+        git: { branch: "main", valid_from_commit: "c1" },
+      }),
     );
-    const inv = new Invalidator({ facts, edges, episodes });
+    const inv = new Invalidator({ facts, edges, episodes, currentHead: "c3" });
     const resolver = facts.insert(base({ predicate: "outcome", object: "retry logic done" }));
     inv.resolve(loop.fact_id, resolver.fact_id);
-    expect(facts.get(loop.fact_id)!.status).toBe("superseded");
+    const resolved = facts.get(loop.fact_id)!;
+    expect(resolved.status).toBe("superseded");
+    expect(resolved.time.t_expired).toBe("2026-04-05T06:07:08.000Z");
+    expect(resolved.time.invalidated_by).toBe(resolver.fact_id);
+    expect(resolved.git?.valid_until_commit).toBe("c3");
+    expect(resolved.git?.invalidated_by_commit).toBe("c3");
     expect(edges.from(loop.fact_id, "SUPERSEDED_BY").length).toBe(1);
   });
 });

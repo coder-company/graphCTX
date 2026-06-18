@@ -397,6 +397,23 @@ export class FactsRepo {
     });
   }
 
+  supersede(id: string, by?: string, atCommit?: string): void {
+    this.transaction(() => {
+      this.update(id, {
+        status: "superseded",
+        t_expired: this.clock.iso(),
+        ...(by ? { invalidated_by: by } : {}),
+      });
+      if (atCommit) {
+        this.db
+          .prepare(
+            "UPDATE git_anchors SET valid_until_commit = ?, invalidated_by_commit = ? WHERE fact_id = ?",
+          )
+          .run(atCommit, atCommit, id);
+      }
+    });
+  }
+
   // Expired facts that carry a valid_until_commit anchor — candidates for
   // revert-driven reactivation (git/dag.ts).
   expiredWithValidUntil(): Fact[] {
