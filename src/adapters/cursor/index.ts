@@ -4,6 +4,7 @@ import { AdapterError } from "../../core/errors.js";
 import type { Capsule, InjectionContext } from "../../core/types.js";
 import type { Adapter, Capability, ChannelTier, InstallOptions } from "../adapter.js";
 import { factsFromCapsule, writeAgentsCapsuleFacts } from "../boot-capsule.js";
+import { assertWritableConfigPath, isSymlink } from "../config-path.js";
 
 // Cursor adapter (SPEC §17). Cursor has no lifecycle push hooks, but supports:
 //   Tier 0 — project rules (.cursor/rules/*.mdc) loaded as grounding, and
@@ -27,6 +28,14 @@ export class CursorAdapter implements Adapter {
     // Validate existing user-owned JSON before writing any graphCTX files. A
     // malformed mcp.json should fail closed without leaving a partial install.
     const mcpPath = join(this.workspaceDir, ".cursor", "mcp.json");
+    const cursorDir = join(this.workspaceDir, ".cursor");
+    const rulesDir = join(cursorDir, "rules");
+    const rulePath = join(rulesDir, "graphctx.mdc");
+    assertWritableConfigPath(cursorDir, "Cursor config directory");
+    assertWritableConfigPath(rulesDir, "Cursor rules directory");
+    assertWritableConfigPath(mcpPath, "Cursor mcp.json file");
+    assertWritableConfigPath(rulePath, "Cursor graphctx.mdc rule file");
+
     let mcp: { mcpServers?: Record<string, unknown> } = {};
     if (existsSync(mcpPath)) {
       try {
@@ -40,7 +49,6 @@ export class CursorAdapter implements Adapter {
     }
 
     // Tier 0: a project rule that grounds + directs recall.
-    const rulesDir = join(this.workspaceDir, ".cursor", "rules");
     mkdirSync(rulesDir, { recursive: true });
     const rule = [
       "---",
@@ -53,7 +61,7 @@ export class CursorAdapter implements Adapter {
       "MCP tool. Treat injected `[mem:*]` context as authoritative project memory.",
       "",
     ].join("\n");
-    writeFileSync(join(rulesDir, "graphctx.mdc"), rule, "utf8");
+    writeFileSync(rulePath, rule, "utf8");
 
     // Tier 1: register the MCP server in Cursor's mcp.json.
     mcp.mcpServers = mcp.mcpServers ?? {};
@@ -65,6 +73,7 @@ export class CursorAdapter implements Adapter {
     const rulePath = join(this.workspaceDir, ".cursor", "rules", "graphctx.mdc");
     const mcpPath = join(this.workspaceDir, ".cursor", "mcp.json");
     if (existsSync(mcpPath)) {
+      assertWritableConfigPath(mcpPath, "Cursor mcp.json file");
       let mcp: { mcpServers?: Record<string, unknown> };
       try {
         mcp = JSON.parse(readFileSync(mcpPath, "utf8"));
@@ -90,6 +99,7 @@ export function hasCursorGraphctxInstall(workspaceDir: string): boolean {
   const rulePath = join(workspaceDir, ".cursor", "rules", "graphctx.mdc");
   const mcpPath = join(workspaceDir, ".cursor", "mcp.json");
   if (!existsSync(rulePath) || !existsSync(mcpPath)) return false;
+  if (isSymlink(rulePath) || isSymlink(mcpPath)) return false;
   try {
     const mcp = JSON.parse(readFileSync(mcpPath, "utf8")) as {
       mcpServers?: Record<string, unknown>;

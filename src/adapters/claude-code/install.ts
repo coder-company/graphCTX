@@ -1,7 +1,8 @@
-import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { AdapterError } from "../../core/errors.js";
 import type { InstallOptions } from "../adapter.js";
+import { assertWritableConfigPath, isSymlink } from "../config-path.js";
 
 // The lifecycle events we wire (SPEC §17). M0 acts on SessionStart + PostCompact;
 // the others are captured for episode logging / future phases.
@@ -29,7 +30,7 @@ export function installClaudeHooks(opts: InstallOptions): { settingsPath: string
     : join(opts.workspaceDir, ".claude");
   mkdirSync(dir, { recursive: true });
   const settingsPath = join(dir, "settings.json");
-  assertWritableConfigPath(settingsPath);
+  assertWritableConfigPath(settingsPath, "Claude settings.json file");
 
   let settings: ClaudeSettings = {};
   if (existsSync(settingsPath)) {
@@ -62,7 +63,7 @@ export function uninstallClaudeHooks(opts: InstallOptions): void {
     : join(opts.workspaceDir, ".claude");
   const settingsPath = join(dir, "settings.json");
   if (!existsSync(settingsPath)) return;
-  assertWritableConfigPath(settingsPath);
+  assertWritableConfigPath(settingsPath, "Claude settings.json file");
   let settings: ClaudeSettings;
   try {
     settings = JSON.parse(readFileSync(settingsPath, "utf8"));
@@ -148,20 +149,4 @@ function graphctxHookGroup(command: string): {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function assertWritableConfigPath(path: string): void {
-  if (!isSymlink(path)) return;
-  throw new AdapterError(
-    `refusing to modify symlinked Claude settings file: ${path}`,
-    "replace the symlink with a regular settings.json file",
-  );
-}
-
-function isSymlink(path: string): boolean {
-  try {
-    return lstatSync(path).isSymbolicLink();
-  } catch {
-    return false;
-  }
 }

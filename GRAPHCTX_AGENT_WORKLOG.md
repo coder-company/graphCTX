@@ -508,3 +508,18 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval mcp`
   - `npx tsc --noEmit`
   - `npx biome check src test`
+
+### Iteration 72 - symlink-safe Cursor config writes
+
+- Extracted a shared adapter config-path guard and reused it for Claude and
+  Cursor config mutation paths.
+- Hardened Cursor install/uninstall so symlinked `.cursor/mcp.json`, rules
+  directories, or graphctx rule files are refused before mutation.
+- Added adapters/MCP eval coverage for symlinked Cursor `mcp.json` install and
+  uninstall refusal, raising the gate to 80/80 checks.
+- Updated STATUS/DEMO adapter/MCP check counters.
+- Verification:
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsc --noEmit`
+  - `npx biome check --write src/adapters/cursor/index.ts`
+  - `npx biome check src test`

@@ -178,6 +178,52 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       rmSync(badCursorUninstallDir, { recursive: true, force: true });
     }
 
+    const symlinkCursorDir = mkdtempSync(join(tmpdir(), "gctx-cursor-symlink-"));
+    const outsideCursorDir = mkdtempSync(join(tmpdir(), "gctx-cursor-outside-"));
+    try {
+      cpSync(fixture, symlinkCursorDir, { recursive: true });
+      mkdirSync(join(symlinkCursorDir, ".cursor"), { recursive: true });
+      const outsideMcpPath = join(outsideCursorDir, "mcp.json");
+      const outsideMcp = `${JSON.stringify({ mcpServers: { other: { command: "outside" } } }, null, 2)}\n`;
+      writeFileSync(outsideMcpPath, outsideMcp, "utf8");
+      symlinkSync(outsideMcpPath, join(symlinkCursorDir, ".cursor", "mcp.json"), "file");
+
+      let installThrew = false;
+      try {
+        await makeAdapter("cursor", symlinkCursorDir).install({
+          workspaceDir: symlinkCursorDir,
+          binPath: "graphctx",
+        });
+      } catch {
+        installThrew = true;
+      }
+      check(
+        "cursor install refuses symlinked mcp.json without modifying the target",
+        installThrew &&
+          readFileSync(outsideMcpPath, "utf8") === outsideMcp &&
+          !existsSync(join(symlinkCursorDir, ".cursor", "rules", "graphctx.mdc")),
+      );
+
+      const ruleDir = join(symlinkCursorDir, ".cursor", "rules");
+      mkdirSync(ruleDir, { recursive: true });
+      writeFileSync(join(ruleDir, "graphctx.mdc"), "graphctx rule\n", "utf8");
+      let uninstallThrew = false;
+      try {
+        await makeAdapter("cursor", symlinkCursorDir).uninstall();
+      } catch {
+        uninstallThrew = true;
+      }
+      check(
+        "cursor uninstall refuses symlinked mcp.json without modifying the target",
+        uninstallThrew &&
+          readFileSync(outsideMcpPath, "utf8") === outsideMcp &&
+          existsSync(join(ruleDir, "graphctx.mdc")),
+      );
+    } finally {
+      rmSync(symlinkCursorDir, { recursive: true, force: true });
+      rmSync(outsideCursorDir, { recursive: true, force: true });
+    }
+
     const opencode = makeAdapter("opencode", opencodeDir);
     await opencode.install({ workspaceDir: opencodeDir, binPath: "graphctx" });
     check(
