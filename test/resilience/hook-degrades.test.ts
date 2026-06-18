@@ -191,4 +191,25 @@ describe("I9 resilience — agent still runs when graphCTX is broken", () => {
     expect(seenTranscript).not.toContain(secret);
     expect(seenTranscript).toContain("[REDACTED:");
   });
+
+  it("secret-bearing prompts are redacted before retrieval context", async () => {
+    const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+    const rt = new Runtime({ workspaceDir: dir, userId: "u" });
+    let seenPrompt: string | undefined;
+    const originalInjectionContext = rt.injectionContext.bind(rt);
+    rt.injectionContext = async (event, sessionId, extra) => {
+      seenPrompt = extra.user_prompt;
+      return originalInjectionContext(event, sessionId, extra);
+    };
+    await handleHook(rt, "UserPromptSubmit", {
+      session_id: "s-prompt",
+      cwd: dir,
+      prompt: `please remember ${secret}`,
+    });
+    rt.close();
+
+    expect(seenPrompt).toBeDefined();
+    expect(seenPrompt).not.toContain(secret);
+    expect(seenPrompt).toContain("[REDACTED:");
+  });
 });

@@ -163,6 +163,13 @@ export async function runResilienceFailsoftEval(): Promise<ResilienceFailsoftRep
     `secretLeaked=${transcriptRedaction.secretLeaked} redacted=${transcriptRedaction.redacted}`,
   );
 
+  const promptRedaction = await evaluateHookPromptRedaction();
+  check(
+    "secret-bearing prompts are redacted before retrieval context",
+    promptRedaction.ok,
+    `secretLeaked=${promptRedaction.secretLeaked} redacted=${promptRedaction.redacted}`,
+  );
+
   const provider = await evaluateProviderFailsoft();
   check(
     "provider resolution fail-soft: missing key and missing adapter return nullProvider",
@@ -400,6 +407,35 @@ async function evaluateHookTranscriptRedaction(): Promise<{
       });
       const secretLeaked = seenTranscript?.includes(secret) ?? false;
       const redacted = seenTranscript?.includes("[REDACTED:") ?? false;
+      return { ok: !secretLeaked && redacted, secretLeaked, redacted };
+    } finally {
+      rt.close();
+    }
+  });
+}
+
+async function evaluateHookPromptRedaction(): Promise<{
+  ok: boolean;
+  secretLeaked: boolean;
+  redacted: boolean;
+}> {
+  return withTempDirAsync(async (dir) => {
+    const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+    const rt = new Runtime({ workspaceDir: dir, userId: "resilience-eval" });
+    let seenPrompt: string | undefined;
+    const originalInjectionContext = rt.injectionContext.bind(rt);
+    rt.injectionContext = async (event, sessionId, extra) => {
+      seenPrompt = extra?.user_prompt;
+      return originalInjectionContext(event, sessionId, extra);
+    };
+    try {
+      await handleHook(rt, "UserPromptSubmit", {
+        session_id: "s-prompt",
+        cwd: dir,
+        prompt: `please remember ${secret}`,
+      });
+      const secretLeaked = seenPrompt?.includes(secret) ?? false;
+      const redacted = seenPrompt?.includes("[REDACTED:") ?? false;
       return { ok: !secretLeaked && redacted, secretLeaked, redacted };
     } finally {
       rt.close();

@@ -611,3 +611,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 79 - hook prompt redaction before retrieval
+
+- Redacted Claude hook prompts before they enter `InjectionContext`, matching
+  the existing episode-persistence redaction and the transcript-tail retrieval
+  guard.
+- Added hook resilience unit coverage and an `eval resilience` gate case proving
+  secret-bearing prompts are redacted before retrieval context.
+- Updated STATUS/README/DEMO counters.
+- Verification:
+  - `npx vitest run test/resilience/hook-degrades.test.ts`
+  - `npx tsx src/cli.ts eval resilience`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

@@ -99,9 +99,9 @@ export async function handleHook(
   // the agent. (The CLI wraps this too, as defense in depth.)
   try {
     const ctx = await rt.injectionContext(event, sessionId, {
-      user_prompt: payload.prompt,
+      user_prompt: payload.prompt ? sanitizeHookText(payload.prompt) : undefined,
       transcript_tail: payload.transcript_tail
-        ? sanitizeTranscriptTail(payload.transcript_tail)
+        ? sanitizeHookText(payload.transcript_tail)
         : await readTranscriptTail(payload.transcript_path),
       current_files: payload.current_files,
       mentioned_symbols: payload.mentioned_symbols,
@@ -175,12 +175,12 @@ async function readTranscriptTail(path?: string): Promise<string | undefined> {
   try {
     const { readFileSync } = await import("node:fs");
     const text = readFileSync(path, "utf8");
-    return sanitizeTranscriptTail(text.slice(-4000));
+    return sanitizeHookText(text.slice(-4000));
   } catch {
     return undefined;
   }
 }
 
-function sanitizeTranscriptTail(text: string): string {
+function sanitizeHookText(text: string): string {
   return truncate(redactSecrets(text), 4000) ?? "";
 }
