@@ -190,4 +190,43 @@ describe("FactsRepo secondary indexes", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("removes expired facts from the vector index and restores them on reactivation", () => {
+    const dir = mkdtempSync(join(tmpdir(), "graphctx-facts-repo-"));
+    const db = openDb(join(dir, "facts.db"));
+    try {
+      const facts = new FactsRepo(db);
+      const events: string[] = [];
+      facts.attachVectorIndex({
+        upsert(factId) {
+          events.push(`upsert:${factId}`);
+        },
+        remove(factId) {
+          events.push(`remove:${factId}`);
+        },
+      });
+      const fact = facts.insert({
+        subject: "repo",
+        predicate: "release_note",
+        object: "ship the stable channel",
+        fact_kind: "semantic",
+        temporal_kind: "static",
+        scope: { user_id: "u", workspace_id: "w" },
+        trust_tier: "high",
+        status: "active",
+        promotion_state: "workspace_active",
+        source: { asserted_by: "user", event_ids: [] },
+        tags: [],
+      });
+      events.length = 0;
+
+      facts.expire(fact.fact_id, fact.fact_id);
+      facts.reactivate(fact.fact_id);
+
+      expect(events).toEqual([`remove:${fact.fact_id}`, `upsert:${fact.fact_id}`]);
+    } finally {
+      db.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

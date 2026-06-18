@@ -822,3 +822,24 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 91 - vector index temporal lifecycle sync
+
+- Removed non-active facts from the optional vector index when fact lifecycle
+  status changes, preventing expired temporal facts from staying available as
+  semantic rerank candidates.
+- Restored active vector entries from already-redacted FTS text/tags on
+  reactivation, preserving historical facts while only indexing currently valid
+  memory for retrieval.
+- Added a store regression that verifies expire/reactivate emits remove/upsert
+  vector lifecycle events.
+- Updated STATUS/README counters to 239 Vitest tests.
+- Verification:
+  - `npx vitest run test/store/facts-repo.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/store/facts.repo.ts test/store/facts-repo.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

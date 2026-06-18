@@ -334,16 +334,32 @@ export class FactsRepo {
     if (patch.tags !== undefined) {
       this.syncFtsTags(id, patch.tags);
     }
+    if (patch.status !== undefined) {
+      this.syncVectorForStatus(id, patch.status);
+    }
   }
 
   private syncFtsTags(id: string, tags: string[]): void {
     const tagsText = redactSecrets(tags.join(" "));
     this.db.prepare("UPDATE facts_fts SET tags = ? WHERE fact_id = ?").run(tagsText, id);
+    this.syncVectorFromFts(id);
+  }
+
+  private syncVectorForStatus(id: string, status: Fact["status"]): void {
     if (!this.vectors) return;
-    const row = this.db.prepare("SELECT text FROM facts_fts WHERE fact_id = ?").get(id) as
-      | { text: string }
+    if (status === "active") {
+      this.syncVectorFromFts(id);
+    } else {
+      this.vectors.remove(id);
+    }
+  }
+
+  private syncVectorFromFts(id: string): void {
+    if (!this.vectors) return;
+    const row = this.db.prepare("SELECT text, tags FROM facts_fts WHERE fact_id = ?").get(id) as
+      | { text: string; tags: string }
       | undefined;
-    if (row) this.vectors.upsert(id, `${row.text} ${tagsText}`);
+    if (row) this.vectors.upsert(id, `${row.text} ${row.tags}`);
   }
 
   expire(id: string, by: string, atCommit?: string): void {
@@ -390,6 +406,7 @@ export class FactsRepo {
         "UPDATE git_anchors SET valid_until_commit = NULL, invalidated_by_commit = NULL WHERE fact_id = ?",
       )
       .run(id);
+    this.syncVectorForStatus(id, "active");
   }
 
   bySubjectPredicate(s: string, p: string, scope: ScopeFilter): Fact[] {
