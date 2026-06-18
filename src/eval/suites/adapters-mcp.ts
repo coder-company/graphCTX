@@ -679,6 +679,38 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
           recalledPayload.cards.length > 0 &&
           recalledPayload.markdown.includes("vitest"),
       );
+      const workspaceConflict = await callTool(server, requestId++, "remember", {
+        text: "deploy with ./scripts/old.sh",
+        subject: "repo",
+        predicate: "deploy_command",
+      });
+      const sessionConflict = await callTool(server, requestId++, "remember", {
+        text: "deploy with ./scripts/new.sh",
+        subject: "repo",
+        predicate: "deploy_command",
+        session_id: "mcp-conflict",
+      });
+      const conflictResolution = await callTool(server, requestId++, "resolve_conflict", {
+        session_id: "mcp-conflict",
+      });
+      const sessionConflictPayload = payloadObject(sessionConflict);
+      const conflictPayload = payloadObject(conflictResolution);
+      const conflictWinners = Array.isArray(conflictPayload?.winners)
+        ? conflictPayload.winners.map(String)
+        : [];
+      const conflictNotes = Array.isArray(conflictPayload?.conflicts)
+        ? conflictPayload.conflicts
+        : [];
+      const sessionConflictId =
+        typeof sessionConflictPayload?.fact_id === "string" ? sessionConflictPayload.fact_id : "";
+      check(
+        "MCP resolve_conflict includes workspace + current-session conflicts",
+        workspaceConflict.result?.isError === false &&
+          sessionConflict.result?.isError === false &&
+          conflictResolution.result?.isError === false &&
+          conflictWinners.includes(sessionConflictId) &&
+          conflictNotes.length > 0,
+      );
       const sessionSecret = "Authorization: Bearer plainlowentropytoken123";
       const rejectedSessionRecall = await callTool(server, requestId++, "recall", {
         query: "vitest",

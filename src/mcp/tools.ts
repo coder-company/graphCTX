@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { writeAgentsCapsule } from "../adapters/boot-capsule.js";
-import { type Event, FACT_KINDS } from "../core/types.js";
+import { type Event, FACT_KINDS, type Fact, type ScoredFact } from "../core/types.js";
 import { redactWhyReport } from "../provenance/why.js";
 import { resolveConflicts } from "../resolve/conflicts.js";
 import type { Runtime } from "../runtime.js";
@@ -212,15 +212,29 @@ export const MCP_TOOLS: McpTool[] = [
     async handler(rt, args) {
       const a = resolveInput.parse(args);
       assertSafeSessionReference(a.session_id);
-      const active = rt.facts.activeAsOf(rt.scope(a.session_id));
       const { resolved, conflicts } = resolveConflicts(
-        active.map((f) => ({ fact: f, score: 1 })),
+        conflictCandidates(rt, a.session_id),
         a.session_id,
       );
       return { winners: resolved.map((r) => r.fact.fact_id), conflicts };
     },
   },
 ];
+
+function conflictCandidates(rt: Runtime, sessionId?: string): ScoredFact[] {
+  const byId = new Map<string, Fact>();
+  const add = (facts: Fact[]) => {
+    for (const fact of facts) byId.set(fact.fact_id, fact);
+  };
+  add(rt.facts.userScopedActive(rt.userId));
+  add(
+    rt.facts
+      .activeAsOf({ user_id: rt.userId, workspace_id: rt.workspaceId })
+      .filter((fact) => !fact.scope.session_id),
+  );
+  if (sessionId) add(rt.facts.activeAsOf(rt.scope(sessionId)));
+  return [...byId.values()].map((fact) => ({ fact, score: 1 }));
+}
 
 function assertSafeSessionReference(sessionId: string | undefined): void {
   assertSafeExplicitMemoryWrite({ text: "session reference", session_id: sessionId });

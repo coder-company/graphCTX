@@ -1563,3 +1563,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 135 - MCP conflict scope coverage
+
+- Changed MCP `resolve_conflict` to resolve across user-scoped, workspace-only,
+  and current-session facts instead of only exact current-session facts.
+- Avoided pulling other sessions into the tool by filtering workspace facts to
+  rows without `scope.session_id`, then adding only the requested session.
+- Extended the adapters/MCP eval with a workspace/current-session deploy command
+  conflict and required the current-session winner plus a surfaced conflict.
+- Verification:
+  - `npx vitest run test/eval/adapters-mcp.test.ts`
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsc --noEmit`
+  - `npx biome check src/mcp/tools.ts src/eval/suites/adapters-mcp.ts`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
