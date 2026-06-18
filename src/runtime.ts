@@ -155,6 +155,7 @@ export class Runtime {
       budgetConfig: this.budgetConfig(),
       ledger: this.ledger,
       vectors: this.vectors,
+      clock: this.clock,
     });
   }
 

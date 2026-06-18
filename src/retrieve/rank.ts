@@ -31,7 +31,7 @@ function confidenceFactor(f: Fact): number {
 // already carries the fused bm25 + entity + semantic signals scaled by scope
 // weight (retriever). Here we apply confidence + recency as gentle multipliers
 // (steal S5) so fusion reranks on more than similarity, then dedupe by fact_id.
-export function fuse(scored: ScoredFact[], nowMs: number = Date.now()): ScoredFact[] {
+export function fuse(scored: ScoredFact[], nowMs: number): ScoredFact[] {
   const byId = new Map<string, ScoredFact>();
   for (const s of scored) {
     const weighted: ScoredFact = {

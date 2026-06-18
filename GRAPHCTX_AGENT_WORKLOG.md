@@ -1210,3 +1210,19 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval conflict`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 114 - retrieval recency runtime clock
+
+- Made `fuse` require an explicit timestamp and routed the runtime clock through
+  `InjectionPlanner` into `Retriever` for recency-aware ranking.
+- Added a retriever regression proving broad active retrieval uses an injected
+  clock when recency breaks otherwise-equal candidates.
+- Updated live test counters from 252 to 253.
+- Verification:
+  - `npx vitest run test/retrieve/retriever.test.ts test/retrieve/rank.test.ts test/inject/planner.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/retrieve/rank.ts src/retrieve/retriever.ts src/inject/planner.ts src/runtime.ts test/retrieve/retriever.test.ts docs/STATUS.md README.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

@@ -1,3 +1,4 @@
+import { type Clock, systemClock } from "../core/clock.js";
 import type { Fact, InjectionContext, ScoredFact } from "../core/types.js";
 import { isValidAsOf } from "../git/anchors.js";
 import type { Git } from "../git/git.js";
@@ -66,11 +67,18 @@ export class Retriever {
   private readonly repo: FactsRepo;
   private readonly git: Git | null;
   private readonly vectors: VectorIndex | null;
+  private readonly clock: Clock;
 
-  constructor(repo: FactsRepo, git: Git | null, vectors: VectorIndex | null = null) {
+  constructor(
+    repo: FactsRepo,
+    git: Git | null,
+    vectors: VectorIndex | null = null,
+    clock: Clock = systemClock,
+  ) {
     this.repo = repo;
     this.git = git;
     this.vectors = vectors;
+    this.clock = clock;
   }
 
   async retrieve(ctx: InjectionContext, opts: RetrieveOptions = {}): Promise<ScoredFact[]> {
@@ -232,7 +240,7 @@ export class Retriever {
         },
       });
     }
-    return this.diversify(fuse(valid), query);
+    return this.diversify(fuse(valid, this.clock.now().getTime()), query);
   }
 
   private diversify(scored: ScoredFact[], query: string): ScoredFact[] {

@@ -1,3 +1,4 @@
+import { type Clock, systemClock } from "../core/clock.js";
 import type { Capsule, ConflictNote, InjectionContext, ScoredFact } from "../core/types.js";
 import type { Fact } from "../core/types.js";
 import type { Git } from "../git/git.js";
@@ -43,6 +44,7 @@ export interface PlannerDeps {
   budgetConfig: BudgetConfig;
   ledger?: Ledger;
   vectors?: VectorIndex | null;
+  clock?: Clock;
 }
 
 // How many recent episodes form the rolling task centroid for drift detection.
@@ -57,7 +59,12 @@ export class InjectionPlanner {
 
   constructor(deps: PlannerDeps) {
     this.deps = deps;
-    this.retriever = new Retriever(deps.facts, deps.git, deps.vectors ?? null);
+    this.retriever = new Retriever(
+      deps.facts,
+      deps.git,
+      deps.vectors ?? null,
+      deps.clock ?? systemClock,
+    );
     this.ledger = deps.ledger ?? new Ledger();
   }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { fixedClock } from "../../src/core/clock.js";
 import type { InjectionContext, NewFact } from "../../src/core/types.js";
 import type { Git } from "../../src/git/git.js";
 import { Retriever } from "../../src/retrieve/retriever.js";
@@ -161,6 +162,50 @@ describe("Retriever", () => {
       const ids = ranked.map((sf) => sf.fact.fact_id);
       expect(ids).toContain(safe.fact_id);
       expect(ids).not.toContain(secret.fact_id);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("uses the injected clock for recency reranking", async () => {
+    const db = openDb(":memory:");
+    try {
+      const facts = new FactsRepo(db);
+      const old = facts.insert(
+        fact({
+          object: "older project note",
+          scope: { user_id: "u", workspace_id: "w" },
+          promotion_state: "workspace_active",
+          source: { asserted_by: "user", event_ids: [] },
+          time: {
+            t_observed: "2025-01-01T00:00:00.000Z",
+            t_created: "2025-01-01T00:00:00.000Z",
+            t_recorded: "2025-01-01T00:00:00.000Z",
+          },
+        }),
+      );
+      const fresh = facts.insert(
+        fact({
+          object: "fresher project note",
+          scope: { user_id: "u", workspace_id: "w" },
+          promotion_state: "workspace_active",
+          source: { asserted_by: "user", event_ids: [] },
+          time: {
+            t_observed: "2026-01-31T00:00:00.000Z",
+            t_created: "2026-01-31T00:00:00.000Z",
+            t_recorded: "2026-01-31T00:00:00.000Z",
+          },
+        }),
+      );
+
+      const ranked = await new Retriever(
+        facts,
+        null,
+        null,
+        fixedClock("2026-02-01T00:00:00.000Z"),
+      ).retrieve({ ...ctx(), user_prompt: "" }, { includeAllActive: true, k: 10 });
+
+      expect(ranked.map((sf) => sf.fact.fact_id).slice(0, 2)).toEqual([fresh.fact_id, old.fact_id]);
     } finally {
       db.close();
     }
