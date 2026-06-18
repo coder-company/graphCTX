@@ -242,6 +242,47 @@ describe("injection planner (core loop)", () => {
     expect(capsule.markdown).toContain("use concise status updates");
   });
 
+  it("SessionStart suppresses superseded user preferences", async () => {
+    const db = openDb(":memory:");
+    const facts = new FactsRepo(db);
+    const stale = facts.insert(
+      activeFact({
+        subject: "user",
+        predicate: "prefers_status_updates",
+        object: "verbose implementation status updates",
+        fact_kind: "preference",
+        scope: { user_id: "u" },
+        source: { asserted_by: "user", event_ids: [] },
+        promotion_state: "user_static_active",
+      }),
+    );
+    const current = facts.insert(
+      activeFact({
+        subject: "user",
+        predicate: "prefers_status_updates",
+        object: "concise implementation status updates with command results",
+        fact_kind: "preference",
+        scope: { user_id: "u" },
+        source: { asserted_by: "user", event_ids: [] },
+        promotion_state: "user_static_active",
+      }),
+    );
+    facts.supersede(stale.fact_id, current.fact_id);
+
+    const planner = new InjectionPlanner({
+      facts,
+      git: null,
+      workspaceDir: process.cwd(),
+      gateConfig,
+      budgetConfig,
+    });
+    const capsule = await planner.plan(ctx("SessionStart"));
+
+    expect(facts.get(stale.fact_id)?.status).toBe("superseded");
+    expect(capsule.markdown).toContain("concise implementation status updates");
+    expect(capsule.markdown).not.toContain("verbose implementation status updates");
+  });
+
   it("resolves precedence before budget redundancy", async () => {
     const db = openDb(":memory:");
     const facts = new FactsRepo(db);

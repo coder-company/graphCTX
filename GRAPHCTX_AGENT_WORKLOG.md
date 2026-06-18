@@ -1803,6 +1803,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 153 - superseded user preference injection guard
+
+- Added a SessionStart regression proving superseded user preferences remain
+  historical and are not pushed into the agent capsule.
+- The capsule now has direct product-level coverage for the same preference
+  update behavior measured by the temporal benchmark.
+- Updated live docs counters to 278 tests.
+- Verification:
+  - `npx vitest run test/inject/planner.test.ts`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsc --noEmit`
+  - `npx biome check test/inject/planner.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 152 - user preference temporal benchmark probe
 
 - Extended the temporal coding-memory benchmark with a user-scoped preference
