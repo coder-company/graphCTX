@@ -1803,6 +1803,23 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 163 - searchable TUI memory lists
+
+- Added `/` search and `u` clear controls to the TUI so dashboard/control lists
+  remain usable with larger workspaces.
+- Search runs against the redacted TUI read model, not raw fact payloads, so
+  secret-shaped memory can be found by its redaction marker without exposing the
+  raw secret in rendered text.
+- Added regression coverage for redacted search and updated live docs counters
+  to 284 tests.
+- Verification:
+  - `npx vitest run test/tui/data.test.ts test/tui/ansi.test.ts test/tui/keys.test.ts`
+  - `npx vitest list | wc -l`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsc --noEmit`
+  - `npx biome check src/tui/app.ts test/tui/data.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 161 - harder coding-memory benchmark probes
 
 - Expanded the deep local coding-memory benchmark from 10 to 15 probes, adding

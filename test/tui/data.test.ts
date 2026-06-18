@@ -8,6 +8,7 @@ import {
   TuiApp,
   clampTuiWidth,
   clampWindowStart,
+  filterFactViews,
   renderFactList,
   renderPromptFooter,
   wrapFooterParts,
@@ -113,6 +114,46 @@ describe("tui/data — memory stats from a live runtime", () => {
     expect(cardList).toContain("use pnpm");
     expect(cardList).not.toContain(secret);
     expect(cardList).not.toContain("[REDACTED:openai]");
+  });
+
+  it("searches the redacted fact view without exposing raw secrets", () => {
+    const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+    rt.facts.insert({
+      subject: `repo-${secret}`,
+      predicate: "deploy_token",
+      object: secret,
+      fact_kind: "decision",
+      temporal_kind: "static",
+      scope: { user_id: rt.userId, workspace_id: rt.workspaceId },
+      trust_tier: "high",
+      status: "active",
+      promotion_state: "workspace_active",
+      source: { asserted_by: "user", event_ids: [], raw_quote: `token is ${secret}` },
+      tags: [],
+    });
+    rt.facts.insert({
+      subject: "repo",
+      predicate: "test_command",
+      object: "pnpm vitest run",
+      fact_kind: "procedural",
+      temporal_kind: "static",
+      scope: { user_id: rt.userId, workspace_id: rt.workspaceId },
+      trust_tier: "high",
+      status: "active",
+      promotion_state: "workspace_active",
+      source: { asserted_by: "deterministic_parser", event_ids: [] },
+      tags: [],
+    });
+
+    const views = factViews(rt);
+    const commandMatches = filterFactViews(views, "vitest");
+    const redactedMatches = filterFactViews(views, "[REDACTED:openai]");
+    const renderedText = JSON.stringify([...commandMatches, ...redactedMatches].map((v) => v.text));
+
+    expect(commandMatches).toHaveLength(1);
+    expect(commandMatches[0]?.text).toContain("vitest");
+    expect(redactedMatches).toHaveLength(1);
+    expect(renderedText).not.toContain(secret);
   });
 
   it("empty workspace yields zeroed stats", () => {

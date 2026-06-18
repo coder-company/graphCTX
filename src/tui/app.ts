@@ -21,6 +21,7 @@ interface AppState {
   cursor: number; // selected row in the current list
   scroll: number;
   filter: "all" | "active" | "candidate" | "open_loop" | "secret";
+  search: string;
   status: string; // transient status line
   monitorLog: string[];
   prompt: { active: boolean; label: string; value: string; onSubmit: (v: string) => void } | null;
@@ -40,6 +41,7 @@ export class TuiApp {
       cursor: 0,
       scroll: 0,
       filter: "all",
+      search: "",
       status: "",
       monitorLog: [],
       prompt: null,
@@ -116,6 +118,8 @@ export class TuiApp {
     else if (k.name === "home") this.jump("start");
     else if (k.name === "end") this.jump("end");
     else if (k.name === "f") this.cycleFilter();
+    else if (k.raw === "/") this.startSearch();
+    else if (k.name === "u") this.clearSearch();
     else if (k.name === "r") this.refresh("refreshed");
     else if (this.state.tab === "control") this.onControlKey(k);
     else if (this.state.tab === "monitor") this.onMonitorKey(k);
@@ -247,6 +251,29 @@ export class TuiApp {
     const i = order.indexOf(this.state.filter);
     this.state.filter = order[(i + 1) % order.length] as AppState["filter"];
     this.state.cursor = 0;
+    this.state.scroll = 0;
+  }
+
+  private startSearch(): void {
+    this.ask("Search memory", (v) => {
+      this.state.search = redactSecrets(v).trim();
+      this.state.cursor = 0;
+      this.state.scroll = 0;
+      this.refresh(
+        this.state.search ? `search ${truncate(this.state.search, 32)}` : "search cleared",
+      );
+    });
+  }
+
+  private clearSearch(): void {
+    if (!this.state.search) {
+      this.refresh("no search");
+      return;
+    }
+    this.state.search = "";
+    this.state.cursor = 0;
+    this.state.scroll = 0;
+    this.refresh("search cleared");
   }
 
   private move(d: number): void {
@@ -282,7 +309,7 @@ export class TuiApp {
 
   private currentViews(): FactView[] {
     const f = this.state.filter;
-    return factViews(this.rt, (fact) => {
+    const views = factViews(this.rt, (fact) => {
       if (f === "all") return true;
       if (f === "active") return fact.status === "active";
       if (f === "candidate") return fact.status === "candidate";
@@ -290,6 +317,7 @@ export class TuiApp {
       if (f === "secret") return fact.sensitivity === "secret" || fact.sensitivity === "credential";
       return true;
     });
+    return filterFactViews(views, this.state.search);
   }
 
   private draw(): void {
@@ -322,6 +350,8 @@ export class TuiApp {
       `${keycap("pg")} page`,
       `${keycap("home/end")} jump`,
       `${keycap("f")} filter`,
+      `${keycap("/")} search`,
+      `${keycap("u")} clear`,
       `${keycap("r")} refresh`,
       `${keycap("q")} quit`,
     ];
@@ -355,7 +385,7 @@ export class TuiApp {
     const allViews = this.currentViews();
     const views = allViews.slice(0, 12);
     const cols = recentColumns(width);
-    out.push(style.bold(`Recent memory (filter: ${this.state.filter})`));
+    out.push(style.bold(`Recent memory (${viewModeLabel(this.state.filter, this.state.search)})`));
     if (views.length > 0) {
       out.push(
         ...table(
@@ -364,7 +394,13 @@ export class TuiApp {
         ),
       );
     } else {
-      out.push(this.emptyStatePanel("No memory yet", dashboardEmptyLines(width), width));
+      out.push(
+        this.emptyStatePanel(
+          this.state.search ? "No search matches" : "No memory yet",
+          dashboardEmptyLines(width),
+          width,
+        ),
+      );
     }
     return out;
   }
@@ -377,7 +413,7 @@ export class TuiApp {
           ? badge("ready", "ok")
           : badge("empty", "info");
     const lines = [
-      `${health}  ${style.bold("local SQLite")}  ${style.gray(`filter ${this.state.filter}`)}  ${style.gray(`facts ${s.total}`)}`,
+      `${health}  ${style.bold("local SQLite")}  ${style.gray(`filter ${this.state.filter}`)}  ${searchLabel(this.state.search)}  ${style.gray(`facts ${s.total}`)}`,
       `${style.gray("push")} SessionStart/PostCompact  ${style.gray("guard")} PreToolUse  ${style.gray("scope")} branch-aware workspace memory`,
     ];
     return [panel(lines, { title: "Operator console", width, color: style.cyan })];
@@ -448,7 +484,7 @@ export class TuiApp {
     out.push("");
     out.push(
       style.bold(
-        `Control panel - ${views.length} facts (filter: ${this.state.filter}, rows ${start}-${end})`,
+        `Control panel - ${views.length} facts (${viewModeLabel(this.state.filter, this.state.search)}, rows ${start}-${end})`,
       ),
     );
     out.push(style.gray("Select a row, then act. Enter resolves an open loop."));
@@ -462,8 +498,8 @@ export class TuiApp {
     if (views.length === 0) {
       out.push(
         this.emptyStatePanel(
-          "Nothing to manage",
-          controlEmptyLines(this.state.filter, width),
+          this.state.search ? "No search matches" : "Nothing to manage",
+          controlEmptyLines(this.state.filter, this.state.search, width),
           width,
         ),
       );
@@ -627,8 +663,26 @@ export function renderPromptFooter(label: string, value: string, width: number):
   return [line, hint];
 }
 
+export function filterFactViews(views: FactView[], query: string): FactView[] {
+  const q = redactSecrets(query).trim().toLowerCase();
+  if (!q) return views;
+  return views.filter((view) => {
+    return [view.id8, view.kind, view.scope, view.status, view.trust, view.text].some((part) =>
+      part.toLowerCase().includes(q),
+    );
+  });
+}
+
 function keycap(label: string): string {
   return style.inverse(` ${label} `);
+}
+
+function searchLabel(search: string): string {
+  return search ? style.cyan(`search ${truncate(search, 24)}`) : style.gray("search off");
+}
+
+function viewModeLabel(filter: AppState["filter"], search: string): string {
+  return search ? `filter: ${filter}, search: ${truncate(search, 24)}` : `filter: ${filter}`;
 }
 
 function promptInput(value: string, width: number): string {
@@ -659,7 +713,13 @@ function dashboardEmptyLines(width: number): string[] {
   ];
 }
 
-function controlEmptyLines(filter: AppState["filter"], width: number): string[] {
+function controlEmptyLines(filter: AppState["filter"], search: string, width: number): string[] {
+  if (search) {
+    return [
+      `No rows match "${truncate(search, Math.max(8, width - 20))}".`,
+      truncate("Press `u` to clear search or `f` to change filter.", width - 4),
+    ];
+  }
   return [
     `No rows match the ${filter} filter.`,
     truncate(
