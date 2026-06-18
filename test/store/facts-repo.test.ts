@@ -150,6 +150,37 @@ describe("FactsRepo secondary indexes", () => {
     }
   });
 
+  it("handles punctuation-heavy path queries without FTS errors", () => {
+    const dir = mkdtempSync(join(tmpdir(), "graphctx-facts-repo-"));
+    const db = openDb(join(dir, "facts.db"));
+    try {
+      const facts = new FactsRepo(db);
+      const fact = facts.insert({
+        subject: "src/generated/api.ts",
+        predicate: "do_not_edit",
+        object: true,
+        fact_kind: "constraint",
+        temporal_kind: "static",
+        scope: { user_id: "u", workspace_id: "w" },
+        trust_tier: "high",
+        status: "active",
+        promotion_state: "workspace_active",
+        source: { asserted_by: "deterministic_parser", event_ids: [] },
+        tags: ["generated"],
+      });
+
+      const hits = facts.search({
+        text: 'can I edit src/generated/api.ts -- why? "unterminated [mem:BAD]',
+        scope: { user_id: "u", workspace_id: "w" },
+      });
+
+      expect(hits.map((hit) => hit.fact.fact_id)).toContain(fact.fact_id);
+    } finally {
+      db.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("restamps sensitivity and redacts indexes when tag updates add secrets", () => {
     const dir = mkdtempSync(join(tmpdir(), "graphctx-facts-repo-"));
     const db = openDb(join(dir, "facts.db"));

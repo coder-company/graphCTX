@@ -523,16 +523,21 @@ export class FactsRepo {
     const match = toFtsMatch(opts.text);
     if (!match) return [];
     const { clause, params } = scopeClause(opts.scope, "f.");
-    const rows = this.db
-      .prepare(
-        `SELECT f.*, bm25(facts_fts) AS bm
-         FROM facts_fts
-         JOIN facts f ON f.fact_id = facts_fts.fact_id
-         WHERE facts_fts MATCH ? AND f.status = 'active' ${clause}
-         ORDER BY bm ASC
-         LIMIT ?`,
-      )
-      .all(match, ...params, limit) as Array<FactRow & { bm: number }>;
+    let rows: Array<FactRow & { bm: number }>;
+    try {
+      rows = this.db
+        .prepare(
+          `SELECT f.*, bm25(facts_fts) AS bm
+           FROM facts_fts
+           JOIN facts f ON f.fact_id = facts_fts.fact_id
+           WHERE facts_fts MATCH ? AND f.status = 'active' ${clause}
+           ORDER BY bm ASC
+           LIMIT ?`,
+        )
+        .all(match, ...params, limit) as Array<FactRow & { bm: number }>;
+    } catch {
+      return [];
+    }
     const out: ScoredFact[] = [];
     for (const row of rows) {
       const fact = this.hydrate(row);

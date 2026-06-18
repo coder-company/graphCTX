@@ -1803,6 +1803,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 158 - FTS path-query fail-soft hardening
+
+- Wrapped FTS/BM25 search execution in a fail-closed guard so malformed SQLite
+  FTS expressions cannot crash recall surfaces.
+- Added a store-level regression for punctuation-heavy path queries such as
+  `src/generated/api.ts` with unmatched quotes and `[mem:*]`-shaped text.
+- Updated live docs counters to 281 tests.
+- Verification:
+  - `npx vitest run test/store/facts-repo.test.ts test/retrieve/fts.test.ts`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsc --noEmit`
+  - `npx biome check src/store/facts.repo.ts test/store/facts-repo.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 157 - MCP invalid-request hardening
 
 - Hardened `McpServer.handle` to accept unknown parsed JSON and validate the
