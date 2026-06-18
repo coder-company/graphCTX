@@ -1267,3 +1267,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/eval/suites/security-adversarial.ts GRAPHCTX_AGENT_WORKLOG.md`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 118 - explicit cloud credential scanners
+
+- Added dedicated secret patterns for Google API keys (`AIza...`) and Azure SAS
+  signed URL signatures (`sig=...`) so these families do not rely only on the
+  entropy fallback.
+- Strengthened scanner tests for detection and redaction labels.
+- Verification:
+  - `npx vitest run test/security/secrets.test.ts test/eval/security-adversarial.test.ts test/security/promotion-injection.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/security/secrets.ts test/security/secrets.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

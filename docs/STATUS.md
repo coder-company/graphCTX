@@ -86,6 +86,9 @@ _Runtime-clock note: direct CLI, eval, and benchmark retrievers pass
 _Safety note: AWS temporary STS access key IDs (`ASIA...`) are classified and
 redacted with the same send-edge protections as long-lived `AKIA...` keys._
 
+_Safety note: Google API keys (`AIza...`) and Azure SAS signatures (`sig=...`)
+now have explicit scanners instead of relying only on entropy fallback._
+
 ---
 
 ## Perfection Mission — Aspect Ledger

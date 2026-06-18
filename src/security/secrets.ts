@@ -5,6 +5,7 @@ const SECRET_PATTERNS: Array<{ name: string; re: RegExp }> = [
   { name: "openai", re: /sk-[A-Za-z0-9]{20,}/ },
   { name: "anthropic", re: /sk-ant-[A-Za-z0-9_-]{20,}/ },
   { name: "aws_access_key", re: /(?:AKIA|ASIA)[0-9A-Z]{16}/ },
+  { name: "google_api_key", re: /AIza[0-9A-Za-z_-]{20,}/ },
   { name: "github_token", re: /gh[pousr]_[A-Za-z0-9]{20,}/ },
   { name: "github_fine_grained_pat", re: /github_pat_[A-Za-z0-9_]{20,}/ },
   { name: "gitlab_pat", re: /glpat-[A-Za-z0-9_-]{16,}/ },
@@ -22,6 +23,10 @@ const SECRET_PATTERNS: Array<{ name: string; re: RegExp }> = [
   {
     name: "discord_webhook",
     re: /https:\/\/discord(?:app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9._-]{20,}/,
+  },
+  {
+    name: "azure_sas",
+    re: /[?&]sig=[A-Za-z0-9%._~+/=-]{16,}/i,
   },
   {
     name: "authorization_header",
@@ -85,6 +90,7 @@ export function redactSecrets(text: string): string {
     redacted = redacted.replace(globalize(re), `[REDACTED:${name}]`);
   }
   for (const raw of redacted.split(/\s+/)) {
+    if (raw.includes("[REDACTED:")) continue;
     const tok = raw.replace(/^[`'"]+|[`'",;]+$/g, "");
     if (isBenignOpaqueToken(tok)) continue;
     if (
