@@ -1150,3 +1150,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval promote`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 110 - injection ledger runtime clock
+
+- Routed the runtime's injected clock into the DB-backed injection ledger so
+  anti-repetition TTL checks and persisted `injected_at` timestamps share the
+  same deterministic clock seam as the rest of the runtime.
+- Added regressions for clock-controlled TTL expiry across fresh ledger
+  instances and deterministic ledger timestamp persistence.
+- Updated live test counters from 249 to 251.
+- Verification:
+  - `npx vitest run test/inject/ledger.test.ts test/inject/planner.test.ts test/eval/telemetry-learning.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/inject/ledger.ts src/runtime.ts test/inject/ledger.test.ts docs/STATUS.md README.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval telemetry`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

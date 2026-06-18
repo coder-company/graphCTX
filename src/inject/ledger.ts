@@ -1,3 +1,4 @@
+import { type Clock, systemClock } from "../core/clock.js";
 import type { ScoredFact } from "../core/types.js";
 import type { DB } from "../store/db.js";
 
@@ -12,16 +13,18 @@ export class Ledger {
   private readonly mem = new Map<string, Map<string, number>>();
   private readonly db: DB | null;
   private readonly ttlMs: number;
+  private readonly clock: Clock;
 
-  constructor(db: DB | null = null, ttlMs: number = DEFAULT_TTL_MS) {
+  constructor(db: DB | null = null, ttlMs: number = DEFAULT_TTL_MS, clock: Clock = systemClock) {
     this.db = db;
     this.ttlMs = ttlMs;
+    this.clock = clock;
   }
 
   recentlyInjected(sessionId: string, factId: string): boolean {
     const at = this.lookup(sessionId, factId);
     if (at === undefined) return false;
-    return Date.now() - at < this.ttlMs;
+    return this.clock.now().getTime() - at < this.ttlMs;
   }
 
   removeRecentlyInjected(facts: ScoredFact[], sessionId?: string): ScoredFact[] {
@@ -35,12 +38,14 @@ export class Ledger {
 
   record(sessionId: string | undefined, facts: ScoredFact[], eventType?: string): void {
     if (!sessionId) return;
-    const now = Date.now();
+    const nowDate = this.clock.now();
+    const now = nowDate.getTime();
+    const nowIso = nowDate.toISOString();
     const set = this.mem.get(sessionId) ?? new Map<string, number>();
     for (const f of facts) {
       if (f.fact.fact_kind === "open_loop") continue; // never suppress open loops
       set.set(f.fact.fact_id, now);
-      this.persist(sessionId, f.fact.fact_id, eventType, now);
+      this.persist(sessionId, f.fact.fact_id, eventType, nowIso);
     }
     this.mem.set(sessionId, set);
   }
@@ -61,7 +66,12 @@ export class Ledger {
     }
   }
 
-  private persist(sessionId: string, factId: string, eventType: string | undefined, now: number) {
+  private persist(
+    sessionId: string,
+    factId: string,
+    eventType: string | undefined,
+    injectedAt: string,
+  ) {
     if (!this.db) return;
     try {
       this.db
@@ -71,7 +81,7 @@ export class Ledger {
            ON CONFLICT(session_id, fact_id) DO UPDATE SET
              injected_at = excluded.injected_at, event_type = excluded.event_type`,
         )
-        .run(sessionId, factId, eventType ?? null, new Date(now).toISOString());
+        .run(sessionId, factId, eventType ?? null, injectedAt);
     } catch {
       // best-effort: in-memory still enforces within-process idempotency (I9)
     }

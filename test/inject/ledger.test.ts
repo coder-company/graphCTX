@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { type Clock, fixedClock } from "../../src/core/clock.js";
 import type { ScoredFact } from "../../src/core/types.js";
 import { Ledger } from "../../src/inject/ledger.js";
 import { runMigrations } from "../../src/store/migrate.js";
@@ -78,5 +79,40 @@ describe("anti-repetition ledger (M2 — DB-backed, cross-channel)", () => {
     expect(l.removeRecentlyInjected([sf("a"), sf("b")], "s1").map((f) => f.fact.fact_id)).toEqual([
       "b",
     ]);
+  });
+
+  it("uses the injected clock for TTL checks and persisted timestamps", () => {
+    let nowMs = Date.parse("2026-01-01T00:00:00.000Z");
+    const clock: Clock = {
+      now: () => new Date(nowMs),
+      iso: () => new Date(nowMs).toISOString(),
+    };
+    const writer = new Ledger(db, 1_000, clock);
+
+    writer.record("s1", [sf("a")], "PostCompact");
+    const row = db
+      .prepare("SELECT injected_at FROM inject_ledger WHERE session_id = ? AND fact_id = ?")
+      .get("s1", "a") as { injected_at: string };
+    expect(row.injected_at).toBe("2026-01-01T00:00:00.000Z");
+
+    nowMs += 999;
+    const freshReader = new Ledger(db, 1_000, clock);
+    expect(
+      freshReader.removeRecentlyInjected([sf("a"), sf("b")], "s1").map((f) => f.fact.fact_id),
+    ).toEqual(["b"]);
+
+    nowMs += 2;
+    expect(
+      freshReader.removeRecentlyInjected([sf("a"), sf("b")], "s1").map((f) => f.fact.fact_id),
+    ).toEqual(["a", "b"]);
+  });
+
+  it("can persist deterministic timestamps with a fixed clock", () => {
+    const l = new Ledger(db, 60_000, fixedClock("2026-02-03T04:05:06.000Z"));
+    l.record("s1", [sf("a")], "PostCompact");
+    const row = db
+      .prepare("SELECT injected_at FROM inject_ledger WHERE session_id = ? AND fact_id = ?")
+      .get("s1", "a") as { injected_at: string };
+    expect(row.injected_at).toBe("2026-02-03T04:05:06.000Z");
   });
 });

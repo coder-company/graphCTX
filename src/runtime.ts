@@ -87,7 +87,7 @@ export class Runtime {
     this.promotions = new PromotionsRepo(this.db, this.clock);
     this.episodeLog = new EpisodeLog(this.episodes, this.loaded.paths.episodes, this.clock);
     this.git = new Git(this.workspaceDir);
-    this.ledger = new Ledger(this.db);
+    this.ledger = new Ledger(this.db, undefined, this.clock);
     this.procedures = new ProceduresRepo(this.db, this.clock);
   }
 
