@@ -645,3 +645,22 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 81 - supported-by temporal evidence edges
+
+- Added a `SUPPORTED_BY` temporal graph edge kind for identical fact evidence
+  merges.
+- Changed the invalidator's `same` relation to merge evidence counts into the
+  existing fact, record `SUPPORTED_BY` / `SUPERSEDED_BY` edges, and retire the
+  duplicate fact so redundant active truth does not reach retrieval.
+- Added invalidator regression coverage for evidence-count merging, duplicate
+  suppression, and edge provenance.
+- Updated STATUS/README counters.
+- Verification:
+  - `npx vitest run test/invalidate/invalidator.test.ts`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

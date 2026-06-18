@@ -8,6 +8,7 @@ export type EdgeKind =
   | "INVALIDATES"
   | "CONFLICTS_WITH"
   | "OVERRIDES"
+  | "SUPPORTED_BY"
   | "SUPERSEDED_BY";
 
 export interface Edge {

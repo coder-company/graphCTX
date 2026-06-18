@@ -141,6 +141,26 @@ describe("relation classifier (deterministic-first)", () => {
 });
 
 describe("invalidator effects + injection suppression", () => {
+  it("same: existing fact keeps merged evidence and duplicate stops being active", async () => {
+    const existing = facts.insert(base({ object: "npm test", evidence_count: 2 }));
+    const incoming = facts.insert(base({ object: "npm test", evidence_count: 3 }));
+    const inv = new Invalidator({ facts, edges, episodes });
+    const res = await inv.processIncomingFact(incoming);
+
+    const merged = facts.get(existing.fact_id)!;
+    const duplicate = facts.get(incoming.fact_id)!;
+    const active = facts.activeAsOf({ user_id: "u", workspace_id: "ws1" });
+
+    expect(res.actions.some((a) => a.relation === "same")).toBe(true);
+    expect(merged.evidence_count).toBe(5);
+    expect(duplicate.status).toBe("superseded");
+    expect(duplicate.time.invalidated_by).toBe(existing.fact_id);
+    expect(active.find((f) => f.fact_id === existing.fact_id)).toBeDefined();
+    expect(active.find((f) => f.fact_id === incoming.fact_id)).toBeUndefined();
+    expect(edges.from(existing.fact_id, "SUPPORTED_BY")[0]?.to_id).toBe(incoming.fact_id);
+    expect(edges.from(incoming.fact_id, "SUPERSEDED_BY")[0]?.to_id).toBe(existing.fact_id);
+  });
+
   it("refines: existing fact becomes superseded and stops being active", async () => {
     const existing = facts.insert(base({ object: "npm test" }));
     const incoming = facts.insert(base({ object: "pnpm test" }));

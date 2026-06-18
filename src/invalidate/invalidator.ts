@@ -103,8 +103,16 @@ export class Invalidator {
     const { facts, edges } = this.deps;
     switch (relation) {
       case "same": {
-        facts.update(existing.fact_id, { evidence_count: existing.evidence_count + 1 });
-        return "merged evidence into existing fact";
+        facts.update(existing.fact_id, {
+          evidence_count: existing.evidence_count + incoming.evidence_count,
+        });
+        edges.add(existing.fact_id, "SUPPORTED_BY", incoming.fact_id, incoming.fact_id);
+        edges.add(incoming.fact_id, "SUPERSEDED_BY", existing.fact_id, existing.fact_id);
+        facts.update(incoming.fact_id, {
+          status: "superseded",
+          invalidated_by: existing.fact_id,
+        });
+        return "merged evidence into existing fact and retired duplicate";
       }
       case "refines": {
         edges.add(incoming.fact_id, "SUPERSEDES", existing.fact_id, incoming.fact_id);
