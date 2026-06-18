@@ -238,8 +238,9 @@ export class FactsRepo {
 
     if (input.git) this.upsertAnchor(id, input.git);
 
-    // Keep the semantic index in sync (no-op if no index attached).
-    this.vectors?.upsert(id, `${indexedText} ${indexedTags}`);
+    // Keep the semantic index scoped to currently active truth; candidates stay
+    // queryable through why()/promotion history without entering KNN search.
+    if (status === "active") this.vectors?.upsert(id, `${indexedText} ${indexedTags}`);
 
     return this.get(id)!;
   }
@@ -342,7 +343,7 @@ export class FactsRepo {
   private syncFtsTags(id: string, tags: string[]): void {
     const tagsText = redactSecrets(tags.join(" "));
     this.db.prepare("UPDATE facts_fts SET tags = ? WHERE fact_id = ?").run(tagsText, id);
-    this.syncVectorFromFts(id);
+    this.syncVectorForCurrentStatus(id);
   }
 
   private syncVectorForStatus(id: string, status: Fact["status"]): void {
@@ -352,6 +353,14 @@ export class FactsRepo {
     } else {
       this.vectors.remove(id);
     }
+  }
+
+  private syncVectorForCurrentStatus(id: string): void {
+    if (!this.vectors) return;
+    const row = this.db.prepare("SELECT status FROM facts WHERE fact_id = ?").get(id) as
+      | { status: Fact["status"] }
+      | undefined;
+    if (row) this.syncVectorForStatus(id, row.status);
   }
 
   private syncVectorFromFts(id: string): void {

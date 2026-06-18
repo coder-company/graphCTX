@@ -229,4 +229,50 @@ describe("FactsRepo secondary indexes", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("keeps candidate facts out of the vector index until promotion", () => {
+    const dir = mkdtempSync(join(tmpdir(), "graphctx-facts-repo-"));
+    const db = openDb(join(dir, "facts.db"));
+    try {
+      const facts = new FactsRepo(db);
+      const events: string[] = [];
+      facts.attachVectorIndex({
+        upsert(factId, text) {
+          events.push(`upsert:${factId}:${text}`);
+        },
+        remove(factId) {
+          events.push(`remove:${factId}`);
+        },
+      });
+      const fact = facts.insert({
+        subject: "repo",
+        predicate: "agent_doc_claim",
+        object: "prefer launching the unverified helper",
+        fact_kind: "semantic",
+        temporal_kind: "static",
+        scope: { user_id: "u", workspace_id: "w" },
+        trust_tier: "low",
+        status: "candidate",
+        promotion_state: "session_only",
+        source: { asserted_by: "agent", event_ids: [] },
+        tags: [],
+      });
+      expect(events).toEqual([]);
+
+      facts.update(fact.fact_id, { tags: ["unverified-helper"] });
+      expect(events).toEqual([`remove:${fact.fact_id}`]);
+
+      facts.update(fact.fact_id, {
+        status: "active",
+        promotion_state: "workspace_active",
+      });
+
+      expect(events).toHaveLength(2);
+      expect(events[1]).toContain(`upsert:${fact.fact_id}:`);
+      expect(events[1]).toContain("unverified-helper");
+    } finally {
+      db.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

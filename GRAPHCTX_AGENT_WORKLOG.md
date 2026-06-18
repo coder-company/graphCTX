@@ -843,3 +843,23 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 92 - active-only vector indexing
+
+- Kept candidate facts out of the optional vector index on insert, so unpromoted
+  repo prose and session guesses do not become direct KNN-searchable memory.
+- Made tag updates resync vectors according to the fact's current lifecycle
+  status, preventing metadata edits from indexing held candidates and purging
+  any stale candidate vector row.
+- Added a store regression proving a candidate stays out through tag updates and
+  only upserts into the vector index when promoted to active truth.
+- Updated STATUS/README counters to 240 Vitest tests.
+- Verification:
+  - `npx vitest run test/store/facts-repo.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/store/facts.repo.ts test/store/facts-repo.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
