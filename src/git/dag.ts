@@ -77,6 +77,7 @@ export async function revalidateOnRevert(
     try {
       const vu = f.git?.valid_until_commit;
       if (!vu) continue;
+      if (!(await isFactBranchRepresentedAtHead(git, f, head, currentBranch))) continue;
       // The fact comes back to life iff the invalidating commit's change is gone
       // from HEAD's history. Two ways that happens:
       //   (a) it is no longer reachable (reset/branch moved off it), or
@@ -94,6 +95,21 @@ export async function revalidateOnRevert(
     }
   }
   return restored;
+}
+
+async function isFactBranchRepresentedAtHead(
+  git: Git,
+  fact: Fact,
+  head: SHA,
+  currentBranch: string,
+): Promise<boolean> {
+  const anchor = fact.git;
+  if (!anchor?.branch || anchor.branch === currentBranch) return true;
+  const introduced = anchor.introduced_by_commit ?? anchor.valid_from_commit;
+  if (!introduced) return false;
+  if (await git.isAncestor(introduced, head)) return true;
+  if (!anchor.patch_id) return false;
+  return git.hasPatchEquivalent(introduced, head, anchor.patch_id);
 }
 
 async function commitParents(git: Git, sha: SHA): Promise<string[]> {

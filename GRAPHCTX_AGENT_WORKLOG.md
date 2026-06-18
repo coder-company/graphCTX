@@ -1087,3 +1087,18 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 106 - branch-aware revert revalidation
+
+- Used the `currentBranch` parameter in `revalidateOnRevert` to skip
+  branch-scoped expired facts unless their introduction is represented at the
+  current HEAD by ancestry or patch equivalence.
+- Extended the revert revalidation regression so a foreign-branch expired fact
+  stays historical while the represented fact revives.
+- Verification:
+  - `npx vitest run test/git/dag.test.ts test/git/anchors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/git/dag.ts test/git/dag.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

@@ -23,7 +23,7 @@ function fakeGit(): Git {
   } as unknown as Git;
 }
 
-function fact(factId: string, validUntil: string): Fact {
+function fact(factId: string, validUntil: string, git: Partial<Fact["git"]> = {}): Fact {
   return {
     fact_id: factId,
     subject: "repo",
@@ -46,7 +46,7 @@ function fact(factId: string, validUntil: string): Fact {
       t_recorded: "2026-01-01T00:00:00.000Z",
       t_expired: "2026-01-02T00:00:00.000Z",
     },
-    git: { valid_until_commit: validUntil },
+    git: { ...git, valid_until_commit: validUntil },
     source: { asserted_by: "deterministic_parser", event_ids: [] },
     tags: [],
   };
@@ -79,7 +79,14 @@ describe("git/dag detectEvent", () => {
   it("revalidateOnRevert skips bad historical anchors and restores other facts", async () => {
     const restoredIds: string[] = [];
     const facts = {
-      expiredWithValidUntil: () => [fact("bad", "missing"), fact("good", "gone")],
+      expiredWithValidUntil: () => [
+        fact("bad", "missing"),
+        fact("foreign-branch", "gone", {
+          branch: "feature",
+          introduced_by_commit: "feature-intro",
+        }),
+        fact("good", "gone"),
+      ],
       reactivate: (id: string) => {
         restoredIds.push(id);
       },
@@ -87,8 +94,10 @@ describe("git/dag detectEvent", () => {
     const gitWithBadAnchor = {
       isAncestor: async (target: string) => {
         if (target === "missing") throw new Error("unknown revision");
+        if (target === "feature-intro") return false;
         return false;
       },
+      hasPatchEquivalent: async () => false,
       isRevertedBy: async () => false,
     } as unknown as Git;
 
