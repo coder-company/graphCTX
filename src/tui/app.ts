@@ -312,18 +312,24 @@ export class TuiApp {
       return `\n${style.bold(style.yellow(`${p.label}: `))}${p.value}${style.inverse(" ")}  ${style.gray("(enter=ok esc=cancel)")}`;
     }
     const parts = [
-      "tab/1-3 switch",
-      "up/down move",
-      "pgup/pgdn page",
-      "home/end jump",
-      "f filter",
-      "r refresh",
-      "q quit",
+      `${keycap("tab")} switch`,
+      `${keycap("up/down")} move`,
+      `${keycap("pg")} page`,
+      `${keycap("home/end")} jump`,
+      `${keycap("f")} filter`,
+      `${keycap("r")} refresh`,
+      `${keycap("q")} quit`,
     ];
     if (this.state.tab === "control") {
-      parts.push("n new", "o open-loop", "p promote", "x forget", "enter resolve");
+      parts.push(
+        `${keycap("n")} new`,
+        `${keycap("o")} open-loop`,
+        `${keycap("p")} promote`,
+        `${keycap("x")} forget`,
+        `${keycap("enter")} resolve`,
+      );
     } else if (this.state.tab === "monitor") {
-      parts.push("s SessionStart", "c PostCompact");
+      parts.push(`${keycap("s")} SessionStart`, `${keycap("c")} PostCompact`);
     }
     const styledParts = parts.map((part) => style.gray(part));
     if (this.state.status) styledParts.push(style.green(`ok ${this.state.status}`));
@@ -335,19 +341,41 @@ export class TuiApp {
     const width = this.contentWidth();
     const out: string[] = [];
     out.push("");
+    out.push(...this.operatorStrip(s, width));
+    out.push("");
     out.push(...this.statsPanel(s, width));
     out.push("");
-    const views = this.currentViews().slice(0, 12);
+    out.push(...this.insightPanel(s, width));
+    out.push("");
+    const allViews = this.currentViews();
+    const views = allViews.slice(0, 12);
     const cols = recentColumns(width);
     out.push(style.bold(`Recent memory (filter: ${this.state.filter})`));
-    out.push(
-      ...table(
-        cols,
-        views.map((v) => cols.map((col) => this.recentCell(v, col))),
-      ),
-    );
-    if (views.length === 0) out.push(style.gray("  (no facts — run `graphctx init` or `extract`)"));
+    if (views.length > 0) {
+      out.push(
+        ...table(
+          cols,
+          views.map((v) => cols.map((col) => this.recentCell(v, col))),
+        ),
+      );
+    } else {
+      out.push(this.emptyStatePanel("No memory yet", dashboardEmptyLines(width), width));
+    }
     return out;
+  }
+
+  private operatorStrip(s: MemoryStats, width: number): string[] {
+    const health =
+      s.secrets > 0
+        ? badge("guarding secrets", "warn")
+        : s.active > 0
+          ? badge("ready", "ok")
+          : badge("empty", "info");
+    const lines = [
+      `${health}  ${style.bold("local SQLite")}  ${style.gray(`filter ${this.state.filter}`)}  ${style.gray(`facts ${s.total}`)}`,
+      `${style.gray("push")} SessionStart/PostCompact  ${style.gray("guard")} PreToolUse  ${style.gray("scope")} branch-aware workspace memory`,
+    ];
+    return [panel(lines, { title: "Operator console", width, color: style.cyan })];
   }
 
   private statsPanel(s: MemoryStats, width: number): string[] {
@@ -374,6 +402,28 @@ export class TuiApp {
       rows.push(`${padEnd(left[i] ?? "", 38)}${right[i] ?? ""}`);
     }
     return [panel(rows, { title: "Memory overview", width, color: style.cyan })];
+  }
+
+  private insightPanel(s: MemoryStats, width: number): string[] {
+    const lifecycleTotal = Math.max(
+      1,
+      s.active + s.candidate + s.expired + s.superseded + s.disputed,
+    );
+    const topKinds = Object.entries(s.byKind)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 3);
+    const kindText =
+      topKinds.length > 0
+        ? topKinds.map(([kind, n]) => `${kind} ${n}`).join("  ")
+        : "no facts recorded";
+    const rows = [
+      `active     ${bar(s.active / lifecycleTotal, 18, style.green)} ${s.active}`,
+      `candidate  ${bar(s.candidate / lifecycleTotal, 18, style.yellow)} ${s.candidate}`,
+      `closed     ${bar((s.expired + s.superseded) / lifecycleTotal, 18, style.gray)} ${s.expired + s.superseded}`,
+      "",
+      `top kinds  ${truncate(kindText, Math.max(12, width - 13))}`,
+    ];
+    return [panel(rows, { title: "Signal shape", width, color: style.blue })];
   }
 
   private renderControl(): string[] {
@@ -404,7 +454,15 @@ export class TuiApp {
       const sel = idx === this.state.cursor;
       out.push(this.controlRow(v, sel, width));
     });
-    if (views.length === 0) out.push(style.gray("  (nothing to manage)"));
+    if (views.length === 0) {
+      out.push(
+        this.emptyStatePanel(
+          "Nothing to manage",
+          controlEmptyLines(this.state.filter, width),
+          width,
+        ),
+      );
+    }
     if (selected) {
       out.push("");
       out.push(this.selectedFactPanel(selected, width));
@@ -413,15 +471,21 @@ export class TuiApp {
   }
 
   private renderMonitor(): string[] {
+    const width = this.contentWidth();
     const out: string[] = [];
     out.push("");
     out.push(style.bold("Live push monitor"));
     out.push(
-      style.gray("Press s/c to simulate a push and watch the exact capsule the agent receives."),
+      style.gray(
+        truncate(
+          "Press s/c to simulate a push and watch the exact capsule the agent receives.",
+          width,
+        ),
+      ),
     );
     out.push("");
     if (this.state.monitorLog.length === 0) {
-      out.push(style.gray("  (no pushes yet — press 's' for SessionStart, 'c' for PostCompact)"));
+      out.push(this.emptyStatePanel("No push events", monitorEmptyLines(width), width));
     } else {
       out.push(...this.state.monitorLog.slice(0, 18));
     }
@@ -496,6 +560,10 @@ export class TuiApp {
     ];
     return panel(lines, { title: `Selected ${v.id8}`, width, color: style.blue });
   }
+
+  private emptyStatePanel(title: string, lines: string[], width: number): string {
+    return panel(lines, { title, width, color: style.gray });
+  }
 }
 
 export function clampTuiWidth(columns: number): number {
@@ -538,6 +606,41 @@ export function wrapFooterParts(parts: string[], width: number): string[] {
   }
   if (line) lines.push(line);
   return lines.length > 0 ? lines : [""];
+}
+
+function keycap(label: string): string {
+  return style.inverse(` ${label} `);
+}
+
+function dashboardEmptyLines(width: number): string[] {
+  return [
+    "No facts are active for this workspace.",
+    truncate(
+      "Start with `graphctx init`, run `graphctx extract`, or press `2` then `n`.",
+      width - 4,
+    ),
+    "The TUI will show promoted facts, open loops, and guarded secrets here.",
+  ];
+}
+
+function controlEmptyLines(filter: AppState["filter"], width: number): string[] {
+  return [
+    `No rows match the ${filter} filter.`,
+    truncate(
+      "Press `f` to change filter, `n` to remember a fact, or `o` to add an open loop.",
+      width - 4,
+    ),
+  ];
+}
+
+function monitorEmptyLines(width: number): string[] {
+  return [
+    "No lifecycle capsules have been simulated in this session.",
+    truncate(
+      "Press `s` for SessionStart or `c` for PostCompact to inspect push memory.",
+      width - 4,
+    ),
+  ];
 }
 
 export function clampWindowStart(

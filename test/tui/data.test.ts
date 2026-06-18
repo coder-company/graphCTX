@@ -181,6 +181,30 @@ describe("tui/app — non-interactive snapshots", () => {
     }
   });
 
+  it("renders composed empty states without overflowing", () => {
+    withStdoutColumns(72, () => {
+      const dir = mkdtempSync(join(tmpdir(), "graphctx-tui-empty-"));
+      try {
+        for (const tab of ["dashboard", "control", "monitor"] as const) {
+          const app = new TuiApp(dir, tab);
+          try {
+            const snapshot = app.snapshot();
+            if (tab === "dashboard") expect(snapshot).toContain("No memory yet");
+            if (tab === "control") expect(snapshot).toContain("Nothing to manage");
+            if (tab === "monitor") expect(snapshot).toContain("No push events");
+            for (const line of snapshot.split("\n")) {
+              expect(visibleLen(line)).toBeLessThanOrEqual(72);
+            }
+          } finally {
+            app.close();
+          }
+        }
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
   it("redacts secret text in the selected control detail panel", () => {
     const dir = mkdtempSync(join(tmpdir(), "graphctx-tui-snapshot-"));
     const rt = new Runtime({ workspaceDir: dir });

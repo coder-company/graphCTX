@@ -1803,6 +1803,24 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 150 - composed TUI empty states and status surfaces
+
+- Added a dashboard operator console summarizing local state, active filter,
+  push moments, guardrails, and branch-aware workspace scope.
+- Added a signal-shape panel for lifecycle distribution and top fact kinds.
+- Replaced sparse dashboard/control/monitor empty states with composed,
+  width-safe panels.
+- Improved footer key affordances with styled keycaps while preserving wrapping.
+- Added regression coverage for empty-state rendering and width safety.
+- Updated live docs counters to 277 tests.
+- Verification:
+  - `npx vitest run test/tui/data.test.ts test/tui/ansi.test.ts test/tui/keys.test.ts`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsc --noEmit`
+  - `npx biome check src/tui/app.ts test/tui/data.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts tui --tab dashboard | sed -n '1,80p'`
+  - `git diff --check`
+
 ### Iteration 149 - temporal coding-memory benchmark gate
 
 - Added a deep local temporal benchmark scenario with superseded coding facts
