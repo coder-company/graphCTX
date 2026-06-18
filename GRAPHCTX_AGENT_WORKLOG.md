@@ -1825,6 +1825,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/bench/scenarios.ts src/eval/suites/eval-benchmarks.ts src/retrieve/retriever.ts test/retrieve/retriever.test.ts test/eval/eval-benchmarks.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 162 - STATUS MCP counter drift guard
+
+- Added a CLI/docs-demo gate check that runs the live adapters/MCP eval and
+  compares the documented STATUS MCP check ratios against the live
+  `passed/checks` count.
+- Updated stale STATUS MCP counters from 88/88 to the current 90/90 and noted
+  malformed request / parse-error JSON-RPC coverage.
+- Verification:
+  - `npx vitest run test/eval/cli-docs-demo.test.ts test/eval/adapters-mcp.test.ts`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsc --noEmit`
+  - `npx biome check src/eval/suites/cli-docs-demo.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 160 - bounded secret-redacted TUI prompts
 
 - Routed active TUI prompts through a width-bounded renderer so long typed

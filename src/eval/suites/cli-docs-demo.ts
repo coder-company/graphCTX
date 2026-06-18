@@ -19,6 +19,7 @@ import { McpServer } from "../../mcp/server.js";
 import { MCP_TOOLS } from "../../mcp/tools.js";
 import { EXPECTED_COMMANDS, commandsFromHelp } from "../command-surface.js";
 import { EVAL_GATE_SUITES } from "../registry.js";
+import { runAdaptersMcpEval } from "./adapters-mcp.js";
 
 // CLI/docs/demo parity gate. This suite protects the human/agent-facing surface:
 // help discovery, doc/spec drift, reproducible offline demo, actionable doctor
@@ -33,6 +34,7 @@ export interface CliDocsDemoReport {
   suiteCount: number;
   demoFacts: number;
   mcpTools: number;
+  mcpCheckCount: number;
   networkCalls: number;
   pipeFailures: number;
   argValidationFailures: number;
@@ -203,6 +205,18 @@ export async function runCliDocsDemoEval(): Promise<CliDocsDemoReport> {
     `got ${mcp.names.length}: ${mcp.names.join(", ")}`,
   );
 
+  const adaptersMcp = await runAdaptersMcpEval();
+  const statusMcpPairs = mcpCheckPairs(status);
+  check(
+    "STATUS MCP check counters match live adapters/MCP eval",
+    adaptersMcp.pass &&
+      statusMcpPairs.length >= 2 &&
+      statusMcpPairs.every(([passedCount, checkCount]) => {
+        return passedCount === adaptersMcp.passed && checkCount === adaptersMcp.checks;
+      }),
+    `STATUS=${statusMcpPairs.map(([a, b]) => `${a}/${b}`).join(",") || "-"} live=${adaptersMcp.passed}/${adaptersMcp.checks}`,
+  );
+
   const install = evaluateInstallRoundTrip();
   check(
     "install claude / uninstall claude round-trip writes then removes hook config",
@@ -251,6 +265,7 @@ export async function runCliDocsDemoEval(): Promise<CliDocsDemoReport> {
     suiteCount: EVAL_GATE_SUITES.length,
     demoFacts: demo.facts,
     mcpTools: mcp.names.length,
+    mcpCheckCount: adaptersMcp.checks,
     networkCalls: demo.networkCalls,
     pipeFailures,
     argValidationFailures: numericArgs.failures,
@@ -277,7 +292,7 @@ export function formatCliDocsDemoReport(r: CliDocsDemoReport): string {
     `  checks: ${r.passed}/${r.checks}   commands: ${r.commandCount}   tests: ${r.testCount}   suites: ${r.suiteCount}`,
   );
   lines.push(
-    `  demo facts: ${r.demoFacts}   MCP tools: ${r.mcpTools}   network calls: ${r.networkCalls}   pipe failures: ${r.pipeFailures}   arg validation failures: ${r.argValidationFailures}   CLI error formatting failures: ${r.cliErrorFormattingFailures}`,
+    `  demo facts: ${r.demoFacts}   MCP tools: ${r.mcpTools}   MCP checks: ${r.mcpCheckCount}   network calls: ${r.networkCalls}   pipe failures: ${r.pipeFailures}   arg validation failures: ${r.argValidationFailures}   CLI error formatting failures: ${r.cliErrorFormattingFailures}`,
   );
   lines.push(
     r.pass
@@ -368,6 +383,17 @@ function tableRow(markdown: string, cell: string): string {
       .find((line) => line.startsWith("|") && line.includes(`| ${cell} |`))
       ?.trim() ?? ""
   );
+}
+
+function mcpCheckPairs(markdown: string): Array<[number, number]> {
+  const pairs: Array<[number, number]> = [];
+  for (const line of markdown.split("\n")) {
+    if (!line.includes("adapter/MCP") && !line.includes("adapters-mcp")) continue;
+    for (const match of line.matchAll(/(\d+)\/(\d+)/g)) {
+      pairs.push([Number(match[1]), Number(match[2])]);
+    }
+  }
+  return pairs;
 }
 
 function vitestListCount(): number {
