@@ -434,6 +434,40 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     `before=${JSON.stringify(loop.before.stdout.trim())} after=${JSON.stringify(loop.after.stdout.trim())} whyEdges=${loop.why.stdout.includes("SUPERSEDED_BY") ? "self-edge" : "none"}`,
   );
 
+  const resolveNonLoop = withRepo((dir) => {
+    const remembered = cli([
+      "remember",
+      "deploy with ./scripts/ship.sh",
+      "--subject",
+      "repo",
+      "--predicate",
+      "deploy_command",
+      "--kind",
+      "procedural",
+      "-C",
+      dir,
+    ]);
+    const id = remembered.stdout.match(/mem:([A-Z0-9]+)/)?.[1] ?? "";
+    const resolved = cli(["resolve", id, "-C", dir]);
+    const recall = cli(["recall", "deploy command", "-C", dir]);
+    return { remembered, id, resolved, recall };
+  });
+  if (resolveNonLoop.remembered.status !== 0 || resolveNonLoop.recall.status !== 0) {
+    cliFailures += 1;
+  }
+  check(
+    "resolve refuses non-open-loop facts without retiring them",
+    resolveNonLoop.remembered.status === 0 &&
+      resolveNonLoop.id.length > 0 &&
+      resolveNonLoop.resolved.status !== 0 &&
+      resolveNonLoop.resolved.stdout.trim() === "" &&
+      resolveNonLoop.resolved.stderr.includes("[VALIDATION]") &&
+      resolveNonLoop.resolved.stderr.includes("not open_loop") &&
+      resolveNonLoop.recall.status === 0 &&
+      resolveNonLoop.recall.stdout.includes("deploy with ./scripts/ship.sh"),
+    `resolveStatus=${resolveNonLoop.resolved.status} stderr=${JSON.stringify(resolveNonLoop.resolved.stderr.trim())}`,
+  );
+
   const missing = withRepo((dir) => cli(["resolve", "ZZZZZZZZ", "-C", dir]));
   check(
     "resolve on an unknown id fails soft",

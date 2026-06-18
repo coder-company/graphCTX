@@ -1,6 +1,7 @@
 import { EpisodeLog } from "./capture/episode-log.js";
 import { type LoadedConfig, loadConfig } from "./config/config.js";
 import { type Clock, systemClock } from "./core/clock.js";
+import { ValidationError } from "./core/errors.js";
 import { workspaceIdFromPath } from "./core/ids.js";
 import type { Event, Fact, FactKind, GitAnchor, InjectionContext, Scope } from "./core/types.js";
 import { extractFactsFromEpisodes } from "./extract/llm/fact-extractor.js";
@@ -371,6 +372,16 @@ export class Runtime {
 
   // Resolve an open loop so it stops resurfacing (M1 §7).
   async resolveOpenLoop(loopFactId: string, byFactId?: string): Promise<void> {
+    const fact = this.facts.get(loopFactId);
+    if (!fact) {
+      throw new ValidationError("open loop fact not found", "pass a valid open_loop fact id");
+    }
+    if (fact.fact_kind !== "open_loop") {
+      throw new ValidationError(
+        `fact ${loopFactId.slice(-8)} is ${fact.fact_kind}, not open_loop`,
+        "use graphctx forget for non-open-loop facts",
+      );
+    }
     const inv = await this.invalidator();
     inv.resolve(loopFactId, byFactId);
   }

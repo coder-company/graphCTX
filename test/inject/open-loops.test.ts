@@ -125,4 +125,16 @@ describe("open loops — compaction recovery (M1 §7)", () => {
     const after = await postCompact("s1");
     expect(after.markdown).not.toContain("delete the dead feature flag");
   });
+
+  it("refuses to resolve non-open-loop facts", async () => {
+    const fact = await rt.rememberFact({
+      text: "deploy with ./scripts/ship.sh",
+      subject: "repo",
+      predicate: "deploy_command",
+      kind: "procedural",
+    });
+
+    await expect(rt.resolveOpenLoop(fact.fact_id)).rejects.toThrow("not open_loop");
+    expect(rt.facts.get(fact.fact_id)?.status).toBe("active");
+  });
 });

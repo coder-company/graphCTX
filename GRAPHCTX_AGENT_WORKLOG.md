@@ -1543,3 +1543,23 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/eval/suites/storage-migrations.ts src/store/migrations.generated.ts src/store/migrations/0006_fact_conflict_indexes.sql`
   - `npx tsx src/cli.ts bench -n 20`
   - `npx tsx src/cli.ts bench`
+
+### Iteration 134 - validate open-loop resolve targets
+
+- Added a typed Runtime validation guard so `resolveOpenLoop()` refuses missing
+  or non-`open_loop` facts instead of silently superseding arbitrary durable
+  memory.
+- Extended the CLI core memory lifecycle eval to prove `graphctx resolve` fails
+  with a stack-free `[VALIDATION]` error on non-open-loop facts and leaves the
+  fact recallable.
+- Added a Runtime regression for the same non-open-loop protection. Updated
+  live test counters to 262.
+- Verification:
+  - `npx vitest run test/inject/open-loops.test.ts test/eval/core-memory-lifecycle.test.ts`
+  - `npx tsx src/cli.ts eval memory`
+  - `npx tsc --noEmit`
+  - `npx biome check src/runtime.ts test/inject/open-loops.test.ts src/eval/suites/core-memory-lifecycle.ts`
+  - `npx vitest list | wc -l`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
