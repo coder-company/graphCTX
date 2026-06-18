@@ -1803,6 +1803,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 152 - user preference temporal benchmark probe
+
+- Extended the temporal coding-memory benchmark with a user-scoped preference
+  revision probe, matching LongMemEval-style preference-update behavior.
+- The temporal benchmark now proves current recall and stale suppression across
+  workspace facts and user preferences under distractor load.
+- Updated STATUS to report temporal benchmark coverage as 6/6.
+- Verification:
+  - `npx vitest run test/eval/eval-benchmarks.test.ts`
+  - `npx tsx src/cli.ts eval benchmarks`
+  - `npx tsc --noEmit`
+  - `npx biome check src/bench/scenarios.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 151 - XMem-aware compare scorecard
 
 - Expanded `graphctx compare` from a Supermemory-only scorecard into an

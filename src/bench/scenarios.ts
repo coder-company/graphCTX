@@ -109,6 +109,7 @@ export interface TemporalProbe {
   query: string;
   expect: string;
   reject: string;
+  scope?: "workspace" | "user";
 }
 
 export const TEMPORAL_PROBES: TemporalProbe[] = [
@@ -146,6 +147,15 @@ export const TEMPORAL_PROBES: TemporalProbe[] = [
     query: "how do I run production migrations",
     expect: "migrate:prod",
     reject: "migrate:old",
+  },
+  {
+    stale: "Historical fact: user preferred verbose implementation status updates",
+    current:
+      "Current fact: user prefers concise implementation status updates with command results",
+    query: "how should I write status updates",
+    expect: "concise",
+    reject: "verbose implementation",
+    scope: "user",
   },
 ];
 
@@ -189,6 +199,23 @@ export function insertFact(rt: Runtime, text: string): Fact {
     promotion_state: "workspace_active",
     source: { asserted_by: "user", event_ids: [], raw_quote: text },
     tags: ["bench"],
+  });
+}
+
+function insertTemporalFact(rt: Runtime, probe: TemporalProbe, text: string): Fact {
+  if (probe.scope !== "user") return insertFact(rt, text);
+  return rt.facts.insert({
+    subject: "user",
+    predicate: "prefers_status_updates",
+    object: text,
+    fact_kind: "preference",
+    temporal_kind: "static",
+    scope: { user_id: rt.userId },
+    trust_tier: "high",
+    status: "active",
+    promotion_state: "user_static_active",
+    source: { asserted_by: "user", event_ids: [], raw_quote: text },
+    tags: ["bench", "preference"],
   });
 }
 
@@ -275,8 +302,8 @@ export async function runTemporalLocal(
   try {
     for (const f of filler(scaleFacts)) insertFact(rt, f);
     for (const p of TEMPORAL_PROBES) {
-      const stale = insertFact(rt, p.stale);
-      const current = insertFact(rt, p.current);
+      const stale = insertTemporalFact(rt, p, p.stale);
+      const current = insertTemporalFact(rt, p, p.current);
       rt.facts.supersede(stale.fact_id, current.fact_id);
     }
     const { Retriever } = await import("../retrieve/retriever.js");
