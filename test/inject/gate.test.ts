@@ -40,6 +40,19 @@ describe("relevance gate (M0)", () => {
         cfg,
       ),
     ).toBe(true);
+    // Python project commands are also memory-relevant guardrail moments.
+    for (const command of [
+      "uv run pytest",
+      "poetry run ruff check .",
+      "pip install -r requirements.txt",
+    ]) {
+      expect(
+        shouldFire(
+          ctx({ event: "PreToolUse", planned_tool: { name: "Bash", args: { command } } }),
+          cfg,
+        ),
+      ).toBe(true);
+    }
     // Edit on a concrete path → fire (path may carry constraints).
     expect(
       shouldFire(

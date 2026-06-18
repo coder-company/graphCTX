@@ -130,6 +130,18 @@ export const GATE_CASES: GateCase[] = [
     planned_tool: { name: "Bash", args: { command: "npm run build" } },
   },
   {
+    label: "bash uv pytest",
+    event: "PreToolUse",
+    shouldFire: true,
+    planned_tool: { name: "Bash", args: { command: "uv run pytest" } },
+  },
+  {
+    label: "bash poetry ruff",
+    event: "PreToolUse",
+    shouldFire: true,
+    planned_tool: { name: "Bash", args: { command: "poetry run ruff check ." } },
+  },
+  {
     label: "edit a real path",
     event: "PreToolUse",
     shouldFire: true,

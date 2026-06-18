@@ -82,7 +82,7 @@ function shellCommandLikelyUsesMemory(argsJson: string): boolean {
   if (argsJson.length <= 2) return false;
   const args = argsJson.toLowerCase();
   return (
-    /\b(npm|pnpm|yarn|bun|node|tsx|tsc|vitest|jest|mocha|pytest|ruff|mypy|biome|eslint|prettier|cargo|go\s+test|make|cmake|docker|docker-compose|git)\b/.test(
+    /\b(npm|pnpm|yarn|bun|node|tsx|tsc|vitest|jest|mocha|uv|poetry|pip|pytest|tox|nox|hatch|ruff|mypy|pyright|biome|eslint|prettier|cargo|go\s+test|make|cmake|docker|docker-compose|git)\b/.test(
       args,
     ) || /\b(rm|mv|cp|chmod|chown|ln)\b/.test(args)
   );

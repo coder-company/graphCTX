@@ -1742,6 +1742,22 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/tui/app.ts src/tui/keys.ts test/tui/data.test.ts test/tui/keys.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 145 - Python PreToolUse guardrail coverage
+
+- Broadened the PreToolUse shell-command detector to recognize common Python
+  project commands (`uv`, `poetry`, `pip`, `tox`, `nox`, `hatch`, `pyright`) in
+  addition to existing JS, Docker, Git, and filesystem-risk commands.
+- Added unit coverage proving Python test/lint/install commands fire the memory
+  gate while harmless shell commands stay quiet.
+- Expanded the gate-precision eval matrix with `uv run pytest` and
+  `poetry run ruff check .`; the suite still reports 100% precision and recall.
+- Verification:
+  - `npx vitest run test/inject/gate.test.ts test/eval/gate-precision.test.ts`
+  - `npx tsx src/cli.ts eval gate`
+  - `npx tsc --noEmit`
+  - `npx biome check src/inject/gate.ts src/eval/suites/gate-precision.ts test/inject/gate.test.ts`
+  - `git diff --check`
+
 ### Iteration 141 - width-aware TUI layout
 
 - Made dashboard recent-memory columns adapt to terminal width instead of using
