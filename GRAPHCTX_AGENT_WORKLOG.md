@@ -1359,3 +1359,18 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 123 - pre-rerank retrieval scope filter
+
+- Moved scope eligibility into lexical candidate accumulation so foreign
+  workspace/session facts never enter the candidate pool or semantic reranker.
+- Strengthened the retrieval isolation regression to assert semantic reranking
+  does not see foreign workspace fact text.
+- Verification:
+  - `npx vitest run test/retrieve/retriever.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

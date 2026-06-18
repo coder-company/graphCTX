@@ -88,6 +88,8 @@ export class Retriever {
 
     const wsScope = { user_id: ctx.scope.user_id, workspace_id: ctx.scope.workspace_id };
     const userScope = { user_id: ctx.scope.user_id };
+    const eligible = (f: Fact) =>
+      inScope(f, wsScope.user_id, wsScope.workspace_id, ctx.scope.session_id);
 
     // Candidate union keyed by fact_id. Each candidate accumulates the signals
     // for BOTH ranked lists (lexical + semantic); RRF fuses by rank afterward.
@@ -111,6 +113,7 @@ export class Retriever {
     // Record a lexical (BM25 / broad-pass) hit. `lex` is a lexical relevance
     // where higher = better; we keep the strongest across the scope passes.
     const addLex = (f: Fact, lex: number, bm25?: number) => {
+      if (!eligible(f)) return;
       const c = ensure(f);
       c.foundLex = true;
       if (lex > c.lexScore) {
@@ -189,8 +192,7 @@ export class Retriever {
           semCandidates.sort((a, b) => a.dist - b.dist);
           for (const sc of semCandidates.slice(0, k)) {
             if (sc.dist > SEMANTIC_MAX_DIST) continue;
-            if (!inScope(sc.fact, wsScope.user_id, wsScope.workspace_id, ctx.scope.session_id))
-              continue;
+            if (!eligible(sc.fact)) continue;
             const c = ensure(sc.fact);
             c.semDist = sc.dist;
             c.foundSem = true;
@@ -217,7 +219,7 @@ export class Retriever {
     // Commit-anchored filtering (SPEC §8, §13), then RRF-score the survivors.
     const valid: ScoredFact[] = [];
     for (const c of candidates) {
-      if (!inScope(c.fact, wsScope.user_id, wsScope.workspace_id, ctx.scope.session_id)) continue;
+      if (!eligible(c.fact)) continue;
       if (!(await this.isValid(c.fact, ctx))) continue;
       let rrf = 0;
       const rl = lexRank.get(c.fact.fact_id);

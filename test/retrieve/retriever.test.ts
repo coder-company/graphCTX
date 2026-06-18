@@ -187,7 +187,16 @@ describe("Retriever", () => {
           source: { asserted_by: "user", event_ids: [] },
         }),
       );
-      const vectors = new VectorIndex(db);
+      const seenTexts: string[] = [];
+      const vectors = {
+        enabled: true,
+        embedQuery: () => new Float32Array([1]),
+        cosineDistanceTo: (_query: Float32Array, text: string) => {
+          seenTexts.push(text);
+          return text.includes("local workspace") ? 0 : 0.5;
+        },
+        cosineSimilarityText: () => 0,
+      } as unknown as VectorIndex;
 
       const ranked = await new Retriever(facts, null, vectors).retrieve(
         { ...ctx(), user_prompt: "workspace session note" },
@@ -196,6 +205,8 @@ describe("Retriever", () => {
       const ids = ranked.map((sf) => sf.fact.fact_id);
       expect(ids).toContain(local.fact_id);
       expect(ids).not.toContain(foreign.fact_id);
+      expect(seenTexts.join(" ")).toContain("local workspace session note");
+      expect(seenTexts.join(" ")).not.toContain("foreign workspace session note");
     } finally {
       db.close();
     }
