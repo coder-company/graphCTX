@@ -344,3 +344,15 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src test`
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
+
+### Iteration 59 - symlink-aware injection staleness
+
+- Changed pre-injection staleness verification to compare canonical real paths,
+  preventing path-anchored facts from being injected when their evidence exists
+  only through a symlink that resolves outside the workspace.
+- Added a planner regression for `do_not_edit` memory anchored through an
+  external symlink and updated README/STATUS counters to 211 Vitest tests.
+- Verification:
+  - `npx vitest run test/inject/planner.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`

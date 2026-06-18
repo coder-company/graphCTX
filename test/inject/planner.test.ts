@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -132,6 +132,42 @@ describe("injection planner (core loop)", () => {
           object: true,
           fact_kind: "constraint",
           git: { path_globs: ["../outside.txt"] },
+        }),
+      );
+      const planner = new InjectionPlanner({
+        facts,
+        git: null,
+        workspaceDir: workspace,
+        gateConfig,
+        budgetConfig,
+      });
+      const capsule = await planner.plan(ctx("PostCompact"));
+      expect(capsule.cards).toHaveLength(0);
+      expect(capsule.markdown).toBe("");
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  it("I4: concrete path anchors resolving through symlinks outside the workspace are not injected", async () => {
+    const parent = mkdtempSync(join(tmpdir(), "gctx-stale-link-"));
+    const workspace = join(parent, "repo");
+    const outside = join(parent, "outside");
+    mkdirSync(workspace);
+    mkdirSync(outside);
+    writeFileSync(join(outside, "generated.ts"), "// generated outside workspace\n");
+    symlinkSync(outside, join(workspace, "linked"), "dir");
+
+    try {
+      const db = openDb(":memory:");
+      const facts = new FactsRepo(db);
+      facts.insert(
+        activeFact({
+          subject: "linked/generated.ts",
+          predicate: "do_not_edit",
+          object: true,
+          fact_kind: "constraint",
+          git: { path_globs: ["linked/generated.ts"] },
         }),
       );
       const planner = new InjectionPlanner({
