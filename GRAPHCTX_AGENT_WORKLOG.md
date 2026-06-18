@@ -495,3 +495,16 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx biome check --write test/extract/extractors.test.ts`
   - `npx biome check src test`
+
+### Iteration 71 - symlink-safe Claude settings writes
+
+- Hardened Claude Code install/uninstall so symlinked `.claude/settings.json`
+  files are refused before read/write mutation, preventing hook install from
+  modifying an outside symlink target.
+- Added adapters/MCP eval coverage for symlinked Claude settings install and
+  uninstall refusal, raising the gate to 78/78 checks.
+- Updated STATUS/DEMO adapter/MCP check counters.
+- Verification:
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`

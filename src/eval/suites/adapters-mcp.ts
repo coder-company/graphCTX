@@ -7,6 +7,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -284,6 +285,46 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       );
     } finally {
       rmSync(badClaudeDir, { recursive: true, force: true });
+    }
+
+    const symlinkClaudeDir = mkdtempSync(join(tmpdir(), "gctx-claude-symlink-"));
+    const outsideClaudeDir = mkdtempSync(join(tmpdir(), "gctx-claude-outside-"));
+    try {
+      cpSync(fixture, symlinkClaudeDir, { recursive: true });
+      const claudeConfigDir = join(symlinkClaudeDir, ".claude");
+      mkdirSync(claudeConfigDir, { recursive: true });
+      const outsideSettingsPath = join(outsideClaudeDir, "settings.json");
+      const outsideSettings = `${JSON.stringify({ hooks: {} }, null, 2)}\n`;
+      writeFileSync(outsideSettingsPath, outsideSettings, "utf8");
+      symlinkSync(outsideSettingsPath, join(claudeConfigDir, "settings.json"), "file");
+
+      let installThrew = false;
+      try {
+        await makeAdapter("claude", symlinkClaudeDir).install({
+          workspaceDir: symlinkClaudeDir,
+          binPath: "graphctx",
+        });
+      } catch {
+        installThrew = true;
+      }
+      check(
+        "claude install refuses symlinked settings.json without modifying the target",
+        installThrew && readFileSync(outsideSettingsPath, "utf8") === outsideSettings,
+      );
+
+      let uninstallThrew = false;
+      try {
+        await makeAdapter("claude", symlinkClaudeDir).uninstall();
+      } catch {
+        uninstallThrew = true;
+      }
+      check(
+        "claude uninstall refuses symlinked settings.json without modifying the target",
+        uninstallThrew && readFileSync(outsideSettingsPath, "utf8") === outsideSettings,
+      );
+    } finally {
+      rmSync(symlinkClaudeDir, { recursive: true, force: true });
+      rmSync(outsideClaudeDir, { recursive: true, force: true });
     }
 
     // auto-detect falls back to generic on a bare repo
