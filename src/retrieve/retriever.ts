@@ -362,10 +362,8 @@ function rankBy(
 }
 
 function buildQuery(ctx: InjectionContext): string {
-  return [ctx.user_prompt, ctx.transcript_tail, planText(ctx)]
-    .filter(Boolean)
-    .join(" ")
-    .slice(0, 4000);
+  const raw = [ctx.user_prompt, ctx.transcript_tail, planText(ctx)].filter(Boolean).join(" ");
+  return redactSecrets(raw).slice(0, 4000);
 }
 
 function planText(ctx: InjectionContext): string {

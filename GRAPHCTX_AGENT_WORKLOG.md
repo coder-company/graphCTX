@@ -1608,3 +1608,24 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx biome check src/security/secrets.ts test/security/secrets.test.ts src/eval/suites/security-adversarial.ts`
   - `git diff --check`
+
+### Iteration 138 - redact retrieval queries inside retriever
+
+- Moved retrieval-query redaction into `Retriever` itself so direct callers
+  cannot accidentally pass prompt, transcript, or planned-tool secrets into
+  lexical/vector query processing.
+- Added a direct retriever regression test that bypasses Runtime sanitization
+  and verifies vector query embedding only sees `[REDACTED:*]` text.
+- Updated live docs counters to 263 tests after the added regression test, which
+  restored the CLI/docs parity gate.
+- Initial aggregate metric surfaced the stale 262-test docs counter; no runtime
+  behavior regressed.
+- Verification:
+  - `npx vitest run test/retrieve/retriever.test.ts test/security/retrieval-context.test.ts`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx vitest run test/eval/cli-docs-demo.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts`
+  - `git diff --check`

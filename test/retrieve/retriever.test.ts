@@ -294,4 +294,45 @@ describe("Retriever", () => {
       db.close();
     }
   });
+
+  it("redacts prompt and tool text before vector query embedding sees it", async () => {
+    const db = openDb(":memory:");
+    try {
+      const facts = new FactsRepo(db);
+      facts.insert(
+        fact({
+          object: "redact deploy credentials before sharing",
+          scope: { user_id: "u", workspace_id: "w" },
+          promotion_state: "workspace_active",
+          source: { asserted_by: "user", event_ids: [] },
+        }),
+      );
+      const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+      const seenQueries: string[] = [];
+      const vectors = {
+        enabled: true,
+        embedQuery: (query: string) => {
+          seenQueries.push(query);
+          return new Float32Array([1]);
+        },
+        cosineDistanceTo: () => 0,
+        cosineSimilarityText: () => 0,
+      } as unknown as VectorIndex;
+
+      await new Retriever(facts, null, vectors).retrieve(
+        {
+          ...ctx(),
+          user_prompt: `deploy with ${secret}`,
+          planned_tool: { name: "Bash", args: { command: `echo ${secret}` } },
+        },
+        { k: 10 },
+      );
+
+      expect(seenQueries).toHaveLength(1);
+      expect(seenQueries[0]).not.toContain(secret);
+      expect(seenQueries[0]).toContain("[REDACTED:openai]");
+    } finally {
+      db.close();
+    }
+  });
 });
