@@ -149,6 +149,14 @@ describe("why() provenance reader", () => {
         },
       }),
     );
+    promotions.record({
+      fact_id: fact.fact_id,
+      from_state: "session_only",
+      to_state: "workspace_active",
+      decision: "promote",
+      gate: `gate-${secret}`,
+      reason: `reason includes ${secret}`,
+    });
     const r = why(fact.fact_id, deps())!;
     const formatted = formatWhy(r);
     const structured = redactWhyReport(r);
@@ -161,6 +169,8 @@ describe("why() provenance reader", () => {
     expect(structured.git_anchor?.branch).toContain("[REDACTED:openai]");
     expect(structured.fact.git?.path_globs?.[0]).toContain("[REDACTED:openai]");
     expect(structured.fact.git?.patch_id).toBe("[REDACTED:openai]");
+    expect(structured.promotions[0]?.gate).toContain("[REDACTED:openai]");
+    expect(structured.promotions[0]?.reason).toContain("[REDACTED:openai]");
     expect(JSON.stringify(structured.evidence[0]?.payload)).not.toContain(secret);
     expect(structured.raw_quote).toContain("[REDACTED:openai]");
   });

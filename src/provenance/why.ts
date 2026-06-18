@@ -128,6 +128,11 @@ export function redactWhyReport(r: WhyReport): WhyReport {
       ...e,
       payload: redactSecretValue(e.payload),
     })),
+    promotions: r.promotions.map((p) => ({
+      ...p,
+      gate: p.gate ? redactSecrets(p.gate) : undefined,
+      reason: p.reason ? redactSecrets(p.reason) : undefined,
+    })),
     fact: {
       ...r.fact,
       object: redactSecretValue(r.fact.object),

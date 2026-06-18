@@ -968,3 +968,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 99 - structured why promotion audit redaction
+
+- Redacted promotion audit `gate` and `reason` strings in structured `why`
+  reports, so manually recorded or future dynamic audit text cannot leak
+  secret-shaped material.
+- Extended the provenance redaction regression with secret-shaped promotion
+  audit text.
+- Verification:
+  - `npx vitest run test/provenance/why.test.ts test/security/secrets.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/provenance/why.ts test/provenance/why.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval provenance`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
