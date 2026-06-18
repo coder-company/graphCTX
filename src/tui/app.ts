@@ -247,7 +247,7 @@ export class TuiApp {
       this.state.cursor,
       this.state.scroll,
       max + 1,
-      this.controlPageSize(),
+      this.controlPageSize(max >= 0),
     );
   }
 
@@ -350,8 +350,9 @@ export class TuiApp {
 
   private renderControl(): string[] {
     const views = this.currentViews();
-    const pageSize = this.controlPageSize();
     const width = this.contentWidth();
+    const selected = views[this.state.cursor];
+    const pageSize = this.controlPageSize(Boolean(selected));
     this.state.scroll = clampWindowStart(
       this.state.cursor,
       this.state.scroll,
@@ -376,6 +377,10 @@ export class TuiApp {
       out.push(this.controlRow(v, sel, width));
     });
     if (views.length === 0) out.push(style.gray("  (nothing to manage)"));
+    if (selected) {
+      out.push("");
+      out.push(this.selectedFactPanel(selected, width));
+    }
     return out;
   }
 
@@ -410,10 +415,12 @@ export class TuiApp {
     return s;
   }
 
-  private controlPageSize(): number {
-    // Header + footer + title/help lines consume ~8 rows. Keep enough rows for
-    // control mode to stay useful in short terminals while scaling up smoothly.
-    return Math.max(5, Math.min(24, term.height() - 8));
+  private controlPageSize(hasDetail: boolean): number {
+    // Header/footer/title/help plus the selected-detail panel consume vertical
+    // space. Keep enough rows for control mode to stay useful in short terminals
+    // while scaling up smoothly.
+    const reserved = hasDetail ? 16 : 8;
+    return Math.max(4, Math.min(20, term.height() - reserved));
   }
 
   private contentWidth(): number {
@@ -439,6 +446,27 @@ export class TuiApp {
     const textWidth = Math.max(12, width - 36);
     const row = `${padEnd(this.kindColor(v.kind), 11)} ${padEnd(this.statusColor(v.status), 10)} ${truncate(v.text, textWidth)}`;
     return marker + (selected ? style.bold(row) : row) + id;
+  }
+
+  private selectedFactPanel(v: FactView, width: number): string {
+    const confidence =
+      typeof v.fact.confidence === "number" ? v.fact.confidence.toFixed(2) : "unknown";
+    const observed = v.fact.time?.t_observed ?? v.fact.time?.t_recorded ?? "unknown";
+    const meta = [
+      `kind ${v.kind}`,
+      `scope ${v.scope}`,
+      `status ${v.status}`,
+      `trust ${v.trust}`,
+      `sensitivity ${v.fact.sensitivity ?? "unknown"}`,
+    ].join("  ");
+    const lines = [
+      meta,
+      `confidence ${confidence}  evidence ${v.fact.evidence_count ?? 0}  source ${v.fact.source.asserted_by}`,
+      `observed ${observed}`,
+      "",
+      truncate(v.text, Math.max(12, width - 4)),
+    ];
+    return panel(lines, { title: `Selected ${v.id8}`, width, color: style.blue });
   }
 }
 

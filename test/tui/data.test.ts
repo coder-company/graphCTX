@@ -180,6 +180,39 @@ describe("tui/app — non-interactive snapshots", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("redacts secret text in the selected control detail panel", () => {
+    const dir = mkdtempSync(join(tmpdir(), "graphctx-tui-snapshot-"));
+    const rt = new Runtime({ workspaceDir: dir });
+    const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+    try {
+      rt.facts.insert({
+        subject: `repo-${secret}`,
+        predicate: "deploy_token",
+        object: secret,
+        fact_kind: "decision",
+        temporal_kind: "static",
+        scope: { user_id: rt.userId, workspace_id: rt.workspaceId },
+        trust_tier: "high",
+        status: "active",
+        promotion_state: "workspace_active",
+        source: { asserted_by: "user", event_ids: [], raw_quote: `token is ${secret}` },
+        tags: [],
+      });
+      const app = new TuiApp(dir, "control");
+      try {
+        const snapshot = app.snapshot();
+        expect(snapshot).toContain("Selected");
+        expect(snapshot).toContain("[REDACTED:openai]");
+        expect(snapshot).not.toContain(secret);
+      } finally {
+        app.close();
+      }
+    } finally {
+      rt.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("tui/app — responsive terminal layout", () => {

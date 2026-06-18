@@ -1706,6 +1706,25 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/core/types.ts src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 143 - TUI selected fact detail panel
+
+- Added a selected-fact detail panel to the Control tab so users can inspect
+  scope, status, trust, sensitivity, confidence, evidence count, source, and
+  observed time before promoting, forgetting, or resolving a fact.
+- Reserved terminal height for the detail panel so control-row navigation keeps
+  the selected row visible without jumping.
+- Reused the redacted TUI read model for the detail body and added a regression
+  proving secret-shaped selected facts are redacted in the detail panel.
+- Updated live docs counters to 271 tests.
+- Verification:
+  - `npx vitest run test/tui/data.test.ts test/tui/ansi.test.ts`
+  - `NO_COLOR=1 npx tsx src/cli.ts tui --tab control`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsc --noEmit`
+  - `npx biome check src/tui/app.ts test/tui/data.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 141 - width-aware TUI layout
 
 - Made dashboard recent-memory columns adapt to terminal width instead of using
