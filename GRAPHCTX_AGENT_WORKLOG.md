@@ -1167,3 +1167,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 111 - outcome telemetry runtime clock
+
+- Added an injectable clock to `OutcomeRecorder` so local telemetry outcome
+  timestamps use the same deterministic clock seam as the rest of persistence.
+- Strengthened the telemetry regression to assert the exact persisted
+  `outcome_json.at` value while preserving signal sanitization coverage.
+- Verification:
+  - `npx vitest run test/eval/telemetry-learning.test.ts test/inject/ledger.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/telemetry/outcomes.ts test/eval/telemetry-learning.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval telemetry`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

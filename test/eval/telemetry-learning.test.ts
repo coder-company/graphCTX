@@ -38,13 +38,17 @@ describe("telemetry learning eval", () => {
         nested: { api_key: secret },
       } as OutcomeSignal & Record<string, unknown>;
 
-      const outcome = new OutcomeRecorder(db).record(id, signal);
+      const outcome = new OutcomeRecorder(db, { clock }).record(id, signal);
       const row = db
         .prepare("SELECT outcome_json FROM injections WHERE injection_id = ?")
         .get(id) as { outcome_json: string };
-      const parsed = JSON.parse(row.outcome_json) as { signals: Record<string, unknown> };
+      const parsed = JSON.parse(row.outcome_json) as {
+        at: string;
+        signals: Record<string, unknown>;
+      };
 
       expect(outcome).toBe("helped");
+      expect(parsed.at).toBe("2026-01-01T00:00:00.000Z");
       expect(parsed.signals).toEqual({ followedBySuccess: true });
       expect(row.outcome_json).not.toContain(secret);
       expect(row.outcome_json).not.toContain("Authorization");

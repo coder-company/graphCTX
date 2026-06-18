@@ -1,3 +1,4 @@
+import { type Clock, systemClock } from "../core/clock.js";
 import type { ScoredFact } from "../core/types.js";
 import type { DB } from "../store/db.js";
 
@@ -50,10 +51,12 @@ const OUTCOME_WEIGHTS: Record<OutcomeClass, number> = {
 export class OutcomeRecorder {
   private readonly db: DB;
   private readonly enabled: boolean;
+  private readonly clock: Clock;
 
-  constructor(db: DB, opts: { enabled?: boolean } = {}) {
+  constructor(db: DB, opts: { enabled?: boolean; clock?: Clock } = {}) {
     this.db = db;
     this.enabled = opts.enabled ?? true;
+    this.clock = opts.clock ?? systemClock;
   }
 
   // Persist a classified outcome onto the injection row (local-only).
@@ -64,7 +67,7 @@ export class OutcomeRecorder {
     try {
       this.db
         .prepare("UPDATE injections SET outcome_json = ? WHERE injection_id = ?")
-        .run(JSON.stringify({ outcome, signals, at: new Date().toISOString() }), injectionId);
+        .run(JSON.stringify({ outcome, signals, at: this.clock.iso() }), injectionId);
     } catch {
       // telemetry must never break anything (I9)
     }
