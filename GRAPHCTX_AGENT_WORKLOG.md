@@ -1426,3 +1426,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/runtime.ts src/cli.ts src/mcp/tools.ts src/tui/app.ts test/runtime/forget.test.ts`
   - `npx vitest list`
   - `git diff --check`
+
+### Iteration 127 - gated TUI promotion review
+
+- Added a single-fact `Probation.reviewFactForWorkspace()` path and exposed it
+  through `Runtime.reviewFactForWorkspace()`.
+- Routed TUI `p promote` through the Runtime/Probation promotion gates instead
+  of directly setting `status=active` and `promotion_state=workspace_active`.
+- Added a runtime regression proving the review path promotes structured
+  deterministic evidence but rejects secret-bearing facts while recording
+  promotion audit rows.
+- Updated live test counters to 258.
+- Verification:
+  - `npx vitest run test/runtime/promote.test.ts test/promote/probation.test.ts test/tui/data.test.ts`
+  - `npx tsx src/cli.ts eval promote`
+  - `npx tsc --noEmit`
+  - `npx biome check src/runtime.ts src/promote/probation.ts src/tui/app.ts test/runtime/promote.test.ts`
+  - `npx vitest list`
+  - `git diff --check`

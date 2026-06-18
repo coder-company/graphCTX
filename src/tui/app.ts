@@ -168,12 +168,16 @@ export class TuiApp {
         this.draw();
       });
     } else if (k.name === "p" && sel) {
-      // promote selected to workspace_active (hard-action; user-explicit)
-      this.rt.facts.update(sel.fact.fact_id, {
-        status: "active",
-        promotion_state: "workspace_active",
+      void this.rt.reviewFactForWorkspace(sel.fact.fact_id).then((review) => {
+        if (!review) {
+          this.refresh(`missing ${sel.id8}`);
+        } else if (review.decision.kind === "promote") {
+          this.refresh(`promoted ${sel.id8} via ${review.decision.gate}`);
+        } else {
+          this.refresh(`${review.decision.kind} ${sel.id8}: ${review.decision.gate}`);
+        }
+        this.draw();
       });
-      this.refresh(`promoted ${sel.id8} → workspace`);
     } else if (k.name === "return" && sel?.fact.fact_kind === "open_loop") {
       void this.rt
         .resolveOpenLoop(sel.fact.fact_id)

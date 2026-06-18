@@ -292,23 +292,19 @@ export class Runtime {
   async runPromotionSweep(
     sessionId?: string,
   ): Promise<ReturnType<Probation["sweepSessionToWorkspace"]>> {
-    let git: { repoId: string; head: string; branch: string } | undefined;
-    if (await this.git.isRepo()) {
-      try {
-        git = {
-          repoId: await this.git.repoId(),
-          head: await this.git.head(),
-          branch: await this.git.branch(),
-        };
-      } catch {
-        // degrade: promote without anchors
-      }
-    }
+    const git = await this.currentGitContext();
     return this.probation(git).sweepSessionToWorkspace({
       user_id: this.userId,
       workspace_id: this.workspaceId,
       session_id: sessionId,
     });
+  }
+
+  async reviewFactForWorkspace(
+    factId: string,
+  ): Promise<ReturnType<Probation["reviewFactForWorkspace"]>> {
+    const git = await this.currentGitContext();
+    return this.probation(git).reviewFactForWorkspace(factId);
   }
 
   // Record a durable open loop (M1 §7) — an unfinished thread to resurface at
@@ -430,14 +426,25 @@ export class Runtime {
   }
 
   private async currentGitAnchor(): Promise<GitAnchor | undefined> {
+    const git = await this.currentGitContext();
+    if (!git) return undefined;
+    return {
+      repo_id: git.repoId,
+      branch: git.branch,
+      valid_from_commit: git.head,
+      introduced_by_commit: git.head,
+    };
+  }
+
+  private async currentGitContext(): Promise<
+    { repoId: string; head: string; branch: string } | undefined
+  > {
     if (!(await this.git.isRepo())) return undefined;
     try {
-      const head = await this.git.head();
       return {
-        repo_id: await this.git.repoId(),
+        repoId: await this.git.repoId(),
+        head: await this.git.head(),
         branch: await this.git.branch(),
-        valid_from_commit: head,
-        introduced_by_commit: head,
       };
     } catch {
       return undefined;

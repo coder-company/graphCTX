@@ -29,6 +29,11 @@ export interface SweepResult {
   decisions: Array<{ fact_id: string; decision: Decision }>;
 }
 
+export interface PromotionReview {
+  fact_id: string;
+  decision: Decision;
+}
+
 // Promotion sweep (SPEC §12). Runs over session-scoped candidate facts and
 // applies the hard gates. Promotion to workspace requires, in addition to a
 // gate firing: clean lifecycle, no unresolved conflict, and — for perishable
@@ -46,6 +51,27 @@ export class Probation {
     session_id?: string;
   }): SweepResult {
     return this.deps.facts.transaction(() => this.sweepSessionToWorkspaceInTransaction(scope));
+  }
+
+  reviewFactForWorkspace(factId: string): PromotionReview | null {
+    return this.deps.facts.transaction(() => {
+      const fact = this.deps.facts.get(factId);
+      if (!fact) return null;
+      if (
+        fact.promotion_state !== "session_only" &&
+        fact.promotion_state !== "workspace_candidate"
+      ) {
+        return {
+          fact_id: factId,
+          decision: {
+            kind: "candidate",
+            gate: "not_eligible",
+            reason: `promotion_state=${fact.promotion_state}`,
+          },
+        };
+      }
+      return this.reviewEligibleFact(fact);
+    });
   }
 
   private sweepSessionToWorkspaceInTransaction(scope: {
@@ -70,30 +96,35 @@ export class Probation {
 
     for (const f of pool) {
       result.considered += 1;
-      const ctx = this.contextFor(f);
-      const decision = sessionToWorkspace(f, ctx);
-
-      // Extra probation guard: never promote a perishable fact whose target is
-      // gone, even if a gate fired (I4).
-      const verified =
-        decision.kind === "promote" ? verifyBeforeInject(f, this.deps.workspaceDir) : true;
-      const finalDecision: Decision =
-        decision.kind === "promote" && !verified
-          ? {
-              kind: "candidate",
-              gate: "unverified",
-              reason: "perishable target failed verification",
-            }
-          : decision;
-
-      this.applyDecision(f, finalDecision);
-      result.decisions.push({ fact_id: f.fact_id, decision: finalDecision });
-      if (finalDecision.kind === "promote") result.promoted += 1;
-      else if (finalDecision.kind === "candidate") result.heldCandidate += 1;
+      const review = this.reviewEligibleFact(f);
+      result.decisions.push(review);
+      if (review.decision.kind === "promote") result.promoted += 1;
+      else if (review.decision.kind === "candidate") result.heldCandidate += 1;
       else result.rejected += 1;
     }
 
     return result;
+  }
+
+  private reviewEligibleFact(f: Fact): PromotionReview {
+    const ctx = this.contextFor(f);
+    const decision = sessionToWorkspace(f, ctx);
+
+    // Extra probation guard: never promote a perishable fact whose target is
+    // gone, even if a gate fired (I4).
+    const verified =
+      decision.kind === "promote" ? verifyBeforeInject(f, this.deps.workspaceDir) : true;
+    const finalDecision: Decision =
+      decision.kind === "promote" && !verified
+        ? {
+            kind: "candidate",
+            gate: "unverified",
+            reason: "perishable target failed verification",
+          }
+        : decision;
+
+    this.applyDecision(f, finalDecision);
+    return { fact_id: f.fact_id, decision: finalDecision };
   }
 
   private contextFor(f: Fact): PromotionContext {
