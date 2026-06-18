@@ -396,3 +396,16 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx vitest run test/extract/extractors.test.ts`
   - `npx tsc --noEmit`
   - `npx biome check src test`
+
+### Iteration 63 - workspace-confined runtime version extraction
+
+- Hardened runtime version extraction so `.nvmrc`, `.node-version`, and
+  `.tool-versions` must resolve inside the workspace before becoming version
+  constraint facts.
+- Added a regression covering external symlinked `.nvmrc` and `.tool-versions`
+  evidence.
+- Updated README/STATUS counters to 215 Vitest tests.
+- Verification:
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`

@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { NewFact } from "../../core/types.js";
+import { existingWorkspacePath } from "../../security/workspace-path.js";
 import { type ExtractContext, type Extractor, structuredFact } from "./types.js";
 
 const NODE_VERSION_FILES = [".nvmrc", ".node-version"];
@@ -31,7 +32,7 @@ export const runtimeVersionExtractor: Extractor = {
 
 function firstMeaningfulLine(ctx: ExtractContext, file: string): string | null {
   const p = join(ctx.workspaceDir, file);
-  if (!existsSync(p)) return null;
+  if (!existingWorkspacePath(ctx.workspaceDir, file)) return null;
   try {
     const line = readFileSync(p, "utf8")
       .split("\n")
@@ -45,7 +46,7 @@ function firstMeaningfulLine(ctx: ExtractContext, file: string): string | null {
 
 function readToolVersions(ctx: ExtractContext): Array<{ tool: string; version: string }> {
   const p = join(ctx.workspaceDir, TOOL_VERSIONS);
-  if (!existsSync(p)) return [];
+  if (!existingWorkspacePath(ctx.workspaceDir, TOOL_VERSIONS)) return [];
   let lines: string[];
   try {
     lines = readFileSync(p, "utf8").split("\n");

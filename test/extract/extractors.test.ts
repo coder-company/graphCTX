@@ -159,6 +159,21 @@ describe("deterministic extractors", () => {
     ]);
   });
 
+  it("runtime pin extraction ignores version files symlinked outside the workspace", () => {
+    const outside = mkdtempSync(join(tmpdir(), "gctx-ex-runtime-outside-"));
+    try {
+      writeFileSync(join(outside, ".nvmrc"), "22.13.0\n");
+      writeFileSync(join(outside, ".tool-versions"), "nodejs 22.13.0\npnpm 10.12.0\n");
+      symlinkSync(join(outside, ".nvmrc"), join(dir, ".nvmrc"), "file");
+      symlinkSync(join(outside, ".tool-versions"), join(dir, ".tool-versions"), "file");
+
+      const { res } = extract();
+      expect(res.inserted.find((f) => f.predicate === "version_pin")).toBeUndefined();
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it("editorconfig → indent style constraint", () => {
     writeFileSync(join(dir, ".editorconfig"), "[*]\nindent_style = tab\nindent_size = 4\n");
     const { res } = extract();
