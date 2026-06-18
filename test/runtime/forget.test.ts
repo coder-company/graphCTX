@@ -81,3 +81,58 @@ describe("Runtime forget", () => {
     }
   });
 });
+
+describe("Runtime remember", () => {
+  it("anchors explicit memory and invalidates older same-key facts", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "graphctx-runtime-remember-"));
+    try {
+      execFileSync("git", ["-c", "init.defaultBranch=main", "init", "-q", "."], {
+        cwd: dir,
+        env: GIT_ENV,
+      });
+      writeFileSync(join(dir, "README.md"), "# test\n");
+      git(dir, ["add", "-A"]);
+      git(dir, ["commit", "-qm", "init"]);
+
+      const rt = new Runtime({
+        workspaceDir: dir,
+        userId: "u",
+        clock: fixedClock("2026-06-01T02:03:04.000Z"),
+      });
+      try {
+        const head = await rt.git.head();
+        const repoId = await rt.git.repoId();
+
+        const first = await rt.rememberFact({
+          text: "test with npm test",
+          subject: "repo",
+          predicate: "test_command",
+          kind: "procedural",
+        });
+        const second = await rt.rememberFact({
+          text: "test with pnpm test",
+          subject: "repo",
+          predicate: "test_command",
+          kind: "procedural",
+        });
+
+        const older = rt.facts.get(first.fact_id);
+        expect(second.status).toBe("active");
+        expect(second.git).toMatchObject({
+          repo_id: repoId,
+          branch: "main",
+          valid_from_commit: head,
+          introduced_by_commit: head,
+        });
+        expect(older?.status).toBe("superseded");
+        expect(older?.time.invalidated_by).toBe(second.fact_id);
+        expect(older?.git?.valid_until_commit).toBe(head);
+        expect(older?.git?.invalidated_by_commit).toBe(head);
+      } finally {
+        rt.close();
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

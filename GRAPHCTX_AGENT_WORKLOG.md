@@ -1407,3 +1407,22 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/runtime.ts src/mcp/tools.ts src/tui/app.ts test/runtime/forget.test.ts`
   - `npx vitest list`
   - `git diff --check`
+
+### Iteration 126 - shared explicit remember lifecycle
+
+- Added `Runtime.rememberFact()` as the shared explicit-memory interface for
+  safe intake, git anchoring, active workspace/session promotion defaults, and
+  invalidation.
+- Routed CLI `remember`, MCP `remember`, and TUI `n new` through the runtime
+  interface; TUI no longer bypasses invalidation or commit anchors by inserting
+  directly into `FactsRepo`.
+- Added a real-git runtime regression proving explicit memory is anchored and
+  newer same-key explicit memory supersedes the older fact with commit closeout
+  metadata.
+- Updated live test counters to 257.
+- Verification:
+  - `npx vitest run test/runtime/forget.test.ts test/eval/core-memory-lifecycle.test.ts test/eval/adapters-mcp.test.ts test/tui/data.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/runtime.ts src/cli.ts src/mcp/tools.ts src/tui/app.ts test/runtime/forget.test.ts`
+  - `npx vitest list`
+  - `git diff --check`

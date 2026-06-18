@@ -145,20 +145,10 @@ export class TuiApp {
           this.refresh("refused secret-bearing memory");
           return;
         }
-        const f = this.rt.facts.insert({
-          subject: "repo",
-          predicate: "note",
-          object: v,
-          fact_kind: "decision",
-          temporal_kind: "static",
-          scope: { user_id: this.rt.userId, workspace_id: this.rt.workspaceId },
-          trust_tier: "high",
-          status: "active",
-          promotion_state: "workspace_active",
-          source: { asserted_by: "user", event_ids: [], raw_quote: `user said: ${v}` },
-          tags: ["user_explicit"],
+        void this.rt.rememberFact({ text: v }).then((f) => {
+          this.refresh(`remembered ${f.fact_id.slice(-8)}`);
+          this.draw();
         });
-        this.refresh(`remembered ${f.fact_id.slice(-8)}`);
       });
     } else if (k.name === "o") {
       this.ask("New open loop", (v) => {

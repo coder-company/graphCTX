@@ -190,31 +190,11 @@ program
       fail(formatMemoryWriteError(e));
     }
     const rt = new Runtime({ workspaceDir: opts.cwd });
-    let head: string | undefined;
-    let branch: string | undefined;
-    let repoId: string | undefined;
-    if (await rt.git.isRepo()) {
-      try {
-        head = await rt.git.head();
-        branch = await rt.git.branch();
-        repoId = await rt.git.repoId();
-      } catch {
-        // degrade without anchors
-      }
-    }
-    const fact = await rt.learn({
+    const fact = await rt.rememberFact({
+      text,
       subject: opts.subject,
       predicate: opts.predicate,
-      object: text,
-      fact_kind: opts.kind,
-      temporal_kind: "static",
-      scope: { user_id: rt.userId, workspace_id: rt.workspaceId },
-      trust_tier: "high",
-      status: "active",
-      promotion_state: "workspace_active",
-      source: { asserted_by: "user", event_ids: [], raw_quote: `user said: ${text}` },
-      git: { repo_id: repoId, branch, valid_from_commit: head, introduced_by_commit: head },
-      tags: ["user_explicit"],
+      kind: opts.kind,
     });
     refreshAgentsCapsule(rt);
     process.stdout.write(`Remembered ${fact.fact_id}: ${renderCard(fact).markdown}\n`);

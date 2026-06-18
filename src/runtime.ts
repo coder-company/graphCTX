@@ -2,7 +2,7 @@ import { EpisodeLog } from "./capture/episode-log.js";
 import { type LoadedConfig, loadConfig } from "./config/config.js";
 import { type Clock, systemClock } from "./core/clock.js";
 import { workspaceIdFromPath } from "./core/ids.js";
-import type { Event, InjectionContext, Scope } from "./core/types.js";
+import type { Event, Fact, FactKind, GitAnchor, InjectionContext, Scope } from "./core/types.js";
 import { extractFactsFromEpisodes } from "./extract/llm/fact-extractor.js";
 import { mineProcedures } from "./extract/llm/procedure-miner.js";
 import { runDeterministicExtraction } from "./extract/pipeline.js";
@@ -38,6 +38,15 @@ export interface RuntimeOptions {
   workspaceDir?: string;
   userId?: string;
   clock?: Clock;
+}
+
+export interface RememberFactInput {
+  text: string;
+  subject?: string;
+  predicate?: string;
+  kind?: FactKind;
+  sessionId?: string;
+  tags?: string[];
 }
 
 // Central wiring: opens stores, git, repos, planner. Used by CLI + adapters +
@@ -327,6 +336,35 @@ export class Runtime {
     });
   }
 
+  // Store explicit user memory with the same lifecycle as CLI/MCP/TUI remember:
+  // safe intake, current git anchoring, active trust, and invalidation.
+  async rememberFact(input: RememberFactInput): Promise<Fact> {
+    const subject = input.subject ?? "repo";
+    const predicate = input.predicate ?? "note";
+    const kind = input.kind ?? "decision";
+    assertSafeExplicitMemoryWrite({
+      text: input.text,
+      subject,
+      predicate,
+      kind,
+      session_id: input.sessionId,
+    });
+    return await this.learn({
+      subject,
+      predicate,
+      object: input.text,
+      fact_kind: kind,
+      temporal_kind: kind === "task_state" || kind === "open_loop" ? "dynamic" : "static",
+      scope: this.scope(input.sessionId),
+      trust_tier: "high",
+      status: "active",
+      promotion_state: input.sessionId ? "session_only" : "workspace_active",
+      source: { asserted_by: "user", event_ids: [], raw_quote: `user said: ${input.text}` },
+      git: await this.currentGitAnchor(),
+      tags: input.tags ?? ["user_explicit"],
+    });
+  }
+
   // Resolve an open loop so it stops resurfacing (M1 §7).
   async resolveOpenLoop(loopFactId: string, byFactId?: string): Promise<void> {
     const inv = await this.invalidator();
@@ -386,6 +424,21 @@ export class Runtime {
     if (!(await this.git.isRepo())) return undefined;
     try {
       return await this.git.head();
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async currentGitAnchor(): Promise<GitAnchor | undefined> {
+    if (!(await this.git.isRepo())) return undefined;
+    try {
+      const head = await this.git.head();
+      return {
+        repo_id: await this.git.repoId(),
+        branch: await this.git.branch(),
+        valid_from_commit: head,
+        introduced_by_commit: head,
+      };
     } catch {
       return undefined;
     }

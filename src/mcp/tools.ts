@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { writeAgentsCapsule } from "../adapters/boot-capsule.js";
-import type { Event, GitAnchor } from "../core/types.js";
+import type { Event } from "../core/types.js";
 import { redactWhyReport } from "../provenance/why.js";
 import { resolveConflicts } from "../resolve/conflicts.js";
 import type { Runtime } from "../runtime.js";
@@ -106,18 +106,12 @@ export const MCP_TOOLS: McpTool[] = [
         kind: a.kind,
         session_id: a.session_id,
       });
-      const fact = await rt.learn({
+      const fact = await rt.rememberFact({
+        text: a.text,
         subject: a.subject,
         predicate: a.predicate,
-        object: a.text,
-        fact_kind: a.kind,
-        temporal_kind: a.kind === "task_state" || a.kind === "open_loop" ? "dynamic" : "static",
-        scope: rt.scope(a.session_id),
-        trust_tier: "high", // user-asserted via explicit tool call
-        status: "active",
-        promotion_state: a.session_id ? "session_only" : "workspace_active",
-        source: { asserted_by: "user", event_ids: [], raw_quote: `user said: ${a.text}` },
-        git: await currentGitAnchor(rt),
+        kind: a.kind,
+        sessionId: a.session_id,
         tags: ["mcp_remember"],
       });
       refreshAgentsCapsule(rt);
@@ -246,20 +240,5 @@ function refreshAgentsCapsule(rt: Runtime): void {
     writeAgentsCapsule(rt);
   } catch {
     // MCP memory writes should not fail just because the static floor cannot refresh.
-  }
-}
-
-async function currentGitAnchor(rt: Runtime): Promise<GitAnchor | undefined> {
-  if (!(await rt.git.isRepo())) return undefined;
-  try {
-    const head = await rt.git.head();
-    return {
-      repo_id: await rt.git.repoId(),
-      branch: await rt.git.branch(),
-      valid_from_commit: head,
-      introduced_by_commit: head,
-    };
-  } catch {
-    return undefined;
   }
 }
