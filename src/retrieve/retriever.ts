@@ -130,7 +130,11 @@ export class Retriever {
       if (ctx.scope.session_id) {
         for (const sf of this.repo.search({
           text: query,
-          scope: { user_id: ctx.scope.user_id, session_id: ctx.scope.session_id },
+          scope: {
+            user_id: ctx.scope.user_id,
+            workspace_id: ctx.scope.workspace_id,
+            session_id: ctx.scope.session_id,
+          },
           limit: k,
         }))
           addLex(sf.fact, lexFromSignals(sf), sf.signals?.bm25);
@@ -146,11 +150,7 @@ export class Retriever {
       for (const f of this.repo.activeAsOf(wsScope)) addLex(f, 0.3);
       for (const f of this.repo.userScopedActive(ctx.scope.user_id)) addLex(f, 0.45);
       if (ctx.scope.session_id) {
-        for (const f of this.repo.activeAsOf({
-          user_id: ctx.scope.user_id,
-          session_id: ctx.scope.session_id,
-        }))
-          addLex(f, 0.5);
+        for (const f of this.repo.activeAsOf(sessionScope(ctx))) addLex(f, 0.5);
       }
     }
 
@@ -217,6 +217,7 @@ export class Retriever {
     // Commit-anchored filtering (SPEC §8, §13), then RRF-score the survivors.
     const valid: ScoredFact[] = [];
     for (const c of candidates) {
+      if (!inScope(c.fact, wsScope.user_id, wsScope.workspace_id, ctx.scope.session_id)) continue;
       if (!(await this.isValid(c.fact, ctx))) continue;
       let rrf = 0;
       const rl = lexRank.get(c.fact.fact_id);
@@ -324,12 +325,7 @@ export class Retriever {
     };
 
     if (ctx.scope.session_id) {
-      add(
-        this.repo.activeAsOf(
-          { user_id: ctx.scope.user_id, session_id: ctx.scope.session_id },
-          Math.min(128, SEMANTIC_SCAN_CAP),
-        ),
-      );
+      add(this.repo.activeAsOf(sessionScope(ctx), Math.min(128, SEMANTIC_SCAN_CAP)));
     }
     add(this.repo.userScopedActive(ctx.scope.user_id, Math.min(128, SEMANTIC_SCAN_CAP)));
     add(this.repo.activeAsOf(wsScope, SEMANTIC_SCAN_CAP - facts.length));
@@ -422,8 +418,23 @@ function inScope(
   sessionId: string | undefined,
 ): boolean {
   if (f.scope.user_id !== userId) return false;
-  if (f.scope.workspace_id && workspaceId && f.scope.workspace_id === workspaceId) return true;
-  if (f.scope.session_id && sessionId && f.scope.session_id === sessionId) return true;
+  const workspaceMatches =
+    !f.scope.workspace_id || (workspaceId !== undefined && f.scope.workspace_id === workspaceId);
+  if (f.scope.session_id) return sessionId === f.scope.session_id && workspaceMatches;
+  if (f.scope.workspace_id)
+    return workspaceId !== undefined && f.scope.workspace_id === workspaceId;
   // user-scoped facts (no workspace/session) are also eligible
   return !f.scope.workspace_id && !f.scope.session_id;
+}
+
+function sessionScope(ctx: InjectionContext): {
+  user_id: string;
+  workspace_id: string | undefined;
+  session_id: string | undefined;
+} {
+  return {
+    user_id: ctx.scope.user_id,
+    workspace_id: ctx.scope.workspace_id,
+    session_id: ctx.scope.session_id,
+  };
 }

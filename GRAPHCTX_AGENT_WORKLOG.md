@@ -1342,3 +1342,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval storage`
   - `npx tsx src/cli.ts eval benchmarks`
   - `git diff --check`
+
+### Iteration 122 - retrieval session scope isolation
+
+- Tightened retriever session lookups to carry the current workspace id and
+  added a final candidate scope check before validity/ranking.
+- Added a regression proving same-user, same-session facts from another
+  workspace do not appear in retrieval results.
+- Updated live test counters to 255.
+- Verification:
+  - `npx vitest run test/retrieve/retriever.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts docs/STATUS.md README.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

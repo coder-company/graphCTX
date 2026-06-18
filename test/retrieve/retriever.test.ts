@@ -167,6 +167,40 @@ describe("Retriever", () => {
     }
   });
 
+  it("does not leak same-session facts from another workspace", async () => {
+    const db = openDb(":memory:");
+    try {
+      const facts = new FactsRepo(db);
+      const local = facts.insert(
+        fact({
+          object: "local workspace session note",
+          scope: { user_id: "u", workspace_id: "w", session_id: "s" },
+          promotion_state: "session_only",
+          source: { asserted_by: "user", event_ids: [] },
+        }),
+      );
+      const foreign = facts.insert(
+        fact({
+          object: "foreign workspace session note",
+          scope: { user_id: "u", workspace_id: "other-w", session_id: "s" },
+          promotion_state: "session_only",
+          source: { asserted_by: "user", event_ids: [] },
+        }),
+      );
+      const vectors = new VectorIndex(db);
+
+      const ranked = await new Retriever(facts, null, vectors).retrieve(
+        { ...ctx(), user_prompt: "workspace session note" },
+        { includeAllActive: true, k: 10 },
+      );
+      const ids = ranked.map((sf) => sf.fact.fact_id);
+      expect(ids).toContain(local.fact_id);
+      expect(ids).not.toContain(foreign.fact_id);
+    } finally {
+      db.close();
+    }
+  });
+
   it("uses the injected clock for recency reranking", async () => {
     const db = openDb(":memory:");
     try {
