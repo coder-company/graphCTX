@@ -1,5 +1,4 @@
-import type { Episode, Fact, GitAnchor } from "../core/types.js";
-import type { Scope } from "../core/types.js";
+import type { Episode, Fact, GitAnchor, Scope } from "../core/types.js";
 import { redactSecretValue, redactSecrets } from "../security/secrets.js";
 import type { Edge, EdgesRepo } from "../store/edges.repo.js";
 import type { EpisodesRepo } from "../store/episodes.repo.js";
@@ -125,10 +124,8 @@ export function redactWhyReport(r: WhyReport): WhyReport {
     ...r,
     raw_quote: r.raw_quote ? redactSecrets(r.raw_quote) : undefined,
     git_anchor: redactGitAnchor(r.git_anchor),
-    evidence: r.evidence.map((e) => ({
-      ...e,
-      payload: redactSecretValue(e.payload),
-    })),
+    evidence: r.evidence.map(redactEpisode),
+    missing_evidence_ids: r.missing_evidence_ids.map((id) => redactSecrets(id)),
     promotions: r.promotions.map((p) => ({
       ...p,
       gate: p.gate ? redactSecrets(p.gate) : undefined,
@@ -144,9 +141,22 @@ export function redactWhyReport(r: WhyReport): WhyReport {
       tags: r.fact.tags.map((tag) => redactSecrets(tag)),
       source: {
         ...r.fact.source,
+        event_ids: r.fact.source.event_ids.map((id) => redactSecrets(id)),
+        commit: r.fact.source.commit ? redactSecrets(r.fact.source.commit) : undefined,
         raw_quote: r.fact.source.raw_quote ? redactSecrets(r.fact.source.raw_quote) : undefined,
       },
     },
+  };
+}
+
+function redactEpisode(episode: Episode): Episode {
+  return {
+    ...episode,
+    session_id: redactSecrets(episode.session_id),
+    workspace_id: episode.workspace_id ? redactSecrets(episode.workspace_id) : undefined,
+    payload: redactSecretValue(episode.payload),
+    git_head: episode.git_head ? redactSecrets(episode.git_head) : undefined,
+    git_branch: episode.git_branch ? redactSecrets(episode.git_branch) : undefined,
   };
 }
 

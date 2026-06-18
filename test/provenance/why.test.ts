@@ -129,9 +129,12 @@ describe("why() provenance reader", () => {
   it("redacts secrets from formatted and structured provenance output", () => {
     const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
     const ev = episodes.append({
-      session_id: "s1",
+      session_id: `s-${secret}`,
+      workspace_id: `w-${secret}`,
       event_type: "user_correction",
       payload: { token: secret },
+      git_head: `head-${secret}`,
+      git_branch: `feature/${secret}`,
     });
     const fact = facts.insert(
       f({
@@ -145,7 +148,8 @@ describe("why() provenance reader", () => {
         },
         source: {
           asserted_by: "user",
-          event_ids: [ev.event_id],
+          event_ids: [ev.event_id, `missing-${secret}`],
+          commit: `commit-${secret}`,
           raw_quote: `token is ${secret}`,
         },
         tags: [secret],
@@ -178,12 +182,19 @@ describe("why() provenance reader", () => {
     expect(structured.fact.scope.session_id).toContain("[REDACTED:openai]");
     expect(structured.fact.object).toBe("[REDACTED:openai]");
     expect(structured.fact.tags[0]).toBe("[REDACTED:openai]");
+    expect(structured.fact.source.event_ids[1]).toContain("[REDACTED:openai]");
+    expect(structured.fact.source.commit).toContain("[REDACTED:openai]");
     expect(structured.git_anchor?.branch).toContain("[REDACTED:openai]");
     expect(structured.fact.git?.path_globs?.[0]).toContain("[REDACTED:openai]");
     expect(structured.fact.git?.patch_id).toBe("[REDACTED:openai]");
     expect(structured.promotions[0]?.gate).toContain("[REDACTED:openai]");
     expect(structured.promotions[0]?.reason).toContain("[REDACTED:openai]");
     expect(JSON.stringify(structured.evidence[0]?.payload)).not.toContain(secret);
+    expect(structured.evidence[0]?.session_id).toContain("[REDACTED:openai]");
+    expect(structured.evidence[0]?.workspace_id).toContain("[REDACTED:openai]");
+    expect(structured.evidence[0]?.git_head).toContain("[REDACTED:openai]");
+    expect(structured.evidence[0]?.git_branch).toContain("[REDACTED:openai]");
+    expect(structured.missing_evidence_ids[0]).toContain("[REDACTED:openai]");
     expect(structured.raw_quote).toContain("[REDACTED:openai]");
   });
 });

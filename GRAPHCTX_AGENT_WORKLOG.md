@@ -1001,3 +1001,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 101 - structured why evidence metadata redaction
+
+- Redacted structured `why` evidence-chain metadata before CLI/MCP output:
+  source event IDs, source commit strings, missing evidence IDs, episode
+  session/workspace IDs, and episode git branch/head strings.
+- Strengthened the existing provenance redaction regression with secret-shaped
+  evidence metadata.
+- Verification:
+  - `npx vitest run test/provenance/why.test.ts test/security/secrets.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/provenance/why.ts test/provenance/why.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval provenance`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
