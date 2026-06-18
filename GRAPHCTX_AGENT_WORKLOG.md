@@ -804,3 +804,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 90 - semantic rerank redaction
+
+- Redacted fact semantic text before vector reranking embeds or compares it,
+  preventing forced/internal secret facts from entering rerank text even before
+  the send-unsafe validity filter drops them.
+- Added a fake-vector regression that captures rerank inputs and proves raw
+  secret text is absent while redaction provenance remains visible.
+- Updated STATUS/README counters to 238 Vitest tests.
+- Verification:
+  - `npx vitest run test/retrieve/retriever.test.ts test/security/promotion-injection.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

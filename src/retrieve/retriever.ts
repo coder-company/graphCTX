@@ -1,6 +1,7 @@
 import type { Fact, InjectionContext, ScoredFact } from "../core/types.js";
 import { isValidAsOf } from "../git/anchors.js";
 import type { Git } from "../git/git.js";
+import { redactSecrets } from "../security/secrets.js";
 import { safeForSend } from "../security/send-edge.js";
 import type { FactsRepo } from "../store/facts.repo.js";
 import { contentKey, fuse } from "./rank.js";
@@ -376,17 +377,19 @@ function collectEntities(ctx: InjectionContext): string[] {
 
 function semanticText(fact: Fact): string {
   const obj = typeof fact.object === "string" ? fact.object : JSON.stringify(fact.object);
-  return [
-    fact.subject,
-    fact.predicate,
-    obj,
-    fact.source.raw_quote,
-    fact.fact_kind,
-    fact.temporal_kind,
-    ...fact.tags,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  return redactSecrets(
+    [
+      fact.subject,
+      fact.predicate,
+      obj,
+      fact.source.raw_quote,
+      fact.fact_kind,
+      fact.temporal_kind,
+      ...fact.tags,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
 }
 
 function requiresGitValidation(anchor: NonNullable<Fact["git"]>): boolean {

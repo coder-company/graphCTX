@@ -165,4 +165,43 @@ describe("Retriever", () => {
       db.close();
     }
   });
+
+  it("redacts fact text before semantic reranking sees it", async () => {
+    const db = openDb(":memory:");
+    try {
+      const facts = new FactsRepo(db);
+      const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+      facts.insert(
+        fact({
+          predicate: "deploy_token",
+          object: secret,
+          scope: { user_id: "u", workspace_id: "w" },
+          promotion_state: "workspace_active",
+          sensitivity: "secret",
+          source: { asserted_by: "user", event_ids: [], raw_quote: `token is ${secret}` },
+        }),
+      );
+      const seenTexts: string[] = [];
+      const vectors = {
+        enabled: true,
+        embedQuery: () => new Float32Array([1]),
+        cosineDistanceTo: (_query: Float32Array, text: string) => {
+          seenTexts.push(text);
+          return 0;
+        },
+        cosineSimilarityText: () => 0,
+      } as unknown as VectorIndex;
+
+      await new Retriever(facts, null, vectors).retrieve(
+        { ...ctx(), user_prompt: "deploy token credentials" },
+        { includeAllActive: true, k: 10 },
+      );
+
+      expect(seenTexts.length).toBeGreaterThan(0);
+      expect(seenTexts.join(" ")).not.toContain(secret);
+      expect(seenTexts.join(" ")).toContain("[REDACTED:openai]");
+    } finally {
+      db.close();
+    }
+  });
 });
