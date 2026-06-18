@@ -1,6 +1,7 @@
 import type { Fact, InjectionContext, ScoredFact } from "../core/types.js";
 import { isValidAsOf } from "../git/anchors.js";
 import type { Git } from "../git/git.js";
+import { safeForSend } from "../security/send-edge.js";
 import type { FactsRepo } from "../store/facts.repo.js";
 import { contentKey, fuse } from "./rank.js";
 import { entityScore, scopeWeight } from "./signals.js";
@@ -285,6 +286,7 @@ export class Retriever {
 
   private async isValid(fact: Fact, ctx: InjectionContext): Promise<boolean> {
     if (fact.status !== "active") return false;
+    if (!safeForSend(fact)) return false;
     if (!fact.git) return true;
     if (!this.git) return !requiresGitValidation(fact.git);
     try {

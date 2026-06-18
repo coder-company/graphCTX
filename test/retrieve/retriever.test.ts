@@ -129,4 +129,40 @@ describe("Retriever", () => {
       db.close();
     }
   });
+
+  it("does not return send-unsafe secret facts even when they are forced active", async () => {
+    const db = openDb(":memory:");
+    try {
+      const facts = new FactsRepo(db);
+      const secret = facts.insert(
+        fact({
+          predicate: "deploy_token",
+          object: "sk-FAKEFAKEFAKEFAKEFAKE0123abcd",
+          scope: { user_id: "u", workspace_id: "w" },
+          promotion_state: "workspace_active",
+          sensitivity: "secret",
+          source: { asserted_by: "user", event_ids: [] },
+        }),
+      );
+      const safe = facts.insert(
+        fact({
+          predicate: "deploy_note",
+          object: "redact deployment credentials before sharing",
+          scope: { user_id: "u", workspace_id: "w" },
+          promotion_state: "workspace_active",
+          source: { asserted_by: "user", event_ids: [] },
+        }),
+      );
+
+      const ranked = await new Retriever(facts, null).retrieve(
+        { ...ctx(), user_prompt: "deploy token credentials" },
+        { includeAllActive: true, k: 10 },
+      );
+      const ids = ranked.map((sf) => sf.fact.fact_id);
+      expect(ids).toContain(safe.fact_id);
+      expect(ids).not.toContain(secret.fact_id);
+    } finally {
+      db.close();
+    }
+  });
 });

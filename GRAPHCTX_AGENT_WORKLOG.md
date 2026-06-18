@@ -786,3 +786,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 89 - retriever send-unsafe suppression
+
+- Moved send-edge safety earlier into `Retriever` validity filtering so direct
+  retrieval callers do not receive secret or otherwise send-unsafe facts.
+- Kept planner/CLI send-edge filtering as defense in depth.
+- Added a retriever regression proving a forced-active secret fact is absent
+  from direct retrieval results.
+- Updated STATUS/README counters to 237 Vitest tests.
+- Verification:
+  - `npx vitest run test/retrieve/retriever.test.ts test/security/promotion-injection.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
