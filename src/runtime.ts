@@ -333,6 +333,13 @@ export class Runtime {
     inv.resolve(loopFactId, byFactId);
   }
 
+  // User-facing forget: close the fact's temporal validity window so it stops
+  // being recalled/injected while remaining explainable through `why`.
+  async forgetFact(factId: string): Promise<void> {
+    const head = await this.currentGitHead();
+    this.facts.expire(factId, factId, head);
+  }
+
   // Handle a HEAD move (BranchSwitch / FileChanged after commit). Classifies the
   // transition and, on a REVERT, restores facts whose invalidating commit was
   // undone (SPEC §8). Fail-soft: returns a noop event off-repo or on error (I9).
@@ -372,6 +379,15 @@ export class Runtime {
       return row?.success_count ?? 0;
     } catch {
       return 0;
+    }
+  }
+
+  private async currentGitHead(): Promise<string | undefined> {
+    if (!(await this.git.isRepo())) return undefined;
+    try {
+      return await this.git.head();
+    } catch {
+      return undefined;
     }
   }
 

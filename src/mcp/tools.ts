@@ -202,13 +202,7 @@ export const MCP_TOOLS: McpTool[] = [
       const a = forgetInput.parse(args);
       const id = rt.resolveFactId(a.fact_id);
       if (!id) throw new Error(`fact not found: ${a.fact_id}`);
-      let head: string | undefined;
-      try {
-        head = await rt.git.head();
-      } catch {
-        head = undefined;
-      }
-      rt.facts.expire(id, id, head);
+      await rt.forgetFact(id);
       refreshAgentsCapsule(rt);
       return { fact_id: id, status: "expired" };
     },

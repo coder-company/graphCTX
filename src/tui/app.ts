@@ -172,9 +172,11 @@ export class TuiApp {
         this.refresh(`open loop ${f.fact_id.slice(-8)}`);
       });
     } else if (k.name === "x" && sel) {
-      // forget (reject) selected fact
-      this.rt.facts.update(sel.fact.fact_id, { status: "rejected" });
-      this.refresh(`forgot ${sel.id8}`);
+      // Close the temporal window, preserving `why` provenance.
+      void this.rt.forgetFact(sel.fact.fact_id).then(() => {
+        this.refresh(`forgot ${sel.id8}`);
+        this.draw();
+      });
     } else if (k.name === "p" && sel) {
       // promote selected to workspace_active (hard-action; user-explicit)
       this.rt.facts.update(sel.fact.fact_id, {

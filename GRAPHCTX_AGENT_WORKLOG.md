@@ -1390,3 +1390,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval temporal`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 125 - shared forget temporal closeout
+
+- Added `Runtime.forgetFact()` as the shared user-facing forget interface, so
+  UI/adapters do not duplicate git closeout details.
+- Routed MCP `forget` and TUI `x forget` through that runtime interface; TUI
+  forget now expires the fact with temporal metadata instead of directly
+  marking it `rejected`.
+- Added a real-git runtime regression proving forget records `t_expired`,
+  `invalidated_by`, `valid_until_commit`, and `invalidated_by_commit`.
+- Updated live test counters to 256.
+- Verification:
+  - `npx vitest run test/runtime/forget.test.ts test/eval/adapters-mcp.test.ts test/tui/data.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/runtime.ts src/mcp/tools.ts src/tui/app.ts test/runtime/forget.test.ts`
+  - `npx vitest list`
+  - `git diff --check`
