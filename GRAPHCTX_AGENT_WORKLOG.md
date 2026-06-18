@@ -732,3 +732,22 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 86 - runtime injection-context redaction seam
+
+- Moved retrieval/planning context redaction into `Runtime.injectionContext`,
+  making the runtime interface sanitize prompts, transcript tails, entities,
+  planned tool args, and tool results even when callers bypass adapter helpers.
+- Kept adapter-level redaction as defense in depth, while improving locality for
+  future CLI/TUI/benchmark/MCP call paths that cross the runtime seam.
+- Added unit coverage for runtime-level secret redaction and hard caps.
+- Updated STATUS/README counters to 234 Vitest tests.
+- Verification:
+  - `npx vitest run test/security/retrieval-context.test.ts test/security/secrets.test.ts test/resilience/hook-degrades.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/runtime.ts src/security/retrieval-context.ts test/security/retrieval-context.test.ts test/security/secrets.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval resilience`
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

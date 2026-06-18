@@ -24,6 +24,7 @@ import { Probation } from "./promote/probation.js";
 import { type WhyReport, why } from "./provenance/why.js";
 import { VectorIndex } from "./retrieve/vectors.js";
 import { assertSafeExplicitMemoryWrite } from "./security/intake.js";
+import { sanitizeInjectionContextExtra } from "./security/retrieval-context.js";
 import { type DB, openDb } from "./store/db.js";
 import { EdgesRepo } from "./store/edges.repo.js";
 import { EpisodesRepo } from "./store/episodes.repo.js";
@@ -419,7 +420,7 @@ export class Runtime {
       event,
       scope: this.scope(sessionId),
       git: { repo_id: repoId, head, branch, dirty_files: dirty },
-      ...extra,
+      ...sanitizeInjectionContextExtra(extra),
     };
   }
 
