@@ -664,3 +664,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 82 - atomic invalidation effects
+
+- Wrapped each invalidation relation effect in a SQLite transaction so multi-row
+  fact/edge updates commit or roll back as a unit.
+- Added a rollback regression using a forced `SUPPORTED_BY` edge insert failure,
+  proving evidence-count updates and duplicate retirement do not partially
+  persist when edge persistence fails.
+- Updated STATUS/README counters.
+- Verification:
+  - `npx vitest run test/invalidate/invalidator.test.ts`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

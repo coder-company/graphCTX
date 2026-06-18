@@ -100,6 +100,10 @@ export class Invalidator {
   }
 
   private apply(incoming: Fact, existing: Fact, relation: Relation): string | null {
+    return this.deps.facts.transaction(() => this.applyInTransaction(incoming, existing, relation));
+  }
+
+  private applyInTransaction(incoming: Fact, existing: Fact, relation: Relation): string | null {
     const { facts, edges } = this.deps;
     switch (relation) {
       case "same": {

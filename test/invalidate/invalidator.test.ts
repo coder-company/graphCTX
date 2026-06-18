@@ -161,6 +161,25 @@ describe("invalidator effects + injection suppression", () => {
     expect(edges.from(incoming.fact_id, "SUPERSEDED_BY")[0]?.to_id).toBe(existing.fact_id);
   });
 
+  it("same: rolls back evidence merge if edge persistence fails", async () => {
+    const existing = facts.insert(base({ object: "npm test", evidence_count: 2 }));
+    const incoming = facts.insert(base({ object: "npm test", evidence_count: 3 }));
+    db.prepare(
+      `CREATE TRIGGER fail_supported_by
+       BEFORE INSERT ON edges
+       WHEN NEW.edge_kind = 'SUPPORTED_BY'
+       BEGIN
+         SELECT RAISE(ABORT, 'forced edge failure');
+       END`,
+    ).run();
+    const inv = new Invalidator({ facts, edges, episodes });
+
+    await expect(inv.processIncomingFact(incoming)).rejects.toThrow("forced edge failure");
+    expect(facts.get(existing.fact_id)!.evidence_count).toBe(2);
+    expect(facts.get(incoming.fact_id)!.status).toBe("active");
+    expect(edges.touching(existing.fact_id)).toHaveLength(0);
+  });
+
   it("refines: existing fact becomes superseded and stops being active", async () => {
     const existing = facts.insert(base({ object: "npm test" }));
     const incoming = facts.insert(base({ object: "pnpm test" }));
