@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Runtime } from "../../src/runtime.js";
+import { renderFactList } from "../../src/tui/app.js";
 import { factViews, memoryStats } from "../../src/tui/data.js";
 
 describe("tui/data — memory stats from a live runtime", () => {
@@ -63,6 +64,47 @@ describe("tui/data — memory stats from a live runtime", () => {
     expect(views[0]?.scope).toBe("workspace");
     expect(views[0]?.text).toContain("ship.sh");
     expect(views[0]?.id8).toHaveLength(8);
+  });
+
+  it("redacts secret-bearing fact text and omits unsafe cards", () => {
+    const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+    rt.facts.insert({
+      subject: `repo-${secret}`,
+      predicate: `deploy_token_${secret}`,
+      object: secret,
+      fact_kind: "decision",
+      temporal_kind: "static",
+      scope: { user_id: rt.userId, workspace_id: rt.workspaceId },
+      trust_tier: "high",
+      status: "active",
+      promotion_state: "workspace_active",
+      source: { asserted_by: "user", event_ids: [], raw_quote: `token is ${secret}` },
+      tags: [],
+    });
+    rt.facts.insert({
+      subject: "repo",
+      predicate: "note",
+      object: "use pnpm",
+      fact_kind: "decision",
+      temporal_kind: "static",
+      scope: { user_id: rt.userId, workspace_id: rt.workspaceId },
+      trust_tier: "high",
+      status: "active",
+      promotion_state: "workspace_active",
+      source: { asserted_by: "user", event_ids: [] },
+      tags: [],
+    });
+
+    const views = factViews(rt);
+    const renderedViews = JSON.stringify(views.map((view) => view.text));
+    const cardList = renderFactList(rt);
+
+    expect(memoryStats(rt).secrets).toBe(1);
+    expect(renderedViews).not.toContain(secret);
+    expect(renderedViews).toContain("[REDACTED:openai]");
+    expect(cardList).toContain("use pnpm");
+    expect(cardList).not.toContain(secret);
+    expect(cardList).not.toContain("[REDACTED:openai]");
   });
 
   it("empty workspace yields zeroed stats", () => {

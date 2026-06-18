@@ -2,6 +2,7 @@
 
 import type { Fact } from "../core/types.js";
 import type { Runtime } from "../runtime.js";
+import { redactSecretValue, redactSecrets } from "../security/secrets.js";
 
 export interface MemoryStats {
   total: number;
@@ -83,10 +84,19 @@ export function factViews(rt: Runtime, filter?: (f: Fact) => boolean): FactView[
 }
 
 export function factText(f: Fact): string {
-  const obj = typeof f.object === "string" ? f.object : JSON.stringify(f.object);
+  const obj = stringifyObject(f.object);
+  const subject = redactSecrets(f.subject);
+  const predicate = redactSecrets(f.predicate).replace(/_/g, " ");
   if (f.predicate === "open_loop") return obj;
   if (f.subject === "repo" || f.subject === "session" || f.subject === "workflow") {
-    return `${f.predicate.replace(/_/g, " ")}: ${obj}`;
+    return `${predicate}: ${obj}`;
   }
-  return `${f.subject} ${f.predicate.replace(/_/g, " ")} ${obj}`;
+  return `${subject} ${predicate} ${obj}`;
+}
+
+function stringifyObject(value: unknown): string {
+  const redacted = redactSecretValue(value);
+  if (typeof redacted === "string") return redacted;
+  if (redacted === true) return "true";
+  return JSON.stringify(redacted);
 }

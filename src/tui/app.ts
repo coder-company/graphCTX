@@ -5,6 +5,7 @@
 import { renderCard } from "../render/cards.js";
 import { Runtime } from "../runtime.js";
 import { assertSafeMemoryWrite } from "../security/intake.js";
+import { safeForSend } from "../security/send-edge.js";
 import { padEnd, style, term, truncate } from "./ansi.js";
 import { badge, bar, kv, panel, table } from "./box.js";
 import { type FactView, type MemoryStats, factViews, memoryStats } from "./data.js";
@@ -400,6 +401,7 @@ export class TuiApp {
 // Convenience used by the CLI: render a one-shot card list (no raw mode).
 export function renderFactList(rt: Runtime): string {
   return factViews(rt)
+    .filter((v) => safeForSend(v.fact))
     .map((v) => renderCard(v.fact).markdown)
     .join("\n");
 }

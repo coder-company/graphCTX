@@ -1036,3 +1036,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval quality`
   - `npx tsx src/cli.ts eval conflict`
   - `git diff --check`
+
+### Iteration 103 - TUI secret-safe fact views
+
+- Redacted TUI read-model fact text for secret-shaped subjects, predicates, and
+  objects while preserving aggregate secret counts for auditability.
+- Applied the send-edge guard to the exported TUI card-list renderer so unsafe
+  facts are omitted rather than rendered through `renderCard`.
+- Added a regression for redacted TUI text and omitted unsafe card output.
+- Updated live test counters from 246 to 247.
+- Verification:
+  - `npx vitest run test/tui/data.test.ts test/security/secrets.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/tui/data.ts src/tui/app.ts test/tui/data.test.ts docs/STATUS.md README.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
