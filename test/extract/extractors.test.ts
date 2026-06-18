@@ -476,6 +476,19 @@ describe("deterministic extractors", () => {
     }
   });
 
+  it("agent-files extraction ignores prose files symlinked outside the workspace", () => {
+    const outside = mkdtempSync(join(tmpdir(), "gctx-ex-agent-outside-"));
+    try {
+      writeFileSync(join(outside, "AGENTS.md"), "- Always use bun test to run tests.\n");
+      symlinkSync(join(outside, "AGENTS.md"), join(dir, "AGENTS.md"), "file");
+
+      const { res } = extract();
+      expect(res.inserted.find((f) => f.predicate === "claims")).toBeUndefined();
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it("I3: secret-bearing prose lines are not stored", () => {
     writeFileSync(
       join(dir, "AGENTS.md"),

@@ -470,3 +470,15 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx vitest run test/extract/extractors.test.ts`
   - `npx tsc --noEmit`
   - `npx biome check src test`
+
+### Iteration 69 - workspace-confined agent prose extraction
+
+- Hardened AGENTS/CLAUDE/README prose extraction so claim facts require prose
+  evidence that resolves inside the workspace.
+- Added a regression for an external symlinked `AGENTS.md` that must not create
+  low-trust `claims` facts.
+- Updated README/STATUS counters to 221 Vitest tests.
+- Verification:
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`

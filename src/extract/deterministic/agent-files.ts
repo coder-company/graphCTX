@@ -1,7 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { NewFact } from "../../core/types.js";
 import { containsSecret } from "../../security/secrets.js";
+import { existingWorkspacePath } from "../../security/workspace-path.js";
 import { type ExtractContext, type Extractor, proseFact } from "./types.js";
 
 // Repo prose (AGENTS.md/CLAUDE.md/README) → LOW trust (I2). Each non-trivial
@@ -16,7 +17,7 @@ export const agentFilesExtractor: Extractor = {
     const facts: NewFact[] = [];
     for (const file of FILES) {
       const p = join(ctx.workspaceDir, file);
-      if (!existsSync(p)) continue;
+      if (!existingWorkspacePath(ctx.workspaceDir, file)) continue;
       let text: string;
       try {
         text = readFileSync(p, "utf8");
