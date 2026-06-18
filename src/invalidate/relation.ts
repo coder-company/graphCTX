@@ -37,13 +37,9 @@ export function classifyRelation(
     return { relation: "unrelated", reason: "different subject/predicate", deterministic: true };
   }
 
-  // Identical assertion → same (merge evidence).
-  if (objStr(incoming.object) === objStr(existing.object)) {
-    return { relation: "same", reason: "identical subject+predicate+object", deterministic: true };
-  }
-
   // Repo-scope vs user-scope on the same s/p → coexists with OVERRIDES.
-  const incomingRepo = !!incoming.scope.workspace_id && !isUserScoped(incoming);
+  const incomingRepo =
+    !!incoming.scope.workspace_id && !incoming.scope.session_id && !isUserScoped(incoming);
   const existingUser = isUserScoped(existing);
   if (incomingRepo && existingUser) {
     return {
@@ -64,6 +60,26 @@ export function classifyRelation(
     };
   }
 
+  const bothSameScope = sameScopeLevel(incoming, existing);
+
+  // Identical assertions merge evidence only inside the same temporal/scope
+  // context. Session facts carry a workspace_id too; without checking the
+  // session first, unrelated sessions can collapse each other's active memory.
+  if (objStr(incoming.object) === objStr(existing.object)) {
+    if (bothSameScope) {
+      return {
+        relation: "same",
+        reason: "identical subject+predicate+object",
+        deterministic: true,
+      };
+    }
+    return {
+      relation: "coexists",
+      reason: "identical assertion in different scope",
+      deterministic: true,
+    };
+  }
+
   // Git proves the existing fact's target file/script is gone → invalidates.
   if (ctx.workspaceDir && targetRemoved(existing, ctx.workspaceDir)) {
     return {
@@ -73,7 +89,6 @@ export function classifyRelation(
     };
   }
 
-  const bothSameScope = sameScopeLevel(incoming, existing);
   if (bothSameScope) {
     const incomingRank = precedenceRank(incoming, incoming.scope.session_id);
     const existingRank = precedenceRank(existing, incoming.scope.session_id);
@@ -119,8 +134,8 @@ function isUserScoped(f: Fact): boolean {
 function sameScopeLevel(a: Fact, b: Fact): boolean {
   const lvl = (f: Fact): string => {
     if (isUserScoped(f)) return "user";
+    if (f.scope.session_id) return `sess:${f.scope.workspace_id ?? ""}:${f.scope.session_id}`;
     if (f.scope.workspace_id) return `ws:${f.scope.workspace_id}`;
-    if (f.scope.session_id) return `sess:${f.scope.session_id}`;
     return "unknown";
   };
   return lvl(a) === lvl(b);

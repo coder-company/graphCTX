@@ -51,6 +51,26 @@ describe("relation classifier (deterministic-first)", () => {
     expect(classifyRelation(a, b).relation).toBe("same");
   });
 
+  it("does not merge identical assertions from different sessions", () => {
+    const a = mk({
+      object: "finish the capsule",
+      fact_kind: "open_loop",
+      predicate: "open_loop",
+      scope: { user_id: "u", workspace_id: "ws1", session_id: "s1" },
+      promotion_state: "session_only",
+    });
+    const b = mk({
+      object: "finish the capsule",
+      fact_kind: "open_loop",
+      predicate: "open_loop",
+      scope: { user_id: "u", workspace_id: "ws1", session_id: "s2" },
+      promotion_state: "session_only",
+    });
+    const verdict = classifyRelation(a, b);
+    expect(verdict.relation).toBe("coexists");
+    expect(verdict.reason).toContain("different scope");
+  });
+
   it("same scope, high-trust new value → refines", () => {
     const existing = mk({ object: "npm test" });
     const incoming = mk({ object: "pnpm test" });

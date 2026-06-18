@@ -1504,3 +1504,24 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx biome check src/adapters/claude-code/demo.ts`
   - `git diff --check`
+
+### Iteration 132 - session-scoped open-loop invalidation
+
+- Fixed relation classification so session-scoped facts are treated as session
+  memory before workspace memory, and identical assertions only merge inside
+  the same temporal/scope context.
+- Routed `Runtime.noteOpenLoop()` through `Runtime.learn()` so repeated open
+  loops in the same session merge evidence and close the duplicate, while the
+  same open loop in another session remains active for that session.
+- Updated `Runtime.learn()` to return the active merge target when invalidation
+  retires the just-inserted duplicate.
+- Added regressions for cross-session identical assertions and same-session
+  open-loop dedupe. Updated live test counters to 261.
+- Verification:
+  - `npx vitest run test/invalidate/invalidator.test.ts test/inject/open-loops.test.ts test/runtime/forget.test.ts`
+  - `npx tsx src/cli.ts eval memory`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsc --noEmit`
+  - `npx biome check src/invalidate/relation.ts src/runtime.ts test/inject/open-loops.test.ts test/invalidate/invalidator.test.ts`
+  - `npx vitest list | wc -l`
+  - `git diff --check`

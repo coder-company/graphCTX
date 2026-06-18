@@ -269,7 +269,11 @@ export class Runtime {
     } catch {
       // invalidation must never break a write (I9)
     }
-    return this.facts.get(fact.fact_id) ?? fact;
+    const stored = this.facts.get(fact.fact_id) ?? fact;
+    if (stored.status === "superseded" && stored.time.invalidated_by) {
+      return this.facts.get(stored.time.invalidated_by) ?? stored;
+    }
+    return stored;
   }
 
   // Promotion engine (M1 §3). Hard-gated session→workspace probation sweep.
@@ -320,7 +324,7 @@ export class Runtime {
       kind: "open_loop",
       session_id: sessionId,
     });
-    return this.facts.insert({
+    return await this.learn({
       subject: "session",
       predicate: "open_loop",
       object: description,

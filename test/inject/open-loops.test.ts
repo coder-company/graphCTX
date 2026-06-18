@@ -50,6 +50,30 @@ describe("open loops — compaction recovery (M1 §7)", () => {
     expect(second.markdown).toContain("rename getCwd everywhere");
   });
 
+  it("dedupes repeated open loops only within the same session", async () => {
+    const first = await rt.noteOpenLoop("finish the branch-aware capsule", "s1");
+    const duplicate = await rt.noteOpenLoop("finish the branch-aware capsule", "s1");
+    const otherSession = await rt.noteOpenLoop("finish the branch-aware capsule", "s2");
+
+    expect(duplicate.fact_id).toBe(first.fact_id);
+    expect(otherSession.fact_id).not.toBe(first.fact_id);
+
+    const s1Loops = rt.facts
+      .openLoops(rt.scope("s1"))
+      .filter((f) => f.object === "finish the branch-aware capsule");
+    const s2Loops = rt.facts
+      .openLoops(rt.scope("s2"))
+      .filter((f) => f.object === "finish the branch-aware capsule");
+    const historical = rt.facts
+      .all({ user_id: rt.userId, workspace_id: rt.workspaceId })
+      .filter((f) => f.object === "finish the branch-aware capsule");
+
+    expect(s1Loops).toHaveLength(1);
+    expect(s1Loops[0]?.evidence_count).toBe(2);
+    expect(s2Loops).toHaveLength(1);
+    expect(historical.filter((f) => f.status === "superseded")).toHaveLength(1);
+  });
+
   it("refuses secret-bearing session metadata before writing the open loop", async () => {
     await expect(
       rt.noteOpenLoop(
