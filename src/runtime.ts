@@ -274,6 +274,7 @@ export class Runtime {
       minFailureRepeats: c.min_failure_repeats,
       procSuccesses: (factId) => this.procedureSuccesses(factId),
       git,
+      clock: this.clock,
     });
   }
 

@@ -1,3 +1,4 @@
+import { type Clock, systemClock } from "../core/clock.js";
 import type { Fact, PromotionState } from "../core/types.js";
 import { anchorAtHead } from "../git/anchors.js";
 import { verifyBeforeInject } from "../inject/staleness.js";
@@ -17,6 +18,7 @@ export interface ProbationDeps {
   procSuccesses?: (factId: string) => number;
   // Optional current git context to commit-anchor promoted facts (M1 §4).
   git?: { repoId: string; head: string; branch: string };
+  clock?: Clock;
 }
 
 export interface SweepResult {
@@ -117,7 +119,7 @@ export class Probation {
       this.deps.facts.update(f.fact_id, {
         promotion_state: to,
         status: "active",
-        last_verified_at: new Date().toISOString(),
+        last_verified_at: (this.deps.clock ?? systemClock).iso(),
       });
       // Commit-anchor every promoted fact so it is commit-valid (M1 §4, I5).
       if (this.deps.git) {

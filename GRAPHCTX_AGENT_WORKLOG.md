@@ -1135,3 +1135,18 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 109 - promotion verification runtime clock
+
+- Routed the runtime's injected clock into `Probation` so workspace promotion
+  verification timestamps are deterministic under tests and shared runtime
+  clock control.
+- Strengthened the probation regression to assert the exact
+  `last_verified_at` written during promotion.
+- Verification:
+  - `npx vitest run test/promote/probation.test.ts test/promote/gates.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/promote/probation.ts src/runtime.ts test/promote/probation.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval promote`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

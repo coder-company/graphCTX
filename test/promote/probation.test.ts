@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { fixedClock } from "../../src/core/clock.js";
 import type { NewFact } from "../../src/core/types.js";
 import { Probation } from "../../src/promote/probation.js";
 import { EdgesRepo } from "../../src/store/edges.repo.js";
@@ -28,6 +29,7 @@ beforeEach(() => {
     workspaceDir: "/nonexistent",
     minProcedureSuccesses: 2,
     minFailureRepeats: 2,
+    clock: fixedClock("2026-01-01T00:00:00.000Z"),
   });
 });
 afterEach(() => db.close());
@@ -51,7 +53,9 @@ describe("Probation sweep (session → workspace)", () => {
     const fact = facts.insert(f({}));
     const res = probation.sweepSessionToWorkspace(scope);
     expect(res.promoted).toBe(1);
-    expect(facts.get(fact.fact_id)!.promotion_state).toBe("workspace_active");
+    const promoted = facts.get(fact.fact_id)!;
+    expect(promoted.promotion_state).toBe("workspace_active");
+    expect(promoted.last_verified_at).toBe("2026-01-01T00:00:00.000Z");
     const audit = promotions.forFact(fact.fact_id);
     expect(audit.length).toBe(1);
     expect(audit[0]!.decision).toBe("promote");
