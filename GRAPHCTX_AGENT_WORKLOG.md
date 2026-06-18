@@ -1655,3 +1655,25 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx biome check src/retrieve/retriever.ts src/retrieve/vectors.ts src/bench/compare.ts src/bench/scenarios.ts src/eval/suites/eval-benchmarks.ts test/eval/eval-benchmarks.test.ts`
   - `git diff --check`
+
+### Iteration 140 - smooth TUI control scrolling
+
+- Made control-mode selection scroll with the cursor so selected rows cannot
+  move off-screen.
+- Switched control-mode list height from a hard-coded 16 rows to a terminal
+  height-aware page size, with row range feedback in the title.
+- Replaced hard-to-parse symbolic footer controls with explicit text labels for
+  smoother terminal UX and cleaner non-TTY snapshots.
+- Added regression coverage for scroll-window clamping while moving down, moving
+  up, short lists, and empty lists.
+- Updated live docs counters to 267 tests after adding the TUI scroll and
+  snapshot coverage.
+- Verification:
+  - `npx vitest run test/tui/data.test.ts test/tui/ansi.test.ts`
+  - `NO_COLOR=1 npx tsx src/cli.ts tui --tab control`
+  - `NO_COLOR=1 npx tsx src/cli.ts tui --tab monitor`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsc --noEmit`
+  - `npx biome check src/tui/app.ts test/tui/data.test.ts`
+  - `git diff --check`

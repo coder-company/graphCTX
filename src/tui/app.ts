@@ -46,7 +46,13 @@ export class TuiApp {
 
   // Non-interactive fallback: print a one-shot dashboard snapshot and exit.
   snapshot(): string {
+    if (this.state.tab === "control") return this.renderControl().join("\n");
+    if (this.state.tab === "monitor") return this.renderMonitor().join("\n");
     return this.renderDashboard().join("\n");
+  }
+
+  close(): void {
+    this.rt.close();
   }
 
   async run(): Promise<void> {
@@ -236,6 +242,12 @@ export class TuiApp {
   private move(d: number): void {
     const max = this.currentViews().length - 1;
     this.state.cursor = Math.max(0, Math.min(max, this.state.cursor + d));
+    this.state.scroll = clampWindowStart(
+      this.state.cursor,
+      this.state.scroll,
+      max + 1,
+      this.controlPageSize(),
+    );
   }
 
   private refresh(status?: string): void {
@@ -278,14 +290,14 @@ export class TuiApp {
       const p = this.state.prompt;
       return `\n${style.bold(style.yellow(`${p.label}: `))}${p.value}${style.inverse(" ")}  ${style.gray("(enter=ok esc=cancel)")}`;
     }
-    const common = "tab/1-3 switch · ↑↓ move · f filter · r refresh · q quit";
+    const common = "tab/1-3 switch | up/down move | f filter | r refresh | q quit";
     const extra =
       this.state.tab === "control"
-        ? " · n new · o open-loop · p promote · x forget · ⏎ resolve"
+        ? " | n new | o open-loop | p promote | x forget | enter resolve"
         : this.state.tab === "monitor"
-          ? " · s SessionStart · c PostCompact"
+          ? " | s SessionStart | c PostCompact"
           : "";
-    const status = this.state.status ? `  ${style.green(`✓ ${this.state.status}`)}` : "";
+    const status = this.state.status ? `  ${style.green(`ok ${this.state.status}`)}` : "";
     return `\n${style.gray(common + extra)}${status}`;
   }
 
@@ -347,16 +359,29 @@ export class TuiApp {
 
   private renderControl(): string[] {
     const views = this.currentViews();
+    const pageSize = this.controlPageSize();
+    this.state.scroll = clampWindowStart(
+      this.state.cursor,
+      this.state.scroll,
+      views.length,
+      pageSize,
+    );
+    const start = views.length === 0 ? 0 : this.state.scroll + 1;
+    const end = Math.min(views.length, this.state.scroll + pageSize);
     const out: string[] = [];
     out.push("");
-    out.push(style.bold(`Control panel — ${views.length} facts (filter: ${this.state.filter})`));
-    out.push(style.gray("Select a row, then act. ⏎ resolves an open loop."));
+    out.push(
+      style.bold(
+        `Control panel - ${views.length} facts (filter: ${this.state.filter}, rows ${start}-${end})`,
+      ),
+    );
+    out.push(style.gray("Select a row, then act. Enter resolves an open loop."));
     out.push("");
-    const win = views.slice(this.state.scroll, this.state.scroll + 16);
+    const win = views.slice(this.state.scroll, this.state.scroll + pageSize);
     win.forEach((v, i) => {
       const idx = this.state.scroll + i;
       const sel = idx === this.state.cursor;
-      const marker = sel ? style.cyan("❯ ") : "  ";
+      const marker = sel ? style.cyan("> ") : "  ";
       const row = `${padEnd(this.kindColor(v.kind), 11)} ${padEnd(this.statusColor(v.status), 10)} ${truncate(v.text, 46)}`;
       out.push(marker + (sel ? style.bold(row) : row) + style.gray(`  [${v.id8}]`));
     });
@@ -394,6 +419,27 @@ export class TuiApp {
     if (s === "disputed") return style.red(s);
     return s;
   }
+
+  private controlPageSize(): number {
+    // Header + footer + title/help lines consume ~8 rows. Keep enough rows for
+    // control mode to stay useful in short terminals while scaling up smoothly.
+    return Math.max(5, Math.min(24, term.height() - 8));
+  }
+}
+
+export function clampWindowStart(
+  cursor: number,
+  currentStart: number,
+  total: number,
+  pageSize: number,
+): number {
+  if (total <= 0) return 0;
+  const page = Math.max(1, pageSize);
+  const maxStart = Math.max(0, total - page);
+  const clampedCursor = Math.max(0, Math.min(total - 1, cursor));
+  if (clampedCursor < currentStart) return Math.min(clampedCursor, maxStart);
+  if (clampedCursor >= currentStart + page) return Math.min(maxStart, clampedCursor - page + 1);
+  return Math.min(Math.max(0, currentStart), maxStart);
 }
 
 // Convenience used by the CLI: render a one-shot card list (no raw mode).

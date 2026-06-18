@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Runtime } from "../../src/runtime.js";
-import { renderFactList } from "../../src/tui/app.js";
+import { TuiApp, clampWindowStart, renderFactList } from "../../src/tui/app.js";
 import { factViews, memoryStats } from "../../src/tui/data.js";
 
 describe("tui/data — memory stats from a live runtime", () => {
@@ -112,5 +112,65 @@ describe("tui/data — memory stats from a live runtime", () => {
     expect(s.total).toBe(0);
     expect(s.active).toBe(0);
     expect(s.openLoops).toBe(0);
+  });
+});
+
+describe("tui/app — control window scrolling", () => {
+  it("keeps the selected row visible while moving down", () => {
+    expect(clampWindowStart(0, 0, 20, 5)).toBe(0);
+    expect(clampWindowStart(4, 0, 20, 5)).toBe(0);
+    expect(clampWindowStart(5, 0, 20, 5)).toBe(1);
+    expect(clampWindowStart(19, 14, 20, 5)).toBe(15);
+  });
+
+  it("moves the window back up and clamps short lists", () => {
+    expect(clampWindowStart(7, 10, 20, 5)).toBe(7);
+    expect(clampWindowStart(2, 10, 20, 5)).toBe(2);
+    expect(clampWindowStart(3, 4, 4, 10)).toBe(0);
+    expect(clampWindowStart(0, 0, 0, 5)).toBe(0);
+  });
+});
+
+describe("tui/app — non-interactive snapshots", () => {
+  it("renders the requested control tab in non-TTY mode", () => {
+    const dir = mkdtempSync(join(tmpdir(), "graphctx-tui-snapshot-"));
+    const rt = new Runtime({ workspaceDir: dir });
+    try {
+      rt.facts.insert({
+        subject: "repo",
+        predicate: "note",
+        object: "use pnpm",
+        fact_kind: "decision",
+        temporal_kind: "static",
+        scope: { user_id: rt.userId, workspace_id: rt.workspaceId },
+        trust_tier: "high",
+        status: "active",
+        promotion_state: "workspace_active",
+        source: { asserted_by: "user", event_ids: [] },
+        tags: [],
+      });
+      const app = new TuiApp(dir, "control");
+      try {
+        const snapshot = app.snapshot();
+        expect(snapshot).toContain("Control panel");
+        expect(snapshot).toContain("use pnpm");
+      } finally {
+        app.close();
+      }
+    } finally {
+      rt.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("renders the requested monitor tab in non-TTY mode", () => {
+    const dir = mkdtempSync(join(tmpdir(), "graphctx-tui-snapshot-"));
+    const app = new TuiApp(dir, "monitor");
+    try {
+      expect(app.snapshot()).toContain("Live push monitor");
+    } finally {
+      app.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
