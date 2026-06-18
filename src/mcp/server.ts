@@ -48,8 +48,12 @@ export class McpServer {
 
   // Handle one JSON-RPC message; returns the response object (or null for
   // notifications). Public for the in-process smoke test.
-  async handle(req: JsonRpcRequest): Promise<unknown | null> {
+  async handle(req: unknown): Promise<unknown | null> {
+    const id = idOf(req);
     try {
+      if (!isJsonRpcRequest(req)) {
+        return this.err(id, -32600, "invalid request");
+      }
       switch (req.method) {
         case "initialize":
           return this.ok(req.id, {
@@ -76,7 +80,7 @@ export class McpServer {
           return this.err(req.id, -32601, `method not found: ${req.method}`);
       }
     } catch (e) {
-      return this.err(req.id, -32603, `internal error: ${messageOf(e)}`);
+      return this.err(id, -32603, `internal error: ${messageOf(e)}`);
     }
   }
 
@@ -142,6 +146,18 @@ export class McpServer {
   private err(id: JsonRpcRequest["id"], code: number, message: string) {
     return { jsonrpc: "2.0", id: id ?? null, error: { code, message: redactSecrets(message) } };
   }
+}
+
+function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
+  if (!value || typeof value !== "object") return false;
+  const req = value as Record<string, unknown>;
+  return req.jsonrpc === "2.0" && typeof req.method === "string";
+}
+
+function idOf(value: unknown): JsonRpcRequest["id"] {
+  if (!value || typeof value !== "object") return null;
+  const id = (value as Record<string, unknown>).id;
+  return typeof id === "string" || typeof id === "number" || id === null ? id : null;
 }
 
 function messageOf(error: unknown): string {

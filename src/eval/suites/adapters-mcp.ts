@@ -812,6 +812,16 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       })) as { error?: { code?: number } };
       check("MCP rejects invalid method with -32601", badMethod.error?.code === -32601);
 
+      const badRequest = (await server.handle({
+        jsonrpc: "2.0",
+        id: requestId++,
+        params: {},
+      })) as { error?: { code?: number } };
+      check(
+        "MCP rejects malformed JSON-RPC request with -32600",
+        badRequest.error?.code === -32600,
+      );
+
       const toolCases = mcpToolCases(rememberedFactId);
       for (const tc of toolCases) {
         const valid = await callTool(server, requestId++, tc.name, tc.valid);

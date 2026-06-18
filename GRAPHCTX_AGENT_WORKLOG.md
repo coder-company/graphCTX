@@ -1803,6 +1803,19 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 157 - MCP invalid-request hardening
+
+- Hardened `McpServer.handle` to accept unknown parsed JSON and validate the
+  JSON-RPC request shape before dispatch.
+- Malformed parsed requests now return `-32600 invalid request` instead of
+  falling through as `method not found: undefined`.
+- Added the adapters/MCP eval assertion for malformed JSON-RPC request handling.
+- Verification:
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsc --noEmit`
+  - `npx biome check src/mcp/server.ts src/eval/suites/adapters-mcp.ts GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 156 - Python dependency-group command extraction
 
 - Extended deterministic Python extraction to infer test/lint/typecheck commands
