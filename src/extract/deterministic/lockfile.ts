@@ -1,6 +1,5 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import type { NewFact } from "../../core/types.js";
+import { existingWorkspacePath } from "../../security/workspace-path.js";
 import { type ExtractContext, type Extractor, structuredFact } from "./types.js";
 
 // Detects the package manager from the lockfile present (SPEC §10.1).
@@ -16,7 +15,7 @@ export const lockfileExtractor: Extractor = {
   id: "lockfile",
   extract(ctx: ExtractContext): NewFact[] {
     for (const { file, manager, runner } of LOCKFILES) {
-      if (!existsSync(join(ctx.workspaceDir, file))) continue;
+      if (!existingWorkspacePath(ctx.workspaceDir, file)) continue;
       return [
         structuredFact({
           subject: "repo",

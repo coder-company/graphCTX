@@ -384,3 +384,15 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx biome check --write test/extract/extractors.test.ts`
   - `npx biome check src test`
+
+### Iteration 62 - workspace-confined lockfile extraction
+
+- Hardened standalone lockfile extraction so package-manager facts require
+  lockfile evidence that resolves inside the workspace.
+- Added a regression for an external symlinked `pnpm-lock.yaml` that must not
+  create a `package_manager` fact.
+- Updated README/STATUS counters to 214 Vitest tests.
+- Verification:
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`

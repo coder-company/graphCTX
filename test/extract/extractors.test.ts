@@ -120,6 +120,18 @@ describe("deterministic extractors", () => {
     expect(pm?.object).toBe("pnpm");
   });
 
+  it("lockfile extraction ignores lockfiles symlinked outside the workspace", () => {
+    const outside = mkdtempSync(join(tmpdir(), "gctx-ex-lock-outside-"));
+    try {
+      writeFileSync(join(outside, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+      symlinkSync(join(outside, "pnpm-lock.yaml"), join(dir, "pnpm-lock.yaml"), "file");
+      const { res } = extract();
+      expect(res.inserted.find((f) => f.predicate === "package_manager")).toBeUndefined();
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it("runtime pin files → high-trust version constraints", () => {
     writeFileSync(join(dir, ".nvmrc"), "20.11.1\n");
     writeFileSync(join(dir, ".tool-versions"), "nodejs 20.11.1\npnpm 10.12.0\n");
