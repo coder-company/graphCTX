@@ -1,4 +1,5 @@
 import type { Episode, Fact, GitAnchor } from "../core/types.js";
+import type { Scope } from "../core/types.js";
 import { redactSecretValue, redactSecrets } from "../security/secrets.js";
 import type { Edge, EdgesRepo } from "../store/edges.repo.js";
 import type { EpisodesRepo } from "../store/episodes.repo.js";
@@ -135,7 +136,10 @@ export function redactWhyReport(r: WhyReport): WhyReport {
     })),
     fact: {
       ...r.fact,
+      subject: redactSecrets(r.fact.subject),
+      predicate: redactSecrets(r.fact.predicate),
       object: redactSecretValue(r.fact.object),
+      scope: redactScope(r.fact.scope),
       git: redactGitAnchor(r.fact.git),
       tags: r.fact.tags.map((tag) => redactSecrets(tag)),
       source: {
@@ -143,6 +147,14 @@ export function redactWhyReport(r: WhyReport): WhyReport {
         raw_quote: r.fact.source.raw_quote ? redactSecrets(r.fact.source.raw_quote) : undefined,
       },
     },
+  };
+}
+
+function redactScope(scope: Scope): Scope {
+  return {
+    user_id: redactSecrets(scope.user_id),
+    workspace_id: scope.workspace_id ? redactSecrets(scope.workspace_id) : undefined,
+    session_id: scope.session_id ? redactSecrets(scope.session_id) : undefined,
   };
 }
 

@@ -985,3 +985,19 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 100 - structured why fact identity redaction
+
+- Redacted fact subject, predicate, and scope strings in structured `why`
+  reports, completing defense-in-depth for user-controlled provenance fields.
+- Extended the provenance redaction regression with secret-shaped identity and
+  scope values.
+- Verification:
+  - `npx vitest run test/provenance/why.test.ts test/security/secrets.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/provenance/why.ts test/provenance/why.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval provenance`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

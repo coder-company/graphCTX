@@ -135,7 +135,14 @@ describe("why() provenance reader", () => {
     });
     const fact = facts.insert(
       f({
+        subject: `repo-${secret}`,
+        predicate: `api_key_${secret}`,
         object: secret,
+        scope: {
+          user_id: `u-${secret}`,
+          workspace_id: `w-${secret}`,
+          session_id: `s-${secret}`,
+        },
         source: {
           asserted_by: "user",
           event_ids: [ev.event_id],
@@ -164,6 +171,11 @@ describe("why() provenance reader", () => {
     expect(formatted).not.toContain(secret);
     expect(JSON.stringify(structured)).not.toContain(secret);
     expect(formatted).toContain("[REDACTED:openai]");
+    expect(structured.fact.subject).toContain("[REDACTED:openai]");
+    expect(structured.fact.predicate).toContain("[REDACTED:openai]");
+    expect(structured.fact.scope.user_id).toContain("[REDACTED:openai]");
+    expect(structured.fact.scope.workspace_id).toContain("[REDACTED:openai]");
+    expect(structured.fact.scope.session_id).toContain("[REDACTED:openai]");
     expect(structured.fact.object).toBe("[REDACTED:openai]");
     expect(structured.fact.tags[0]).toBe("[REDACTED:openai]");
     expect(structured.git_anchor?.branch).toContain("[REDACTED:openai]");
