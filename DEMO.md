@@ -111,7 +111,7 @@ M0 GATE — does C (push) beat B (pull)?
 ## 3. It never breaks the agent, and it's fast
 
 ```bash
-npm test                 # includes 5 resilience tests + a latency guard
+npm test                 # includes 8 resilience tests + a latency guard
 npm run bench            # hook hot-path latency
 ```
 

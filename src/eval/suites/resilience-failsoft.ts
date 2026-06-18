@@ -1,5 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -86,6 +94,14 @@ export async function runResilienceFailsoftEval(): Promise<ResilienceFailsoftRep
     "corrupt SQLite DB -> empty output exit 0",
     corrupt.status === 0 && corrupt.stdout.trim() === "",
     `status=${corrupt.status} stdout=${JSON.stringify(corrupt.stdout.trim())}`,
+  );
+
+  const symlinkedStore = evaluateSymlinkedStore();
+  if (symlinkedStore.status !== 0) cliFailures += 1;
+  check(
+    "symlinked .graphctx store -> empty output exit 0 without outside writes",
+    symlinkedStore.ok,
+    `status=${symlinkedStore.status} wroteDb=${symlinkedStore.wroteDb} wroteEpisodes=${symlinkedStore.wroteEpisodes}`,
   );
 
   const config = evaluateBadConfigCases();
@@ -235,6 +251,34 @@ function evaluateBadConfigCases(): {
     return { ok: res.status === 0 && res.stdout.trim() === "", ...res };
   });
   return { invalidJson, schemaInvalid };
+}
+
+function evaluateSymlinkedStore(): {
+  ok: boolean;
+  status: number;
+  wroteDb: boolean;
+  wroteEpisodes: boolean;
+} {
+  return withTempDir((dir) => {
+    const outside = mkdtempSync(join(tmpdir(), "graphctx-resilience-outside-"));
+    try {
+      symlinkSync(outside, join(dir, ".graphctx"), "dir");
+      const res = cli(
+        ["hook", "UserPromptSubmit", "-C", dir],
+        JSON.stringify({ session_id: "s", cwd: dir, prompt: "hello" }),
+      );
+      const wroteDb = existsSync(join(outside, "workspace.db"));
+      const wroteEpisodes = existsSync(join(outside, "episodes.jsonl"));
+      return {
+        ok: res.status === 0 && res.stdout.trim() === "" && !wroteDb && !wroteEpisodes,
+        status: res.status,
+        wroteDb,
+        wroteEpisodes,
+      };
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
 }
 
 async function evaluateHookCaptureRedaction(): Promise<{

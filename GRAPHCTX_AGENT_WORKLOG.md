@@ -559,3 +559,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval mcp`
   - `npx tsc --noEmit`
   - `npx biome check src test`
+
+### Iteration 76 - symlink-safe local store paths
+
+- Added a workspace-local store path guard so default `.graphctx` database and
+  episode JSONL paths refuse symlinked path components before opening or
+  appending to storage outside the workspace.
+- Added hook resilience unit coverage and an `eval resilience` gate case proving
+  symlinked `.graphctx` stores degrade to empty hook output without writing an
+  outside `workspace.db` or `episodes.jsonl`.
+- Updated STATUS/README/DEMO counters.
+- Verification:
+  - `npx vitest run test/resilience/hook-degrades.test.ts`
+  - `npx tsx src/cli.ts eval resilience`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

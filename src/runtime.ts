@@ -29,6 +29,7 @@ import { EdgesRepo } from "./store/edges.repo.js";
 import { EpisodesRepo } from "./store/episodes.repo.js";
 import { FactsRepo } from "./store/facts.repo.js";
 import { InjectionsRepo } from "./store/injections.repo.js";
+import { assertWorkspaceLocalStorePath } from "./store/path-safety.js";
 import { ProceduresRepo } from "./store/procedures.repo.js";
 import { PromotionsRepo } from "./store/promotions.repo.js";
 
@@ -65,6 +66,16 @@ export class Runtime {
     this.workspaceDir = this.loaded.workspaceDir;
     this.userId = opts.userId ?? process.env.GRAPHCTX_USER_ID ?? "local-user";
     this.workspaceId = workspaceIdFromPath(this.workspaceDir);
+    assertWorkspaceLocalStorePath(
+      this.loaded.paths.workspaceDb,
+      this.workspaceDir,
+      "workspace database",
+    );
+    assertWorkspaceLocalStorePath(
+      this.loaded.paths.episodes,
+      this.workspaceDir,
+      "episode JSONL mirror",
+    );
     this.db = openDb(this.loaded.paths.workspaceDb);
     this.facts = new FactsRepo(this.db, this.clock);
     this.vectors = new VectorIndex(this.db);

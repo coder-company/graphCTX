@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,6 +47,20 @@ describe("I9 resilience — agent still runs when graphCTX is broken", () => {
     const res = runHook("PostCompact", { session_id: "s", cwd: dir });
     expect(res.status).toBe(0);
     expect(res.stdout.trim()).toBe("");
+  }, 40000);
+
+  it("symlinked .graphctx store → exit 0, no outside writes", () => {
+    const outside = mkdtempSync(join(tmpdir(), "gctx-res-outside-"));
+    try {
+      symlinkSync(outside, join(dir, ".graphctx"), "dir");
+      const res = runHook("UserPromptSubmit", { session_id: "s", cwd: dir, prompt: "hello" });
+      expect(res.status).toBe(0);
+      expect(res.stdout.trim()).toBe("");
+      expect(existsSync(join(outside, "workspace.db"))).toBe(false);
+      expect(existsSync(join(outside, "episodes.jsonl"))).toBe(false);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   }, 40000);
 
   it("invalid config JSON → exit 0, no output", () => {
