@@ -61,6 +61,35 @@ export function decodeKey(raw: string): Key {
   return { name, ctrl, raw };
 }
 
+const ESCAPE_SEQUENCES = [
+  "\x1b[5~",
+  "\x1b[6~",
+  "\x1b[1~",
+  "\x1b[4~",
+  "\x1b[A",
+  "\x1b[B",
+  "\x1b[C",
+  "\x1b[D",
+  "\x1b[H",
+  "\x1b[F",
+  "\x1b",
+];
+
+export function decodeKeyChunk(raw: string): Key[] {
+  const keys: Key[] = [];
+  for (let i = 0; i < raw.length; ) {
+    const seq = ESCAPE_SEQUENCES.find((candidate) => raw.startsWith(candidate, i));
+    if (seq) {
+      keys.push(decodeKey(seq));
+      i += seq.length;
+    } else {
+      keys.push(decodeKey(raw[i] as string));
+      i += 1;
+    }
+  }
+  return keys;
+}
+
 export interface KeyReader {
   stop(): void;
 }
@@ -76,12 +105,7 @@ export function readKeys(onKey: KeyHandler): KeyReader {
   stdin.resume();
   stdin.setEncoding("utf8");
   const listener = (chunk: string) => {
-    // A chunk may contain multiple keypresses; emit escape sequences whole.
-    if (chunk.startsWith("\x1b[") || chunk === "\x1b") {
-      onKey(decodeKey(chunk));
-      return;
-    }
-    for (const ch of chunk) onKey(decodeKey(ch));
+    for (const key of decodeKeyChunk(chunk)) onKey(key);
   };
   stdin.on("data", listener);
   return {

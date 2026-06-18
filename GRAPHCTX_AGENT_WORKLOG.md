@@ -1803,6 +1803,22 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 154 - chunk-safe TUI key decoding
+
+- Fixed raw TUI key reading so a terminal input chunk containing multiple escape
+  sequences emits each key instead of swallowing the whole chunk as one unknown
+  key.
+- Added `decodeKeyChunk` coverage for adjacent arrow and paging escape
+  sequences.
+- Added smoother navigation aliases: left/right switch tabs and j/k move rows.
+- Updated live docs counters to 279 tests.
+- Verification:
+  - `npx vitest run test/tui/keys.test.ts test/tui/data.test.ts`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsc --noEmit`
+  - `npx biome check src/tui/app.ts src/tui/keys.ts test/tui/keys.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 153 - superseded user preference injection guard
 
 - Added a SessionStart regression proving superseded user preferences remain

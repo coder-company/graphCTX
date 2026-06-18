@@ -97,15 +97,19 @@ export class TuiApp {
       this.quit();
       return;
     }
-    if (k.name === "tab" || k.raw === "\t") {
+    if (k.name === "tab" || k.raw === "\t" || k.name === "right") {
       this.cycleTab(1);
+      return;
+    }
+    if (k.name === "left") {
+      this.cycleTab(-1);
       return;
     }
     if (k.name === "1") this.setTab("dashboard");
     else if (k.name === "2") this.setTab("control");
     else if (k.name === "3") this.setTab("monitor");
-    else if (k.name === "up") this.move(-1);
-    else if (k.name === "down") this.move(1);
+    else if (k.name === "up" || k.name === "k") this.move(-1);
+    else if (k.name === "down" || k.name === "j") this.move(1);
     else if (k.name === "pageup") this.move(-this.pageStep());
     else if (k.name === "pagedown") this.move(this.pageStep());
     else if (k.name === "home") this.jump("start");
@@ -312,8 +316,8 @@ export class TuiApp {
       return `\n${style.bold(style.yellow(`${p.label}: `))}${p.value}${style.inverse(" ")}  ${style.gray("(enter=ok esc=cancel)")}`;
     }
     const parts = [
-      `${keycap("tab")} switch`,
-      `${keycap("up/down")} move`,
+      `${keycap("tab/left/right")} switch`,
+      `${keycap("up/down j/k")} move`,
       `${keycap("pg")} page`,
       `${keycap("home/end")} jump`,
       `${keycap("f")} filter`,
