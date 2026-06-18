@@ -1,9 +1,11 @@
-// graphCTX vs Supermemory benchmark.
+// graphCTX vs memory-system benchmark.
 //
 // Two parts:
 //  1) Multi-axis comparison — the honest, always-runnable scorecard across the
 //     axes that actually differ (architecture, latency, offline, push vs pull,
-//     install friction, cost, data locality). No network required.
+//     install friction, cost, data locality). No network required. Includes
+//     XMem as an offline scorecard column without pretending to have live XMem
+//     benchmark measurements.
 //  2) Live bake-off — when SUPERMEMORY_API_KEY is set, a real round-trip
 //     retrieval-quality + latency test on a shared fact set, against both
 //     systems, on the SAME queries.
@@ -25,6 +27,7 @@ export interface AxisRow {
   axis: string;
   graphctx: string;
   supermemory: string;
+  xmem: string;
   note: string;
 }
 
@@ -35,61 +38,78 @@ export function multiAxis(): AxisRow[] {
       axis: "Primary customer",
       graphctx: "AI coding agents",
       supermemory: "General apps / assistants",
+      xmem: "Browser + agents + API",
       note: "different products",
     },
     {
       axis: "Delivery model",
       graphctx: "Push (lifecycle hooks)",
       supermemory: "Pull (search/profile API)",
+      xmem: "Search + browser inject",
       note: "graphCTX core thesis",
     },
     {
       axis: "Runtime",
       graphctx: "Local process, SQLite",
       supermemory: "Hosted SaaS (or self-host)",
+      xmem: "FastAPI + stores / local stack",
       note: "—",
     },
     {
       axis: "Offline capable",
       graphctx: "Yes (zero network)",
       supermemory: "No (API) / self-host",
+      xmem: "Local with Docker/Ollama",
       note: "graphCTX edge",
     },
     {
       axis: "Hot-path latency",
       graphctx: "~5-15ms (local)",
       supermemory: "network RTT + server",
+      xmem: "service RTT + LLM/store path",
       note: "measured below",
     },
     {
       axis: "Temporal validity",
       graphctx: "Commit-anchored",
       supermemory: "Wall-clock",
+      xmem: "Temporal graph, not git-HEAD",
       note: "graphCTX coding-fit",
     },
     {
       axis: "Install friction",
       graphctx: "npm i + init (no key)",
       supermemory: "signup + API key",
+      xmem: "create-xmem + Docker/Ollama",
       note: "—",
     },
     {
       axis: "Cost",
       graphctx: "$0 (local)",
       supermemory: "usage-priced",
+      xmem: "$0 local / hosted optional",
       note: "—",
     },
     {
       axis: "Data locality",
       graphctx: "Never leaves machine",
       supermemory: "Sent to cloud",
+      xmem: "local or server-backed",
       note: "graphCTX privacy",
     },
     {
       axis: "Secret defense",
       graphctx: "Scan + trust tiers",
       supermemory: "app responsibility",
+      xmem: "pipeline/app responsibility",
       note: "graphCTX built-in",
+    },
+    {
+      axis: "Bench posture",
+      graphctx: "Offline gates + coding bench",
+      supermemory: "live API bake-off optional",
+      xmem: "published LoCoMo/LME claims",
+      note: "reproduce before claiming",
     },
   ];
 }
@@ -97,11 +117,15 @@ export function multiAxis(): AxisRow[] {
 export function formatMultiAxis(rows: AxisRow[]): string {
   const out: string[] = [];
   out.push("");
-  out.push(style.bold("graphCTX vs Supermemory — multi-axis scorecard"));
+  out.push(style.bold("graphCTX vs memory systems — multi-axis scorecard"));
   out.push(
-    style.gray("Note: different products (local coding-agent memory vs general memory SaaS)."),
+    style.gray("Note: different products (local coding-agent memory vs general memory services)."),
   );
-  out.push(style.gray("Axes marked 'edge'/'core' favor graphCTX by design; '—' is neutral."));
+  out.push(
+    style.gray(
+      "XMem numbers are not live-tested here; use the deep local benchmark for reproducible graphCTX metrics.",
+    ),
+  );
   out.push("");
   out.push(
     ...table(
@@ -109,8 +133,9 @@ export function formatMultiAxis(rows: AxisRow[]): string {
         { header: "axis", width: 20 },
         { header: "graphCTX", width: 24 },
         { header: "supermemory", width: 26 },
+        { header: "XMem", width: 26 },
       ],
-      rows.map((r) => [r.axis, r.graphctx, r.supermemory]),
+      rows.map((r) => [r.axis, r.graphctx, r.supermemory, r.xmem]),
     ),
   );
   return out.join("\n");

@@ -13,14 +13,21 @@ describe("bench — multi-axis scorecard", () => {
     const delivery = axes.find((a) => a.axis === "Delivery model");
     expect(delivery?.graphctx.toLowerCase()).toContain("push");
     expect(delivery?.supermemory.toLowerCase()).toContain("pull");
+    expect(delivery?.xmem.toLowerCase()).toContain("inject");
+    const temporal = axes.find((a) => a.axis === "Temporal validity");
+    expect(temporal?.xmem.toLowerCase()).toContain("temporal graph");
   });
 
   it("offline runBenchmark returns axes and skips live without a key", async () => {
     const report = await runBenchmark({ live: false });
     expect(report.axes.length).toBeGreaterThan(5);
     expect(report.live).toBeUndefined();
+    const bench = report.axes.find((a) => a.axis === "Bench posture");
+    expect(bench?.xmem).toBe("published LoCoMo/LME claims");
     const text = formatReport(report);
     expect(text).toContain("multi-axis scorecard");
+    expect(text).toContain("XMem");
+    expect(text).toContain("Bench posture");
   });
 });
 

@@ -1803,6 +1803,24 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 151 - XMem-aware compare scorecard
+
+- Expanded `graphctx compare` from a Supermemory-only scorecard into an
+  offline memory-systems scorecard with an explicit XMem column.
+- Added XMem-specific rows for delivery model, local/offline requirements,
+  temporal validity, data locality, secret-defense posture, and benchmark
+  claims.
+- Kept the live bake-off honest: Supermemory remains the only live API path,
+  and XMem claims are marked as published claims to reproduce before claiming.
+- Updated benchmark tests and STATUS wording for the new scorecard shape.
+- Verification:
+  - `npx vitest run test/bench/compare.test.ts test/eval/eval-benchmarks.test.ts`
+  - `npx tsx src/cli.ts eval benchmarks`
+  - `npx tsx src/cli.ts compare | sed -n '1,80p'`
+  - `npx tsc --noEmit`
+  - `npx biome check src/bench/compare.ts test/bench/compare.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 150 - composed TUI empty states and status surfaces
 
 - Added a dashboard operator console summarizing local state, active filter,
