@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { FactKind, NewFact } from "../../core/types.js";
+import { existingWorkspacePath } from "../../security/workspace-path.js";
 import { type ExtractContext, type Extractor, structuredFact } from "./types.js";
 
 const TEST_CONFIGS = [
@@ -15,7 +16,9 @@ export const testConfigExtractor: Extractor = {
   extract(ctx: ExtractContext): NewFact[] {
     const facts: NewFact[] = [];
     for (const config of TEST_CONFIGS) {
-      const file = config.files.find((candidate) => existsSync(join(ctx.workspaceDir, candidate)));
+      const file = config.files.find((candidate) =>
+        existingWorkspacePath(ctx.workspaceDir, candidate),
+      );
       if (!file) continue;
       facts.push(
         testFact(ctx, file, {

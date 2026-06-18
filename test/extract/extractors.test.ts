@@ -395,6 +395,23 @@ describe("deterministic extractors", () => {
     ).toEqual(["vitest.config.ts"]);
   });
 
+  it("test config extraction ignores config symlinked outside the workspace", () => {
+    const outside = mkdtempSync(join(tmpdir(), "gctx-ex-test-config-outside-"));
+    try {
+      writeFileSync(
+        join(outside, "vitest.config.ts"),
+        'export default { test: { environment: "node", testTimeout: 30000 } };\n',
+      );
+      symlinkSync(join(outside, "vitest.config.ts"), join(dir, "vitest.config.ts"), "file");
+
+      const { res } = extract();
+      expect(res.inserted.find((f) => f.predicate === "test_runner")).toBeUndefined();
+      expect(res.inserted.find((f) => f.predicate === "test_environment")).toBeUndefined();
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it("generated-markers → do_not_edit constraint", () => {
     mkdirSync(join(dir, "src"), { recursive: true });
     writeFileSync(join(dir, "src", "g.ts"), "// @generated DO NOT EDIT\nexport const x = 1;\n");

@@ -445,3 +445,16 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx vitest run test/extract/extractors.test.ts`
   - `npx tsc --noEmit`
   - `npx biome check src test`
+
+### Iteration 67 - workspace-confined test config extraction
+
+- Hardened Vitest/Jest/Playwright/Cypress config discovery so test and coverage
+  facts require config evidence that resolves inside the workspace.
+- Added a regression for an external symlinked `vitest.config.ts` that must not
+  create test runner or environment facts.
+- Updated README/STATUS counters to 219 Vitest tests.
+- Verification:
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check --write src/extract/deterministic/test-config.ts`
+  - `npx biome check src test`
