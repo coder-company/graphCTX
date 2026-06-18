@@ -9,7 +9,7 @@ import type {
   ScopeFilter,
   ScoredFact,
 } from "../core/types.js";
-import { sensitivityForText } from "../security/secrets.js";
+import { redactSecrets, sensitivityForText } from "../security/secrets.js";
 import { type DB, tx } from "./db.js";
 
 interface FactRow {
@@ -179,15 +179,18 @@ export class FactsRepo {
     const promotion_state = input.promotion_state ?? "session_only";
     const ftsText = `${input.subject} ${input.predicate} ${stringifyObject(input.object)} ${input.source.raw_quote ?? ""}`;
     const tags = input.tags ?? [];
+    const tagsText = tags.join(" ");
     // I3 defense-in-depth: stamp sensitivity=secret at write time if the content
     // looks like a secret, unless the caller already classified it. Secrets are
     // then excluded from promotion (gates) and injection (capsule guard).
     const sensitivity =
       input.sensitivity && input.sensitivity !== "unknown"
         ? input.sensitivity
-        : sensitivityForText(ftsText) === "secret"
+        : sensitivityForText(`${ftsText} ${tagsText}`) === "secret"
           ? "secret"
           : (input.sensitivity ?? "unknown");
+    const indexedText = redactSecrets(ftsText);
+    const indexedTags = redactSecrets(tagsText);
 
     this.db
       .prepare(
@@ -231,12 +234,12 @@ export class FactsRepo {
 
     this.db
       .prepare("INSERT INTO facts_fts (fact_id, text, tags) VALUES (?, ?, ?)")
-      .run(id, ftsText, tags.join(" "));
+      .run(id, indexedText, indexedTags);
 
     if (input.git) this.upsertAnchor(id, input.git);
 
     // Keep the semantic index in sync (no-op if no index attached).
-    this.vectors?.upsert(id, `${ftsText} ${tags.join(" ")}`);
+    this.vectors?.upsert(id, `${indexedText} ${indexedTags}`);
 
     return this.get(id)!;
   }
@@ -330,7 +333,7 @@ export class FactsRepo {
   }
 
   private syncFtsTags(id: string, tags: string[]): void {
-    const tagsText = tags.join(" ");
+    const tagsText = redactSecrets(tags.join(" "));
     this.db.prepare("UPDATE facts_fts SET tags = ? WHERE fact_id = ?").run(tagsText, id);
     if (!this.vectors) return;
     const row = this.db.prepare("SELECT text FROM facts_fts WHERE fact_id = ?").get(id) as

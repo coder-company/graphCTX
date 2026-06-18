@@ -71,6 +71,49 @@ describe("FactsRepo git anchors", () => {
 });
 
 describe("FactsRepo secondary indexes", () => {
+  it("redacts secret-bearing content before writing FTS and vector indexes", () => {
+    const dir = mkdtempSync(join(tmpdir(), "graphctx-facts-repo-"));
+    const db = openDb(join(dir, "facts.db"));
+    try {
+      const facts = new FactsRepo(db);
+      let vectorText = "";
+      facts.attachVectorIndex({
+        upsert(_factId, text) {
+          vectorText = text;
+        },
+        remove() {},
+      });
+      const objectSecret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+      const tagSecret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+      const fact = facts.insert({
+        subject: "repo",
+        predicate: "deploy_token",
+        object: objectSecret,
+        fact_kind: "semantic",
+        temporal_kind: "static",
+        scope: { user_id: "u", workspace_id: "w" },
+        trust_tier: "high",
+        status: "active",
+        promotion_state: "workspace_active",
+        source: { asserted_by: "user", event_ids: [], raw_quote: `token is ${objectSecret}` },
+        tags: [tagSecret],
+      });
+      const indexed = db
+        .prepare("SELECT text, tags FROM facts_fts WHERE fact_id = ?")
+        .get(fact.fact_id) as { text: string; tags: string };
+
+      expect(fact.sensitivity).toBe("secret");
+      expect(indexed.text).not.toContain(objectSecret);
+      expect(indexed.tags).not.toContain(tagSecret);
+      expect(vectorText).not.toContain(objectSecret);
+      expect(vectorText).not.toContain(tagSecret);
+      expect(`${indexed.text} ${indexed.tags} ${vectorText}`).toContain("[REDACTED:");
+    } finally {
+      db.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("keeps FTS tags searchable after metadata updates", () => {
     const dir = mkdtempSync(join(tmpdir(), "graphctx-facts-repo-"));
     const db = openDb(join(dir, "facts.db"));

@@ -751,3 +751,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 87 - secret-redacted secondary indexes
+
+- Redacted fact text/tags before writing FTS and vector index payloads, so a
+  forced/internal secret-bearing fact is not duplicated into retrieval indexes.
+- Included tags in write-time secret sensitivity stamping, closing a metadata
+  path where secret-shaped tags could be indexed without marking the fact secret.
+- Added a store regression that verifies FTS and vector index text omit raw
+  object/tag secrets while still stamping sensitivity.
+- Updated STATUS/README counters to 235 Vitest tests.
+- Verification:
+  - `npx vitest run test/store/facts-repo.test.ts test/security/promotion-injection.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/store/facts.repo.ts test/store/facts-repo.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
