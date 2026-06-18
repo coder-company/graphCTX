@@ -1525,3 +1525,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/invalidate/relation.ts src/runtime.ts test/inject/open-loops.test.ts test/invalidate/invalidator.test.ts`
   - `npx vitest list | wc -l`
   - `git diff --check`
+
+### Iteration 133 - invalidation conflict lookup index
+
+- Added forward-only storage migration `0006_fact_conflict_indexes.sql` with a
+  composite `(subject_id, predicate, scope_user_id, scope_workspace_id,
+  scope_session_id, status)` index for durable-write conflict lookups.
+- Regenerated `migrations.generated.ts` so packaged builds apply the migration
+  without needing filesystem access to SQL files.
+- Extended the storage migration eval to assert the new index survives a v1 to
+  latest upgrade. Updated STATUS schema/version notes and current hook p95.
+- Verification:
+  - `npx vitest run test/eval/storage-migrations.test.ts test/store/facts-repo.test.ts`
+  - `npx tsx src/cli.ts eval storage`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsc --noEmit`
+  - `npx biome check src/eval/suites/storage-migrations.ts src/store/migrations.generated.ts src/store/migrations/0006_fact_conflict_indexes.sql`
+  - `npx tsx src/cli.ts bench -n 20`
+  - `npx tsx src/cli.ts bench`

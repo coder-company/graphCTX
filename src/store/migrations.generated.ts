@@ -32,4 +32,9 @@ export const MIGRATIONS: Migration[] = [
     file: "0005_fact_query_indexes.sql",
     sql: "-- M4: hot-path fact lookup indexes.\n--\n-- Retrieval, injection, boot capsules, and MCP listing all ask for active facts\n-- within a user/workspace/session scope. Earlier migrations had separate status\n-- and scope indexes; this composite index lets SQLite satisfy the common\n-- status+scope predicate directly.\nCREATE INDEX idx_facts_status_scope ON facts(\n  status,\n  scope_user_id,\n  scope_workspace_id,\n  scope_session_id\n);\n",
   },
+  {
+    version: 6,
+    file: "0006_fact_conflict_indexes.sql",
+    sql: "-- M5: invalidation conflict lookup index.\n--\n-- Every durable write asks for existing facts with the same\n-- subject/predicate inside the current scope before classifying temporal\n-- relations. Keep that lookup on one composite index instead of intersecting\n-- the older subject/predicate and scope indexes.\nCREATE INDEX idx_facts_sp_scope_status ON facts(\n  subject_id,\n  predicate,\n  scope_user_id,\n  scope_workspace_id,\n  scope_session_id,\n  status\n);\n",
+  },
 ];

@@ -129,6 +129,10 @@ export function runStorageMigrationsEval(): StorageMigrationsReport {
         "forward-compat: hot-path fact scope index exists",
         indexExists(db, "idx_facts_status_scope"),
       );
+      check(
+        "forward-compat: invalidation conflict lookup index exists",
+        indexExists(db, "idx_facts_sp_scope_status"),
+      );
     } finally {
       db.close();
     }
