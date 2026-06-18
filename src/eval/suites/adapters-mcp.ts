@@ -756,6 +756,22 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
           rememberedAnchor.introduced_by_commit === expectedHead &&
           rememberedAnchor.branch === expectedBranch,
       );
+      const forgotRemembered = await callTool(server, requestId++, "forget", {
+        fact_id: rememberedFactId,
+      });
+      const whyAfterForget = await callTool(server, requestId++, "why", {
+        fact_id: rememberedFactId,
+      });
+      const forgottenPayload = payloadObject(whyAfterForget);
+      const forgottenAnchor = isRecord(forgottenPayload?.git_anchor)
+        ? forgottenPayload.git_anchor
+        : null;
+      check(
+        "MCP forget stamps current git closeout anchor",
+        forgotRemembered.result?.isError === false &&
+          forgottenAnchor?.valid_until_commit === expectedHead &&
+          forgottenAnchor.invalidated_by_commit === expectedHead,
+      );
 
       const badMethod = (await server.handle({
         jsonrpc: "2.0",

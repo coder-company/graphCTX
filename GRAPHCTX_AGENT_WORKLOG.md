@@ -1374,3 +1374,19 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval security`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 124 - MCP forget git closeout
+
+- Updated the MCP `forget` tool to pass the current git HEAD into
+  `FactsRepo.expire()` when available, so commit-anchored facts get
+  `valid_until_commit` and `invalidated_by_commit` closeout metadata.
+- Extended the adapter/MCP eval to assert `forget` closeout anchors through the
+  `why` provenance surface.
+- Verification:
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx vitest run test/eval/adapters-mcp.test.ts test/provenance/why.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/mcp/tools.ts src/eval/suites/adapters-mcp.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
