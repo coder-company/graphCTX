@@ -693,6 +693,41 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
           !JSON.stringify(rejectedSessionRecall).includes(sessionSecret),
       );
 
+      const mcpPromptSecret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+      let seenRecallPrompt = "";
+      await MCP_TOOLS.find((t) => t.name === "recall")!.handler(
+        fakeRuntime({
+          capsule: { markdown: "", cards: [], omitted: [], conflicts: [], token_count: 0 },
+          onInjectionExtra(extra) {
+            seenRecallPrompt = String(extra?.user_prompt ?? "");
+          },
+        }),
+        { query: `find memory for ${mcpPromptSecret}` },
+      );
+      check(
+        "MCP recall redacts secret-bearing query before retrieval context",
+        !seenRecallPrompt.includes(mcpPromptSecret) && seenRecallPrompt.includes("[REDACTED:"),
+      );
+
+      let seenInjectPrompt = "";
+      await MCP_TOOLS.find((t) => t.name === "inject_context")!.handler(
+        fakeRuntime({
+          capsule: { markdown: "", cards: [], omitted: [], conflicts: [], token_count: 0 },
+          onInjectionExtra(extra) {
+            seenInjectPrompt = String(extra?.user_prompt ?? "");
+          },
+        }),
+        {
+          event: "UserPromptSubmit",
+          session_id: "mcp-redaction",
+          user_prompt: `inject memory for ${mcpPromptSecret}`,
+        },
+      );
+      check(
+        "MCP inject_context redacts secret-bearing prompt before retrieval context",
+        !seenInjectPrompt.includes(mcpPromptSecret) && seenInjectPrompt.includes("[REDACTED:"),
+      );
+
       const unknown = await callTool(server, requestId++, "does_not_exist", {});
       check("MCP rejects unknown tool", unknown.error?.code === -32602);
       const unknownSecretTool = await callTool(server, requestId++, secret, {});
@@ -835,7 +870,11 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
   return { checks, passed, toolCount, proxyLeaks, detail, pass };
 }
 
-function fakeRuntime(opts: { capsule?: Capsule; throwPlanning?: boolean }): Runtime {
+function fakeRuntime(opts: {
+  capsule?: Capsule;
+  throwPlanning?: boolean;
+  onInjectionExtra?: (extra: Record<string, unknown> | undefined) => void;
+}): Runtime {
   return {
     workspaceId: "ws-eval",
     git: {
@@ -848,8 +887,9 @@ function fakeRuntime(opts: { capsule?: Capsule; throwPlanning?: boolean }): Runt
     },
     async extract() {},
     async runPromotionSweep() {},
-    async injectionContext(event: string) {
-      return { event };
+    async injectionContext(event: string, _sessionId?: string, extra?: Record<string, unknown>) {
+      opts.onInjectionExtra?.(extra);
+      return { event, ...extra };
     },
     planner() {
       return {

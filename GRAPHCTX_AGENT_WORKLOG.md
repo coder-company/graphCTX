@@ -681,3 +681,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 83 - MCP prompt redaction before retrieval
+
+- Redacted MCP `recall` queries and `inject_context` prompts before they enter
+  retrieval/injection context, matching the Claude hook prompt redaction path.
+- Added adapter/MCP gate coverage for both MCP retrieval prompt surfaces.
+- Updated STATUS/DEMO adapter/MCP counters to 86/86.
+- Verification:
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
