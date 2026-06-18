@@ -11,6 +11,7 @@ import { hasGenericGraphctxInstall } from "./adapters/generic/index.js";
 import { hasOpenCodeGraphctxInstall } from "./adapters/opencode/index.js";
 import { isoNow } from "./core/clock.js";
 import { GraphCtxError } from "./core/errors.js";
+import { FACT_KINDS, type FactKind } from "./core/types.js";
 import { runEval } from "./eval/harness.js";
 import {
   EVAL_GATE_SUITES,
@@ -179,12 +180,13 @@ program
   .option("--predicate <p>", "fact predicate", "note")
   .option("--kind <k>", "fact kind", "decision")
   .action(async (text, opts) => {
+    const kind = parseFactKindOption(opts.kind);
     try {
       assertSafeExplicitMemoryWrite({
         text,
         subject: opts.subject,
         predicate: opts.predicate,
-        kind: opts.kind,
+        kind,
       });
     } catch (e) {
       fail(formatMemoryWriteError(e));
@@ -194,7 +196,7 @@ program
       text,
       subject: opts.subject,
       predicate: opts.predicate,
-      kind: opts.kind,
+      kind,
     });
     refreshAgentsCapsule(rt);
     process.stdout.write(`Remembered ${fact.fact_id}: ${renderCard(fact).markdown}\n`);
@@ -774,6 +776,11 @@ function parsePositiveNumberOption(raw: string, flag: string): number {
     fail(`${flag} must be a positive number`);
   }
   return n;
+}
+
+function parseFactKindOption(raw: string): FactKind {
+  if ((FACT_KINDS as readonly string[]).includes(raw)) return raw as FactKind;
+  fail(`--kind must be one of: ${FACT_KINDS.join(", ")}`);
 }
 
 function fail(msg: string): never {

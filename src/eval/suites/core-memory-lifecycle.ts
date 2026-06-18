@@ -180,6 +180,17 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     compactRecall(semanticRecall.recall.stdout),
   );
 
+  const invalidKind = withRepo((dir) =>
+    cli(["remember", "safe guidance", "--kind", "not_a_kind", "-C", dir]),
+  );
+  check(
+    "remember rejects invalid fact kinds before storage",
+    invalidKind.status !== 0 &&
+      invalidKind.stderr.includes("--kind must be one of:") &&
+      !/stack|Trace/i.test(invalidKind.stdout + invalidKind.stderr),
+    `status=${invalidKind.status} stderr=${JSON.stringify(invalidKind.stderr.trim())}`,
+  );
+
   const bootRefresh = withRepo((dir) => {
     const init = cli(["init", "-C", dir]);
     const remembered = cli([

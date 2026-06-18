@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { writeAgentsCapsule } from "../adapters/boot-capsule.js";
-import type { Event } from "../core/types.js";
+import { type Event, FACT_KINDS } from "../core/types.js";
 import { redactWhyReport } from "../provenance/why.js";
 import { resolveConflicts } from "../resolve/conflicts.js";
 import type { Runtime } from "../runtime.js";
@@ -17,16 +17,7 @@ export interface McpTool {
   handler: (rt: Runtime, args: unknown) => Promise<unknown>;
 }
 
-const factKindValues = [
-  "semantic",
-  "procedural",
-  "preference",
-  "decision",
-  "constraint",
-  "failure",
-  "task_state",
-  "open_loop",
-] as const;
+const factKindValues = FACT_KINDS;
 
 const rememberInput = z.object({
   text: z.string().min(1),

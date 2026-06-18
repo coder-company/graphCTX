@@ -1444,3 +1444,19 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/runtime.ts src/promote/probation.ts src/tui/app.ts test/runtime/promote.test.ts`
   - `npx vitest list`
   - `git diff --check`
+
+### Iteration 128 - shared fact-kind validation
+
+- Promoted fact-kind values to a shared `FACT_KINDS` domain constant so CLI,
+  MCP schemas, and TypeScript domain types cannot drift.
+- Added CLI `remember --kind` validation before memory intake/storage, rejecting
+  out-of-domain fact kinds with a stable non-stack error.
+- Extended the core memory lifecycle eval to prove invalid fact kinds are
+  rejected before storage and synced a stale M4 status counter to 87/87.
+- Verification:
+  - `npx vitest run test/eval/core-memory-lifecycle.test.ts test/eval/adapters-mcp.test.ts test/eval/command-surface.test.ts`
+  - `npx tsx src/cli.ts eval memory`
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsc --noEmit`
+  - `npx biome check src/core/types.ts src/cli.ts src/mcp/tools.ts src/eval/suites/core-memory-lifecycle.ts`
+  - `git diff --check`

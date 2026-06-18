@@ -1,17 +1,20 @@
 // Core domain types (SPEC §7). Names mirror the spec exactly.
 
-export type FactKind =
-  | "semantic"
-  | "episodic"
-  | "procedural"
-  | "preference"
-  | "decision"
-  | "constraint"
-  | "failure"
-  | "task_state"
+export const FACT_KINDS = [
+  "semantic",
+  "episodic",
+  "procedural",
+  "preference",
+  "decision",
+  "constraint",
+  "failure",
+  "task_state",
   // M1 (steal S1): a durable, resurfacing unfinished thread — distinct from the
   // ephemeral `task_state`. Persists until explicitly resolved (SUPERSEDED_BY).
-  | "open_loop";
+  "open_loop",
+] as const;
+
+export type FactKind = (typeof FACT_KINDS)[number];
 
 export type TemporalKind = "atemporal" | "static" | "dynamic";
 export type TrustTier = "high" | "low";
