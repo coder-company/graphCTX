@@ -1758,6 +1758,27 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/inject/gate.ts src/eval/suites/gate-precision.ts test/inject/gate.test.ts`
   - `git diff --check`
 
+### Iteration 146 - deterministic Python toolchain extraction
+
+- Added a dependency-free deterministic Python extractor for `uv.lock`,
+  `poetry.lock`, `requirements.txt`, `.python-version`, and common
+  `pyproject.toml` runtime/build/test/lint/typecheck/CLI metadata.
+- Emits high-trust, workspace-active facts such as Python package manager,
+  runtime version pin/constraint, build backend, pytest/ruff/mypy/pyright
+  commands, and project script entrypoints.
+- Preserves workspace confinement by ignoring Python config files symlinked
+  outside the workspace.
+- Added regression coverage for Python toolchain extraction and symlink-skip
+  behavior.
+- Updated live docs counters to 274 tests.
+- Verification:
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsc --noEmit`
+  - `npx biome check src/extract/pipeline.ts src/extract/deterministic/python.ts test/extract/extractors.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 141 - width-aware TUI layout
 
 - Made dashboard recent-memory columns adapt to terminal width instead of using

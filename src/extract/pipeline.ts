@@ -8,6 +8,7 @@ import { editorconfigExtractor } from "./deterministic/editorconfig.js";
 import { generatedMarkersExtractor } from "./deterministic/generated-markers.js";
 import { lockfileExtractor } from "./deterministic/lockfile.js";
 import { packageScriptsExtractor } from "./deterministic/package-scripts.js";
+import { pythonExtractor } from "./deterministic/python.js";
 import { runtimeVersionExtractor } from "./deterministic/runtime-version.js";
 import { testConfigExtractor } from "./deterministic/test-config.js";
 import { toolingConfigExtractor } from "./deterministic/tooling-config.js";
@@ -16,6 +17,7 @@ import type { ExtractContext, Extractor } from "./deterministic/types.js";
 
 export const DETERMINISTIC_EXTRACTORS: Extractor[] = [
   packageScriptsExtractor,
+  pythonExtractor,
   runtimeVersionExtractor,
   editorconfigExtractor,
   tsconfigExtractor,

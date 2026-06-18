@@ -132,6 +132,101 @@ describe("deterministic extractors", () => {
     }
   });
 
+  it("python project files → high-trust Python toolchain facts", () => {
+    writeFileSync(join(dir, "uv.lock"), "version = 1\n");
+    writeFileSync(join(dir, ".python-version"), "3.12.4\n");
+    writeFileSync(
+      join(dir, "pyproject.toml"),
+      [
+        "[project]",
+        'requires-python = ">=3.12"',
+        "",
+        "[project.scripts]",
+        'graphctx-worker = "graphctx.worker:main"',
+        "",
+        "[build-system]",
+        'build-backend = "hatchling.build"',
+        "",
+        "[tool.pytest.ini_options]",
+        'testpaths = ["tests"]',
+        "",
+        "[tool.ruff]",
+        "line-length = 100",
+        "",
+        "[tool.mypy]",
+        "strict = true",
+      ].join("\n"),
+    );
+
+    const { res } = extract();
+
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "python",
+        predicate: "package_manager",
+        object: "uv",
+        trust_tier: "high",
+        status: "active",
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "runtime python",
+        predicate: "version_pin",
+        object: "3.12.4",
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "runtime python",
+        predicate: "version_constraint",
+        object: ">=3.12",
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({ subject: "python", predicate: "test_command", object: "pytest" }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "python",
+        predicate: "lint_command",
+        object: "ruff check .",
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "python",
+        predicate: "typecheck_command",
+        object: "mypy .",
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "python",
+        predicate: "cli_entrypoint",
+        object: "graphctx-worker -> graphctx.worker:main",
+      }),
+    );
+  });
+
+  it("python extraction ignores config symlinked outside the workspace", () => {
+    const outside = mkdtempSync(join(tmpdir(), "gctx-ex-python-outside-"));
+    try {
+      writeFileSync(join(outside, "uv.lock"), "version = 1\n");
+      writeFileSync(join(outside, ".python-version"), "3.13.0\n");
+      writeFileSync(join(outside, "pyproject.toml"), '[project]\nrequires-python = ">=3.13"\n');
+      symlinkSync(join(outside, "uv.lock"), join(dir, "uv.lock"), "file");
+      symlinkSync(join(outside, ".python-version"), join(dir, ".python-version"), "file");
+      symlinkSync(join(outside, "pyproject.toml"), join(dir, "pyproject.toml"), "file");
+
+      const { res } = extract();
+      expect(res.inserted.find((f) => f.subject === "python")).toBeUndefined();
+      expect(res.inserted.find((f) => f.subject === "runtime python")).toBeUndefined();
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it("runtime pin files → high-trust version constraints", () => {
     writeFileSync(join(dir, ".nvmrc"), "20.11.1\n");
     writeFileSync(join(dir, ".tool-versions"), "nodejs 20.11.1\npnpm 10.12.0\n");
