@@ -372,21 +372,29 @@ export class FactsRepo {
   }
 
   expire(id: string, by: string, atCommit?: string): void {
-    this.update(id, { status: "expired", t_expired: this.clock.iso(), invalidated_by: by });
-    if (atCommit) {
-      this.db
-        .prepare("UPDATE git_anchors SET valid_until_commit = ? WHERE fact_id = ?")
-        .run(atCommit, id);
-    }
+    this.transaction(() => {
+      this.update(id, { status: "expired", t_expired: this.clock.iso(), invalidated_by: by });
+      if (atCommit) {
+        this.db
+          .prepare(
+            "UPDATE git_anchors SET valid_until_commit = ?, invalidated_by_commit = ? WHERE fact_id = ?",
+          )
+          .run(atCommit, atCommit, id);
+      }
+    });
   }
 
   expireDueToMissingEvidence(id: string, atCommit?: string): void {
-    this.update(id, { status: "expired", t_expired: this.clock.iso() });
-    if (atCommit) {
-      this.db
-        .prepare("UPDATE git_anchors SET valid_until_commit = ? WHERE fact_id = ?")
-        .run(atCommit, id);
-    }
+    this.transaction(() => {
+      this.update(id, { status: "expired", t_expired: this.clock.iso() });
+      if (atCommit) {
+        this.db
+          .prepare(
+            "UPDATE git_anchors SET valid_until_commit = ?, invalidated_by_commit = ? WHERE fact_id = ?",
+          )
+          .run(atCommit, atCommit, id);
+      }
+    });
   }
 
   // Expired facts that carry a valid_until_commit anchor — candidates for
@@ -405,17 +413,19 @@ export class FactsRepo {
   // Reactivate a fact whose invalidating commit was reverted (SPEC §8): clear
   // the expiry anchor + invalidation and mark active again.
   reactivate(id: string): void {
-    this.db
-      .prepare(
-        "UPDATE facts SET status = 'active', t_expired = NULL, invalidated_by = NULL WHERE fact_id = ?",
-      )
-      .run(id);
-    this.db
-      .prepare(
-        "UPDATE git_anchors SET valid_until_commit = NULL, invalidated_by_commit = NULL WHERE fact_id = ?",
-      )
-      .run(id);
-    this.syncVectorForStatus(id, "active");
+    this.transaction(() => {
+      this.db
+        .prepare(
+          "UPDATE facts SET status = 'active', t_expired = NULL, invalidated_by = NULL WHERE fact_id = ?",
+        )
+        .run(id);
+      this.db
+        .prepare(
+          "UPDATE git_anchors SET valid_until_commit = NULL, invalidated_by_commit = NULL WHERE fact_id = ?",
+        )
+        .run(id);
+      this.syncVectorForStatus(id, "active");
+    });
   }
 
   bySubjectPredicate(s: string, p: string, scope: ScopeFilter): Fact[] {

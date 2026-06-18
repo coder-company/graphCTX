@@ -1053,3 +1053,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 104 - atomic temporal lifecycle anchors
+
+- Wrapped fact expiry, missing-evidence expiry, and reactivation in store
+  transactions so lifecycle state and git-anchor validity move as one temporal
+  graph mutation.
+- Populated `git_anchors.invalidated_by_commit` alongside
+  `valid_until_commit` during expiry, then cleared both during reactivation.
+- Strengthened the store lifecycle/vector regression to assert commit closeout
+  and revival metadata.
+- Verification:
+  - `npx vitest run test/store/facts-repo.test.ts test/git/anchors.test.ts test/retrieve/retriever.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/store/facts.repo.ts test/store/facts-repo.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsx src/cli.ts eval storage`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

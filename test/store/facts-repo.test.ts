@@ -216,14 +216,26 @@ describe("FactsRepo secondary indexes", () => {
         status: "active",
         promotion_state: "workspace_active",
         source: { asserted_by: "user", event_ids: [] },
+        git: { repo_id: "repo", branch: "main", valid_from_commit: "c1" },
         tags: [],
       });
       events.length = 0;
 
-      facts.expire(fact.fact_id, fact.fact_id);
+      facts.expire(fact.fact_id, fact.fact_id, "c2");
+      const expired = facts.get(fact.fact_id);
       facts.reactivate(fact.fact_id);
+      const reactivated = facts.get(fact.fact_id);
 
       expect(events).toEqual([`remove:${fact.fact_id}`, `upsert:${fact.fact_id}`]);
+      expect(expired?.status).toBe("expired");
+      expect(expired?.time.invalidated_by).toBe(fact.fact_id);
+      expect(expired?.git?.valid_until_commit).toBe("c2");
+      expect(expired?.git?.invalidated_by_commit).toBe("c2");
+      expect(reactivated?.status).toBe("active");
+      expect(reactivated?.time.t_expired).toBeUndefined();
+      expect(reactivated?.time.invalidated_by).toBeUndefined();
+      expect(reactivated?.git?.valid_until_commit).toBeUndefined();
+      expect(reactivated?.git?.invalidated_by_commit).toBeUndefined();
     } finally {
       db.close();
       rmSync(dir, { recursive: true, force: true });
