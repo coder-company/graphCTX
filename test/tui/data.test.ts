@@ -20,7 +20,7 @@ describe("tui/data — memory stats from a live runtime", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("counts facts by status, scope, and kind", () => {
+  it("counts facts by status, scope, and kind", async () => {
     rt.facts.insert({
       subject: "repo",
       predicate: "note",
@@ -34,7 +34,7 @@ describe("tui/data — memory stats from a live runtime", () => {
       source: { asserted_by: "user", event_ids: [] },
       tags: [],
     });
-    rt.noteOpenLoop("finish the retry backoff");
+    await rt.noteOpenLoop("finish the retry backoff");
 
     const s = memoryStats(rt);
     expect(s.total).toBe(2);

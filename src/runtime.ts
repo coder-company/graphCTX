@@ -309,7 +309,10 @@ export class Runtime {
 
   // Record a durable open loop (M1 §7) — an unfinished thread to resurface at
   // PostCompact/SessionStart. Session-scoped by default.
-  noteOpenLoop(description: string, sessionId?: string): ReturnType<FactsRepo["insert"]> {
+  async noteOpenLoop(
+    description: string,
+    sessionId?: string,
+  ): Promise<ReturnType<FactsRepo["insert"]>> {
     assertSafeExplicitMemoryWrite({
       text: description,
       subject: "session",
@@ -328,6 +331,7 @@ export class Runtime {
       status: "active",
       promotion_state: "session_only",
       source: { asserted_by: "user", event_ids: [], raw_quote: description },
+      git: await this.currentGitAnchor(),
       tags: ["open_loop"],
     });
   }

@@ -216,7 +216,7 @@ program
       fail(formatMemoryWriteError(e));
     }
     const rt = new Runtime({ workspaceDir: opts.cwd });
-    const fact = rt.noteOpenLoop(text, opts.session);
+    const fact = await rt.noteOpenLoop(text, opts.session);
     refreshAgentsCapsule(rt);
     process.stdout.write(`Open loop ${fact.fact_id.slice(-8)}: ${text}\n`);
     rt.close();

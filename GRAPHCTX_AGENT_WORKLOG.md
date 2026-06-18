@@ -1474,3 +1474,19 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx biome check src/cli.ts src/eval/suites/cli-docs-demo.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
+
+### Iteration 130 - git-anchored open loops
+
+- Made `Runtime.noteOpenLoop()` async so durable session open loops can be
+  stamped with the current git repo/head/branch anchor when available.
+- Updated CLI, TUI, and tests to await the anchored open-loop write path.
+- Added a regression proving open-loop facts carry `repo_id`, branch,
+  `valid_from_commit`, and `introduced_by_commit` in a real git repo.
+- Updated live test counters to 259.
+- Verification:
+  - `npx vitest run test/inject/open-loops.test.ts test/eval/core-memory-lifecycle.test.ts test/tui/data.test.ts`
+  - `npx tsx src/cli.ts eval memory`
+  - `npx tsc --noEmit`
+  - `npx biome check src/runtime.ts src/cli.ts src/tui/app.ts test/inject/open-loops.test.ts test/tui/data.test.ts`
+  - `npx vitest list`
+  - `git diff --check`

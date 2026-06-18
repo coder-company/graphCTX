@@ -158,8 +158,10 @@ export class TuiApp {
           this.refresh("refused secret-bearing open loop");
           return;
         }
-        const f = this.rt.noteOpenLoop(v);
-        this.refresh(`open loop ${f.fact_id.slice(-8)}`);
+        void this.rt.noteOpenLoop(v).then((f) => {
+          this.refresh(`open loop ${f.fact_id.slice(-8)}`);
+          this.draw();
+        });
       });
     } else if (k.name === "x" && sel) {
       // Close the temporal window, preserving `why` provenance.
