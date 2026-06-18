@@ -80,6 +80,9 @@ _Last updated: retrieval recency ranking uses the runtime clock, ranking/conflic
 
 _Quality counters: Tests: 253. Gate suites: 19._
 
+_Runtime-clock note: direct CLI, eval, and benchmark retrievers pass
+`Runtime.clock`, so pull and push retrieval use the same recency clock seam._
+
 ---
 
 ## Perfection Mission — Aspect Ledger

@@ -1226,3 +1226,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 115 - runtime clock for direct retrievers
+
+- Exposed `Runtime.clock` as a readonly dependency and passed it to direct
+  `Retriever` instances in CLI recall, retrieval eval probes, and benchmark
+  paths.
+- Kept push and pull retrieval recency ranking on the same clock seam.
+- Verification:
+  - `npx tsc --noEmit`
+  - `npx biome check src/runtime.ts src/cli.ts src/bench/compare.ts src/bench/scale.ts src/bench/scenarios.ts src/eval/suites/retrieval-quality.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval benchmarks`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

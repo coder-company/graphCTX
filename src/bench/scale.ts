@@ -72,7 +72,7 @@ export async function measureScalePoint(
     ingestMs = Math.round((performance.now() - t0) * 100) / 100;
 
     const { Retriever } = await import("../retrieve/retriever.js");
-    const retriever = new Retriever(rt.facts, rt.git);
+    const retriever = new Retriever(rt.facts, rt.git, null, rt.clock);
     // One warm pass primes caches/JIT before the measured window.
     for (const p of PROBES) {
       const ctx = await rt.injectionContext("UserPromptSubmit", "scale", {
@@ -181,7 +181,7 @@ export async function measureFootprint(
       const rt = new Runtime({ workspaceDir: dir });
       try {
         const { Retriever } = await import("../retrieve/retriever.js");
-        const retriever = new Retriever(rt.facts, rt.git);
+        const retriever = new Retriever(rt.facts, rt.git, null, rt.clock);
         const ctx = await rt.injectionContext("UserPromptSubmit", `footprint-${i}`, {
           user_prompt: PROBES[0]!.query,
           budget_tokens: 1000,

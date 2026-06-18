@@ -740,7 +740,7 @@ export async function runRetrievalQualityEval(): Promise<RetrievalQualityReport>
       goldIdsByCase.push(goldIds);
     }
 
-    const retriever = new Retriever(rt.facts, rt.git, rt.vectors);
+    const retriever = new Retriever(rt.facts, rt.git, rt.vectors, rt.clock);
     const rows: RetrievalQualityReport["rows"] = [];
     let sumR1 = 0;
     let sumR5 = 0;
@@ -847,7 +847,7 @@ async function runUserScopeBroadPushProbe(): Promise<UserScopeProbeReport> {
     const ctx = await rt.injectionContext("SessionStart", "retrieval-user-scope", {
       user_prompt: "",
     });
-    const ranked = await new Retriever(rt.facts, rt.git, rt.vectors).retrieve(ctx, {
+    const ranked = await new Retriever(rt.facts, rt.git, rt.vectors, rt.clock).retrieve(ctx, {
       includeAllActive: true,
       k: 10,
     });
@@ -918,7 +918,9 @@ async function runSemanticNoOverlapProbe(): Promise<SemanticProbeReport> {
     const ctx = await rt.injectionContext("UserPromptSubmit", "retrieval-semantic-probe", {
       user_prompt: query,
     });
-    const ranked = await new Retriever(rt.facts, rt.git, rt.vectors).retrieve(ctx, { k: 10 });
+    const ranked = await new Retriever(rt.facts, rt.git, rt.vectors, rt.clock).retrieve(ctx, {
+      k: 10,
+    });
     const firstRank = ranked.findIndex((sf) => sf.fact.fact_id === gold.fact_id) + 1;
     const queryObjectOverlap = hasTokenOverlap(query, String(gold.object));
     rt.close();
@@ -1010,7 +1012,9 @@ async function runDiversityProbe(): Promise<DiversityProbeReport> {
     const ctx = await rt.injectionContext("UserPromptSubmit", "retrieval-diversity-probe", {
       user_prompt: "where are the auth request handlers implemented",
     });
-    const ranked = await new Retriever(rt.facts, rt.git, rt.vectors).retrieve(ctx, { k: 20 });
+    const ranked = await new Retriever(rt.facts, rt.git, rt.vectors, rt.clock).retrieve(ctx, {
+      k: 20,
+    });
     const top5Families = ranked.slice(0, 5).map((sf) => familyOf(sf.fact.subject));
     const distinctFamiliesTop5 = new Set(top5Families).size;
     rt.close();

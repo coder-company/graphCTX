@@ -58,7 +58,7 @@ export class Runtime {
   readonly ledger: Ledger;
   readonly vectors: VectorIndex;
   readonly procedures: ProceduresRepo;
-  private readonly clock: Clock;
+  readonly clock: Clock;
   private resolvedProvider?: LlmProvider;
 
   constructor(opts: RuntimeOptions = {}) {

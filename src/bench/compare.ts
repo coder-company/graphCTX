@@ -190,7 +190,7 @@ async function runGraphctx(): Promise<LiveResult> {
       addTimes.push(performance.now() - t0);
     }
     const { Retriever } = await import("../retrieve/retriever.js");
-    const retriever = new Retriever(rt.facts, rt.git);
+    const retriever = new Retriever(rt.facts, rt.git, null, rt.clock);
     for (const p of PROBES) {
       const ctx = await rt.injectionContext("UserPromptSubmit", "bench", {
         user_prompt: p.query,
