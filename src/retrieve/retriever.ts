@@ -14,6 +14,8 @@ import type { VectorIndex } from "./vectors.js";
 // surfacing weak semantic matches as noise.
 const SEMANTIC_SCAN_CAP = 512;
 const SEMANTIC_MAX_DIST = 1.1;
+const EXPANSION_LEX_BOOST = 0.2;
+const ANSWER_EXPANSION_WEIGHT = 0.35;
 
 // Reciprocal Rank Fusion (RRF, Cormack 2009) constants. We fuse BM25/lexical and
 // semantic signals by RANK position rather than by raw score — BM25 and cosine
@@ -50,6 +52,7 @@ interface Candidate {
   foundSem: boolean;
   scope: number;
   entity: number;
+  answer: number;
   bm25?: number;
 }
 
@@ -105,6 +108,7 @@ export class Retriever {
           foundSem: false,
           scope: scopeWeight(f, ctx.scope.session_id),
           entity: entityScore(f, entities),
+          answer: 0,
         };
         cand.set(f.fact_id, c);
       }
@@ -112,10 +116,11 @@ export class Retriever {
     };
     // Record a lexical (BM25 / broad-pass) hit. `lex` is a lexical relevance
     // where higher = better; we keep the strongest across the scope passes.
-    const addLex = (f: Fact, lex: number, bm25?: number) => {
+    const addLex = (f: Fact, lex: number, bm25?: number, answer = 0) => {
       if (!eligible(f)) return;
       const c = ensure(f);
       c.foundLex = true;
+      c.answer = Math.max(c.answer, answer);
       if (lex > c.lexScore) {
         c.lexScore = lex;
         if (bm25 !== undefined) c.bm25 = bm25;
@@ -144,6 +149,35 @@ export class Retriever {
       }
       for (const sf of this.repo.search({ text: query, scope: userScope, limit: 15 }))
         addLex(sf.fact, lexFromSignals(sf), sf.signals?.bm25);
+
+      // Deterministic coding-query expansion is a fallback/repair path:
+      // - when vectors are disabled, it provides no-network synonym recall;
+      // - when BM25 already filled top-k, it rescues answer-bearing facts from
+      //   generic lexical distractors (for example many "package manager"
+      //   notes ahead of the concrete "pnpm" fact).
+      // Sparse vector-enabled queries skip this extra DB work because the
+      // semantic expansion below already handles no-overlap answers cheaply.
+      const shouldExpandQuery = !this.vectors?.enabled || cand.size >= k;
+      if (shouldExpandQuery) {
+        for (const expansion of queryExpansions(query)) {
+          for (const sf of this.repo.search({ text: expansion.text, scope: wsScope, limit: k }))
+            addLex(sf.fact, lexFromSignals(sf) + EXPANSION_LEX_BOOST, sf.signals?.bm25, 1);
+          if (ctx.scope.session_id) {
+            for (const sf of this.repo.search({
+              text: expansion.text,
+              scope: {
+                user_id: ctx.scope.user_id,
+                workspace_id: ctx.scope.workspace_id,
+                session_id: ctx.scope.session_id,
+              },
+              limit: k,
+            }))
+              addLex(sf.fact, lexFromSignals(sf) + EXPANSION_LEX_BOOST, sf.signals?.bm25, 1);
+          }
+          for (const sf of this.repo.search({ text: expansion.text, scope: userScope, limit: 10 }))
+            addLex(sf.fact, lexFromSignals(sf) + EXPANSION_LEX_BOOST, sf.signals?.bm25, 1);
+        }
+      }
     }
 
     // Broad active pass for boot/compaction events (empty space to fill). These
@@ -224,7 +258,8 @@ export class Retriever {
       if (rl !== undefined && rs !== undefined) rrf += CONSENSUS_BOOST;
       // Preserve scope + entity influence as gentle multipliers on the fused
       // rank score (session/workspace scope and entity matches still help).
-      const score = rrf * c.scope * (1 + ENTITY_WEIGHT * c.entity);
+      const score =
+        rrf * c.scope * (1 + ENTITY_WEIGHT * c.entity) * (1 + ANSWER_EXPANSION_WEIGHT * c.answer);
       valid.push({
         fact: c.fact,
         score,
@@ -233,6 +268,7 @@ export class Retriever {
           entity: c.entity,
           semantic: c.foundSem ? c.semDist : undefined,
           scope: c.scope,
+          answer: c.answer || undefined,
         },
       });
     }
@@ -347,6 +383,57 @@ function collectEntities(ctx: InjectionContext): string[] {
   for (const f of ctx.current_files ?? []) e.add(f);
   for (const s of ctx.mentioned_symbols ?? []) e.add(s);
   return [...e];
+}
+
+interface QueryExpansion {
+  text: string;
+  triggers: string[];
+}
+
+const QUERY_EXPANSIONS: QueryExpansion[] = [
+  {
+    text: "pnpm npm yarn bun package.json packageManager",
+    triggers: ["package manager", "dependency manager", "package operations", "install packages"],
+  },
+  {
+    text: "vitest jest mocha pytest test coverage",
+    triggers: ["run tests", "test suite", "test runner", "unit tests"],
+  },
+  {
+    text: "biome eslint prettier lint format formatter",
+    triggers: ["lint", "format", "formatter", "code style"],
+  },
+  {
+    text: "generated auto-generated codegen openapi protobuf",
+    triggers: ["generated file", "generated code", "edit generated", "codegen"],
+  },
+  {
+    text: "migrate migration migrations prisma drizzle flyway",
+    triggers: ["migration", "migrations", "database migration", "prod migrations"],
+  },
+  {
+    text: "deploy release ship canary rollout",
+    triggers: ["deploy", "release", "ship", "rollout"],
+  },
+  {
+    text: "main develop branch pr pull request",
+    triggers: ["branch", "commit to", "pull request", "open a pr"],
+  },
+  {
+    text: "auth authentication jwt oauth login session",
+    triggers: ["auth", "authentication", "jwt", "login"],
+  },
+  {
+    text: "launchdarkly flag flags feature toggle",
+    triggers: ["feature flag", "feature flags", "flag service", "toggle"],
+  },
+];
+
+function queryExpansions(query: string): QueryExpansion[] {
+  const lower = query.toLowerCase();
+  return QUERY_EXPANSIONS.filter((expansion) =>
+    expansion.triggers.some((trigger) => lower.includes(trigger)),
+  );
 }
 
 function semanticText(fact: Fact): string {

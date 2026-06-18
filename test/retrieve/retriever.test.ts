@@ -62,6 +62,41 @@ describe("Retriever", () => {
     }
   });
 
+  it("expands coding concept queries past generic lexical distractors", async () => {
+    const db = openDb(":memory:");
+    try {
+      const facts = new FactsRepo(db);
+      for (let i = 0; i < 50; i++) {
+        facts.insert(
+          fact({
+            object: `Package manager planning note ${i}: review dependency governance, but no chosen tool is specified.`,
+            scope: { user_id: "u", workspace_id: "w" },
+            promotion_state: "workspace_active",
+            source: { asserted_by: "user", event_ids: [] },
+          }),
+        );
+      }
+      const target = facts.insert(
+        fact({
+          object: "This repo uses pnpm, never npm or yarn, for package operations",
+          scope: { user_id: "u", workspace_id: "w" },
+          promotion_state: "workspace_active",
+          source: { asserted_by: "deterministic_parser", event_ids: [] },
+        }),
+      );
+
+      const ranked = await new Retriever(facts, null).retrieve(
+        { ...ctx(), user_prompt: "which package manager should I use" },
+        { k: 10 },
+      );
+      const rank = ranked.findIndex((sf) => sf.fact.fact_id === target.fact_id);
+
+      expect(rank).toBe(0);
+    } finally {
+      db.close();
+    }
+  });
+
   it("does not return commit-scoped facts when no Git adapter is available", async () => {
     const db = openDb(":memory:");
     try {

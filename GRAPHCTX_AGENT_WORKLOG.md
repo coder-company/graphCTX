@@ -1678,6 +1678,34 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/tui/app.ts test/tui/data.test.ts`
   - `git diff --check`
 
+### Iteration 142 - answer-bearing coding query expansion
+
+- Added deterministic coding-query expansion as a retrieval repair path for
+  answer-bearing concepts such as package managers, test runners, generated
+  files, migrations, deploys, branches, auth, and feature flags.
+- Gated expansion so vector-enabled sparse queries stay on the fast semantic
+  path; expansion runs when vectors are unavailable or lexical top-k is
+  saturated by generic distractors.
+- Added an explicit answer signal to retrieved fact scoring so concrete facts
+  like `pnpm` beat generic repeated phrase matches.
+- Added a regression where 50 generic package-manager notes no longer bury the
+  real package-manager fact.
+- Measured deep benchmark after the fix: 100% recall; local medium p50/p95/p99
+  8.07/8.89/10.64ms; large p95 29.76ms.
+- Updated live docs counters to 270 tests.
+- Verification:
+  - adversarial scratch probe: `pnpm` fact ranked 1/10 against 50 generic
+    package-manager distractors
+  - `npx vitest run test/retrieve/retriever.test.ts test/retrieve/vectors.test.ts test/eval/eval-benchmarks.test.ts test/bench/compare.test.ts`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval benchmarks`
+  - `npx tsx src/cli.ts compare --deep -C .`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsc --noEmit`
+  - `npx biome check src/core/types.ts src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 141 - width-aware TUI layout
 
 - Made dashboard recent-memory columns adapt to terminal width instead of using

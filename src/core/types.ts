@@ -152,6 +152,7 @@ export interface ScoredFact {
     entity?: number;
     semantic?: number;
     scope?: number;
+    answer?: number;
     confidence?: number;
     recency?: number;
   };
