@@ -4,6 +4,7 @@ import { AdapterError } from "../../core/errors.js";
 import type { Capsule, InjectionContext } from "../../core/types.js";
 import type { Adapter, Capability, ChannelTier, InstallOptions } from "../adapter.js";
 import { factsFromCapsule, writeAgentsCapsuleFacts } from "../boot-capsule.js";
+import { assertWritableConfigPath, isSymlink } from "../config-path.js";
 
 // OpenCode adapter (SPEC §17). OpenCode reads AGENTS.md (Tier 0) and is an MCP
 // client (Tier 1 riders), and additionally supports plugin/event hooks that can
@@ -30,6 +31,7 @@ export class OpenCodeAdapter implements Adapter {
   async install(opts: InstallOptions): Promise<void> {
     const bin = opts.binPath ?? "graphctx";
     const cfgPath = join(this.workspaceDir, "opencode.json");
+    assertWritableConfigPath(cfgPath, "OpenCode opencode.json file");
     let cfg: { mcp?: Record<string, unknown> } = {};
     if (existsSync(cfgPath)) {
       try {
@@ -49,6 +51,7 @@ export class OpenCodeAdapter implements Adapter {
   async uninstall(): Promise<void> {
     const cfgPath = join(this.workspaceDir, "opencode.json");
     if (!existsSync(cfgPath)) return;
+    assertWritableConfigPath(cfgPath, "OpenCode opencode.json file");
     let cfg: { mcp?: Record<string, unknown> };
     try {
       cfg = JSON.parse(readFileSync(cfgPath, "utf8"));
@@ -70,6 +73,7 @@ export class OpenCodeAdapter implements Adapter {
 export function hasOpenCodeGraphctxInstall(workspaceDir: string): boolean {
   const cfgPath = join(workspaceDir, "opencode.json");
   if (!existsSync(cfgPath)) return false;
+  if (isSymlink(cfgPath)) return false;
   try {
     const cfg = JSON.parse(readFileSync(cfgPath, "utf8")) as { mcp?: Record<string, unknown> };
     const entry = cfg.mcp?.graphctx;

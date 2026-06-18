@@ -523,3 +523,15 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx biome check --write src/adapters/cursor/index.ts`
   - `npx biome check src test`
+
+### Iteration 73 - symlink-safe OpenCode config writes
+
+- Hardened OpenCode install/uninstall so symlinked `opencode.json` files are
+  refused before read/write mutation.
+- Added adapters/MCP eval coverage for symlinked OpenCode config install and
+  uninstall refusal, raising the gate to 82/82 checks.
+- Updated STATUS/DEMO adapter/MCP check counters.
+- Verification:
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`

@@ -274,6 +274,44 @@ export async function runAdaptersMcpEval(baseDir?: string): Promise<AdaptersMcpR
       rmSync(badOpenCodeUninstallDir, { recursive: true, force: true });
     }
 
+    const symlinkOpenCodeDir = mkdtempSync(join(tmpdir(), "gctx-opencode-symlink-"));
+    const outsideOpenCodeDir = mkdtempSync(join(tmpdir(), "gctx-opencode-outside-"));
+    try {
+      cpSync(fixture, symlinkOpenCodeDir, { recursive: true });
+      const outsideConfigPath = join(outsideOpenCodeDir, "opencode.json");
+      const outsideConfig = `${JSON.stringify({ mcp: { other: { enabled: true } } }, null, 2)}\n`;
+      writeFileSync(outsideConfigPath, outsideConfig, "utf8");
+      symlinkSync(outsideConfigPath, join(symlinkOpenCodeDir, "opencode.json"), "file");
+
+      let installThrew = false;
+      try {
+        await makeAdapter("opencode", symlinkOpenCodeDir).install({
+          workspaceDir: symlinkOpenCodeDir,
+          binPath: "graphctx",
+        });
+      } catch {
+        installThrew = true;
+      }
+      check(
+        "opencode install refuses symlinked opencode.json without modifying the target",
+        installThrew && readFileSync(outsideConfigPath, "utf8") === outsideConfig,
+      );
+
+      let uninstallThrew = false;
+      try {
+        await makeAdapter("opencode", symlinkOpenCodeDir).uninstall();
+      } catch {
+        uninstallThrew = true;
+      }
+      check(
+        "opencode uninstall refuses symlinked opencode.json without modifying the target",
+        uninstallThrew && readFileSync(outsideConfigPath, "utf8") === outsideConfig,
+      );
+    } finally {
+      rmSync(symlinkOpenCodeDir, { recursive: true, force: true });
+      rmSync(outsideOpenCodeDir, { recursive: true, force: true });
+    }
+
     check("detectClient classifies cursor workspace", detectClient(cursorDir) === "cursor");
     check("detectClient classifies opencode workspace", detectClient(opencodeDir) === "opencode");
     const claudeDir = mkdtempSync(join(tmpdir(), "gctx-claude-"));
