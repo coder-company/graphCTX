@@ -106,6 +106,10 @@ export class TuiApp {
     else if (k.name === "3") this.setTab("monitor");
     else if (k.name === "up") this.move(-1);
     else if (k.name === "down") this.move(1);
+    else if (k.name === "pageup") this.move(-this.pageStep());
+    else if (k.name === "pagedown") this.move(this.pageStep());
+    else if (k.name === "home") this.jump("start");
+    else if (k.name === "end") this.jump("end");
     else if (k.name === "f") this.cycleFilter();
     else if (k.name === "r") this.refresh("refreshed");
     else if (this.state.tab === "control") this.onControlKey(k);
@@ -251,6 +255,22 @@ export class TuiApp {
     );
   }
 
+  private jump(pos: "start" | "end"): void {
+    const total = this.currentViews().length;
+    this.state.cursor = pos === "start" ? 0 : Math.max(0, total - 1);
+    this.state.scroll = clampWindowStart(
+      this.state.cursor,
+      this.state.scroll,
+      total,
+      this.pageStep(),
+    );
+  }
+
+  private pageStep(): number {
+    if (this.state.tab === "control") return this.controlPageSize(this.currentViews().length > 0);
+    return 10;
+  }
+
   private refresh(status?: string): void {
     if (status) this.state.status = status;
   }
@@ -291,7 +311,15 @@ export class TuiApp {
       const p = this.state.prompt;
       return `\n${style.bold(style.yellow(`${p.label}: `))}${p.value}${style.inverse(" ")}  ${style.gray("(enter=ok esc=cancel)")}`;
     }
-    const parts = ["tab/1-3 switch", "up/down move", "f filter", "r refresh", "q quit"];
+    const parts = [
+      "tab/1-3 switch",
+      "up/down move",
+      "pgup/pgdn page",
+      "home/end jump",
+      "f filter",
+      "r refresh",
+      "q quit",
+    ];
     if (this.state.tab === "control") {
       parts.push("n new", "o open-loop", "p promote", "x forget", "enter resolve");
     } else if (this.state.tab === "monitor") {

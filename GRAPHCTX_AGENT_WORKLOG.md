@@ -1725,6 +1725,23 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/tui/app.ts test/tui/data.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 144 - TUI page and jump navigation
+
+- Added key decoding for PageUp, PageDown, Home, and End escape sequences.
+- Wired page and jump keys into the TUI cursor/scroll model so long control
+  lists can be navigated without repeated arrow-key presses.
+- Advertised page/jump controls in the adaptive footer.
+- Added regression coverage for common terminal escape sequences.
+- Updated live docs counters to 272 tests.
+- Verification:
+  - `npx vitest run test/tui/data.test.ts test/tui/ansi.test.ts test/tui/keys.test.ts`
+  - `NO_COLOR=1 npx tsx src/cli.ts tui --tab control`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsc --noEmit`
+  - `npx biome check src/tui/app.ts src/tui/keys.ts test/tui/data.test.ts test/tui/keys.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 141 - width-aware TUI layout
 
 - Made dashboard recent-memory columns adapt to terminal width instead of using

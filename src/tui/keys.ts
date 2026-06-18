@@ -8,7 +8,7 @@ export interface Key {
 
 export type KeyHandler = (key: Key) => void;
 
-function decode(raw: string): Key {
+export function decodeKey(raw: string): Key {
   const ctrl = raw.length === 1 && raw.charCodeAt(0) < 27 && raw !== "\r" && raw !== "\n";
   let name = raw;
   switch (raw) {
@@ -23,6 +23,20 @@ function decode(raw: string): Key {
       break;
     case "\x1b[D":
       name = "left";
+      break;
+    case "\x1b[5~":
+      name = "pageup";
+      break;
+    case "\x1b[6~":
+      name = "pagedown";
+      break;
+    case "\x1b[H":
+    case "\x1b[1~":
+      name = "home";
+      break;
+    case "\x1b[F":
+    case "\x1b[4~":
+      name = "end";
       break;
     case "\r":
     case "\n":
@@ -64,10 +78,10 @@ export function readKeys(onKey: KeyHandler): KeyReader {
   const listener = (chunk: string) => {
     // A chunk may contain multiple keypresses; emit escape sequences whole.
     if (chunk.startsWith("\x1b[") || chunk === "\x1b") {
-      onKey(decode(chunk));
+      onKey(decodeKey(chunk));
       return;
     }
-    for (const ch of chunk) onKey(decode(ch));
+    for (const ch of chunk) onKey(decodeKey(ch));
   };
   stdin.on("data", listener);
   return {
