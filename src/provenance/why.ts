@@ -123,6 +123,7 @@ export function redactWhyReport(r: WhyReport): WhyReport {
   return {
     ...r,
     raw_quote: r.raw_quote ? redactSecrets(r.raw_quote) : undefined,
+    git_anchor: redactGitAnchor(r.git_anchor),
     evidence: r.evidence.map((e) => ({
       ...e,
       payload: redactSecretValue(e.payload),
@@ -130,12 +131,35 @@ export function redactWhyReport(r: WhyReport): WhyReport {
     fact: {
       ...r.fact,
       object: redactSecretValue(r.fact.object),
+      git: redactGitAnchor(r.fact.git),
       tags: r.fact.tags.map((tag) => redactSecrets(tag)),
       source: {
         ...r.fact.source,
         raw_quote: r.fact.source.raw_quote ? redactSecrets(r.fact.source.raw_quote) : undefined,
       },
     },
+  };
+}
+
+function redactGitAnchor(g: GitAnchor | undefined): GitAnchor | undefined {
+  if (!g) return undefined;
+  const redact = (value: string | undefined) => (value ? redactSecrets(value) : undefined);
+  const redactArray = (values: string[] | undefined) =>
+    values ? values.map((value) => redactSecrets(value)) : undefined;
+  return {
+    ...g,
+    repo_id: redact(g.repo_id),
+    branch: redact(g.branch),
+    base_head: redact(g.base_head),
+    introduced_by_commit: redact(g.introduced_by_commit),
+    valid_from_commit: redact(g.valid_from_commit),
+    valid_until_commit: redact(g.valid_until_commit),
+    invalidated_by_commit: redact(g.invalidated_by_commit),
+    path_globs: redactArray(g.path_globs),
+    file_ids: redactArray(g.file_ids),
+    symbol_ids: redactArray(g.symbol_ids),
+    hunk_fingerprints: redactArray(g.hunk_fingerprints),
+    patch_id: redact(g.patch_id),
   };
 }
 

@@ -142,6 +142,11 @@ describe("why() provenance reader", () => {
           raw_quote: `token is ${secret}`,
         },
         tags: [secret],
+        git: {
+          branch: `feature/${secret}`,
+          path_globs: [`docs/${secret}.md`],
+          patch_id: secret,
+        },
       }),
     );
     const r = why(fact.fact_id, deps())!;
@@ -153,6 +158,9 @@ describe("why() provenance reader", () => {
     expect(formatted).toContain("[REDACTED:openai]");
     expect(structured.fact.object).toBe("[REDACTED:openai]");
     expect(structured.fact.tags[0]).toBe("[REDACTED:openai]");
+    expect(structured.git_anchor?.branch).toContain("[REDACTED:openai]");
+    expect(structured.fact.git?.path_globs?.[0]).toContain("[REDACTED:openai]");
+    expect(structured.fact.git?.patch_id).toBe("[REDACTED:openai]");
     expect(JSON.stringify(structured.evidence[0]?.payload)).not.toContain(secret);
     expect(structured.raw_quote).toContain("[REDACTED:openai]");
   });

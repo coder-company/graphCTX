@@ -951,3 +951,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 98 - structured why git anchor redaction
+
+- Redacted git anchor string fields in structured `why` reports, including
+  branch names, path globs, symbol/file ids, hunk fingerprints, and patch ids.
+- Extended the provenance redaction regression with secret-shaped branch/path
+  anchor values so MCP/structured provenance cannot leak user-controlled anchor
+  strings.
+- Verification:
+  - `npx vitest run test/provenance/why.test.ts test/security/secrets.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/provenance/why.ts test/provenance/why.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval provenance`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
