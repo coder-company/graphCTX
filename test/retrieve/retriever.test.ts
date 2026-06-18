@@ -140,6 +140,44 @@ describe("Retriever", () => {
     }
   });
 
+  it("expands commit-hygiene queries past generated-file distractors with vectors enabled", async () => {
+    const db = openDb(":memory:");
+    try {
+      const facts = new FactsRepo(db);
+      facts.insert(
+        fact({
+          object: "Do not edit generated API files directly; update openapi/spec.yaml",
+          scope: { user_id: "u", workspace_id: "w" },
+          promotion_state: "workspace_active",
+          source: { asserted_by: "deterministic_parser", event_ids: [] },
+          tags: ["generated_code"],
+        }),
+      );
+      const target = facts.insert(
+        fact({
+          object: "Never stage autoresearch-results, .graphctx, .codex-autoresearch, or .env",
+          scope: { user_id: "u", workspace_id: "w" },
+          promotion_state: "workspace_active",
+          source: { asserted_by: "user", event_ids: [] },
+          tags: ["commit", "safety"],
+        }),
+      );
+
+      const vectors = new VectorIndex(db);
+      expect(vectors.enabled).toBe(true);
+
+      const ranked = await new Retriever(facts, null, vectors).retrieve(
+        { ...ctx(), user_prompt: "which generated agent files should stay out of commits" },
+        { k: 10 },
+      );
+
+      expect(ranked[0]?.fact.fact_id).toBe(target.fact_id);
+      expect(ranked[0]?.signals?.answer).toBe(1);
+    } finally {
+      db.close();
+    }
+  });
+
   it("does not return commit-scoped facts when no Git adapter is available", async () => {
     const db = openDb(":memory:");
     try {

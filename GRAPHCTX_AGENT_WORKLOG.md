@@ -1803,6 +1803,28 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 161 - harder coding-memory benchmark probes
+
+- Expanded the deep local coding-memory benchmark from 10 to 15 probes, adding
+  realistic coding-agent memories for vec0 asset recovery, MCP tool-count
+  guardrails, commit hygiene, generated-source routing, and adapter/MCP gates.
+- Made eval-benchmark output expose deep/temporal probe counts and require at
+  least 15 local coding probes so the benchmark cannot shrink silently.
+- Fixed a retrieval gap where vector-enabled sparse queries skipped triggered
+  deterministic expansions; commit-hygiene queries now rank staging/unstaged
+  memory ahead of generated-file distractors.
+- Updated live docs counters to 283 tests and STATUS to report 15/15 deep local
+  recall.
+- Verification:
+  - `npx vitest run test/retrieve/retriever.test.ts test/retrieve/vectors.test.ts test/eval/eval-benchmarks.test.ts test/bench/compare.test.ts`
+  - `npx tsx src/cli.ts eval benchmarks`
+  - `npx tsx src/cli.ts compare --deep -C .`
+  - `npx vitest list | wc -l`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsc --noEmit`
+  - `npx biome check src/bench/scenarios.ts src/eval/suites/eval-benchmarks.ts src/retrieve/retriever.ts test/retrieve/retriever.test.ts test/eval/eval-benchmarks.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 160 - bounded secret-redacted TUI prompts
 
 - Routed active TUI prompts through a width-bounded renderer so long typed

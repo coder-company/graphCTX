@@ -155,11 +155,14 @@ export class Retriever {
       // - when BM25 already filled top-k, it rescues answer-bearing facts from
       //   generic lexical distractors (for example many "package manager"
       //   notes ahead of the concrete "pnpm" fact).
-      // Sparse vector-enabled queries skip this extra DB work because the
-      // semantic expansion below already handles no-overlap answers cheaply.
-      const shouldExpandQuery = !this.vectors?.enabled || cand.size >= k;
-      if (shouldExpandQuery) {
-        for (const expansion of queryExpansions(query)) {
+      // Triggered deterministic expansions are cheap and high-precision coding
+      // synonyms. Run them even with vectors enabled: a sparse query can still
+      // drift toward a semantically adjacent distractor (for example generated
+      // API facts) while the exact coding answer lives behind commit/staging
+      // vocabulary.
+      const expansions = queryExpansions(query);
+      if (expansions.length > 0) {
+        for (const expansion of expansions) {
           for (const sf of this.repo.search({ text: expansion.text, scope: wsScope, limit: k }))
             addLex(sf.fact, lexFromSignals(sf) + EXPANSION_LEX_BOOST, sf.signals?.bm25, 1);
           if (ctx.scope.session_id) {
@@ -418,6 +421,18 @@ const QUERY_EXPANSIONS: QueryExpansion[] = [
   {
     text: "main develop branch pr pull request",
     triggers: ["branch", "commit to", "pull request", "open a pr"],
+  },
+  {
+    text: "stage staged unstaged gitignore commit commits autoresearch-results .graphctx .codex-autoresearch .env",
+    triggers: [
+      "stage",
+      "staged",
+      "unstaged",
+      "do not stage",
+      "commit hygiene",
+      "out of commits",
+      "stay out of commits",
+    ],
   },
   {
     text: "auth authentication jwt oauth login session",

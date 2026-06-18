@@ -41,9 +41,11 @@ export interface EvalBenchmarksReport {
   };
   scorecardAxes: number;
   deepLocalRecall: number;
+  deepLocalProbeCount: number;
   deepLocalP95: number;
   temporalCurrentRecall: number;
   temporalStaleSuppression: number;
+  temporalProbeCount: number;
   temporalP95: number;
   scaleSizes: number[];
   scaleP95: number[];
@@ -118,6 +120,7 @@ export async function runEvalBenchmarksEval(): Promise<EvalBenchmarksReport> {
   check(
     "deep local coding-memory benchmark uses hybrid retrieval with perfect recall",
     offline.value.deepLocal.recallHits === offline.value.deepLocal.recallTotal &&
+      offline.value.deepLocal.recallTotal >= 15 &&
       offline.value.deepLocal.retrievalMs.p95 < 150,
     `recall=${offline.value.deepLocal.recallHits}/${offline.value.deepLocal.recallTotal} p95=${offline.value.deepLocal.retrievalMs.p95}ms`,
   );
@@ -172,6 +175,7 @@ export async function runEvalBenchmarksEval(): Promise<EvalBenchmarksReport> {
       offline.value.deepLocal.recallTotal === 0
         ? 0
         : offline.value.deepLocal.recallHits / offline.value.deepLocal.recallTotal,
+    deepLocalProbeCount: offline.value.deepLocal.recallTotal,
     deepLocalP95: offline.value.deepLocal.retrievalMs.p95,
     temporalCurrentRecall:
       offline.value.temporalLocal.total === 0
@@ -181,6 +185,7 @@ export async function runEvalBenchmarksEval(): Promise<EvalBenchmarksReport> {
       offline.value.temporalLocal.total === 0
         ? 0
         : offline.value.temporalLocal.staleSuppressed / offline.value.temporalLocal.total,
+    temporalProbeCount: offline.value.temporalLocal.total,
     temporalP95: offline.value.temporalLocal.retrievalMs.p95,
     scaleSizes: offline.value.scale.points.map((p) => p.scaleFacts),
     scaleP95: offline.value.scale.points.map((p) => p.retrievalMs.p95),
@@ -201,9 +206,11 @@ export function formatEvalBenchmarksReport(r: EvalBenchmarksReport): string {
   lines.push(
     `  checks: ${r.passed}/${r.checks}   suites: ${r.suiteCount}   scorecard axes: ${r.scorecardAxes}   network calls: ${r.networkCalls}`,
   );
-  lines.push(`  deep local: recall ${pct(r.deepLocalRecall)} p95=${r.deepLocalP95}ms`);
   lines.push(
-    `  temporal: current ${pct(r.temporalCurrentRecall)} stale-block ${pct(r.temporalStaleSuppression)} p95=${r.temporalP95}ms`,
+    `  deep local: recall ${pct(r.deepLocalRecall)} (${r.deepLocalProbeCount} probes) p95=${r.deepLocalP95}ms`,
+  );
+  lines.push(
+    `  temporal: current ${pct(r.temporalCurrentRecall)} stale-block ${pct(r.temporalStaleSuppression)} (${r.temporalProbeCount} probes) p95=${r.temporalP95}ms`,
   );
   lines.push(
     `  ablation: push ${pct(r.ablation.pushSolveRate)} > pull ${pct(r.ablation.pullSolveRate)}; controls N=${r.ablation.negativeControlsPassed}/${r.ablation.controlRepos} S=${r.ablation.staleControlsPassed}/${r.ablation.controlRepos}`,

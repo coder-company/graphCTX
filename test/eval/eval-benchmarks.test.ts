@@ -12,9 +12,11 @@ describe("eval harness and benchmarks", () => {
     expect(r.ablation.staleControlsPassed).toBe(r.ablation.controlRepos);
     expect(r.scorecardAxes).toBeGreaterThanOrEqual(8);
     expect(r.deepLocalRecall).toBe(1);
+    expect(r.deepLocalProbeCount).toBeGreaterThanOrEqual(15);
     expect(r.deepLocalP95).toBeLessThan(150);
     expect(r.temporalCurrentRecall).toBe(1);
     expect(r.temporalStaleSuppression).toBe(1);
+    expect(r.temporalProbeCount).toBeGreaterThanOrEqual(6);
     expect(r.temporalP95).toBeLessThan(150);
     expect(r.scaleSizes).toEqual([1000, 10000]);
     expect(r.scaleP95.every((p95) => p95 < 150)).toBe(true);

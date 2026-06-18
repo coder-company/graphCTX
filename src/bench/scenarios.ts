@@ -101,6 +101,31 @@ export const PROBES: Probe[] = [
     query: "how are feature flags configured",
     expect: "LAUNCHDARKLY",
   },
+  {
+    fact: "If TypeScript cannot find packaged vec0 assets, run node scripts/copy-assets.mjs before tsc",
+    query: "tsc cannot find vec0 asset what fixes it",
+    expect: "copy-assets",
+  },
+  {
+    fact: "The graphCTX MCP surface must stay exactly 8 tools unless the I8 gate changes",
+    query: "how many MCP tools should graphCTX expose",
+    expect: "8 tools",
+  },
+  {
+    fact: "Never stage autoresearch-results, .graphctx, .codex-autoresearch, or .env",
+    query: "which generated agent files should stay out of commits",
+    expect: "autoresearch-results",
+  },
+  {
+    fact: "Do not edit generated API files directly; update openapi/spec.yaml and regenerate them",
+    query: "where should I edit the generated API source",
+    expect: "openapi/spec",
+  },
+  {
+    fact: "Run the adapter and MCP regression gate with npx tsx src/cli.ts eval mcp",
+    query: "which command verifies MCP adapters",
+    expect: "eval mcp",
+  },
 ];
 
 export interface TemporalProbe {
