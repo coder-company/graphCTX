@@ -1580,3 +1580,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 136 - broaden private-key secret detection
+
+- Expanded the `private_key` scanner to cover DSA PEM headers, encrypted PEM
+  private keys, and PGP private key blocks in addition to RSA/EC/OpenSSH/generic
+  private keys.
+- Added unit redaction/detection assertions and adversarial security corpus
+  positives for the new private-key families.
+- Verification:
+  - `npx vitest run test/security/secrets.test.ts test/eval/security-adversarial.test.ts`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsc --noEmit`
+  - `npx biome check src/security/secrets.ts test/security/secrets.test.ts src/eval/suites/security-adversarial.ts`
+  - `git diff --check`

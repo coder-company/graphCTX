@@ -59,8 +59,19 @@ const SECRET_CASES: SecretCase[] = [
   { label: "slack bot token xoxb-", text: "xoxb-0000000000-FAKEfakeFAKEfake", isSecret: true },
   { label: "slack user token xoxp-", text: "xoxp-0000000000-FAKEfakeFAKEfake", isSecret: true },
   { label: "pem rsa private key", text: "-----BEGIN RSA PRIVATE KEY-----", isSecret: true },
+  { label: "pem dsa private key", text: "-----BEGIN DSA PRIVATE KEY-----", isSecret: true },
   { label: "pem openssh private key", text: "-----BEGIN OPENSSH PRIVATE KEY-----", isSecret: true },
+  {
+    label: "pem encrypted private key",
+    text: "-----BEGIN ENCRYPTED PRIVATE KEY-----",
+    isSecret: true,
+  },
   { label: "pem generic private key", text: "-----BEGIN PRIVATE KEY-----", isSecret: true },
+  {
+    label: "pgp private key block",
+    text: "-----BEGIN PGP PRIVATE KEY BLOCK-----",
+    isSecret: true,
+  },
   {
     label: "generic api_key assignment",
     text: "api_key = 'FAKEvalue0123456789ab'",

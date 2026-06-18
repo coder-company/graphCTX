@@ -36,7 +36,10 @@ const SECRET_PATTERNS: Array<{ name: string; re: RegExp }> = [
     name: "cookie_secret",
     re: /\b(?:Cookie|Set-Cookie)\s*:\s*[^\n]*(?:session|token|auth|jwt)[^=;\s]*\s*=\s*[A-Za-z0-9._~+/=-]{12,}/i,
   },
-  { name: "private_key", re: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/ },
+  {
+    name: "private_key",
+    re: /-----BEGIN (?:(?:RSA|DSA|EC|OPENSSH|ENCRYPTED) PRIVATE KEY|PRIVATE KEY|PGP PRIVATE KEY BLOCK)-----/,
+  },
   {
     name: "generic_assignment",
     re: /(?:api[_-]?key|secret|token|password|passwd|credential)\s*[:=]\s*['"]?[A-Za-z0-9_\-./+]{12,}/i,

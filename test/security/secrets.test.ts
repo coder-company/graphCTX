@@ -26,6 +26,9 @@ describe("secret scanning (I3)", () => {
     expect(containsSecret("github_pat_11AAFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE")).toBe(true);
     expect(containsSecret("xoxc-0000000000-FAKEfakeFAKEfake")).toBe(true);
     expect(containsSecret("DATABASE_URL=postgres://admin:FAKEpass123@db.example/app")).toBe(true);
+    expect(containsSecret("-----BEGIN ENCRYPTED PRIVATE KEY-----")).toBe(true);
+    expect(containsSecret("-----BEGIN DSA PRIVATE KEY-----")).toBe(true);
+    expect(containsSecret("-----BEGIN PGP PRIVATE KEY BLOCK-----")).toBe(true);
     expect(
       containsSecret("https://hooks.slack.com/services/T00000000/B00000000/FAKEfakeFAKEfake"),
     ).toBe(true);
@@ -59,6 +62,8 @@ describe("secret scanning (I3)", () => {
     expect(redactSecrets("DATABASE_URL=postgres://admin:FAKEpass123@db.example/app")).not.toContain(
       "FAKEpass123",
     );
+    expect(redactSecrets("-----BEGIN ENCRYPTED PRIVATE KEY-----")).toBe("[REDACTED:private_key]");
+    expect(redactSecrets("-----BEGIN PGP PRIVATE KEY BLOCK-----")).toBe("[REDACTED:private_key]");
     expect(redactSecrets("Authorization: Bearer plainlowentropytoken123")).not.toContain(
       "plainlowentropytoken123",
     );
