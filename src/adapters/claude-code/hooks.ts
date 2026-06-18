@@ -112,8 +112,8 @@ export async function handleHook(
       tool_result: payload.tool_response
         ? {
             success: payload.tool_response.success ?? true,
-            stderr: payload.tool_response.stderr,
-            stdout_tail: payload.tool_response.stdout,
+            stderr: sanitizeRetrievalText(payload.tool_response.stderr, 1000),
+            stdout_tail: sanitizeRetrievalText(payload.tool_response.stdout, 1000),
           }
         : undefined,
     });

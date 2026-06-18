@@ -714,3 +714,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx biome check src/cli.ts src/mcp/tools.ts src/adapters/claude-code/hooks.ts src/security/retrieval-context.ts test/security/secrets.test.ts src/eval/suites/core-memory-lifecycle.ts`
   - `git diff --check`
+
+### Iteration 85 - hook tool-result redaction before injection context
+
+- Redacted Claude hook tool-result stderr/stdout before placing them into
+  `InjectionContext`, matching episode-persistence redaction and preventing
+  failed tool output from carrying credentials into planning context.
+- Added hook resilience unit coverage and an `eval resilience` gate case proving
+  secret-bearing tool results are redacted before injection context.
+- Updated STATUS/README/DEMO counters to 232 Vitest tests and 16/16
+  resilience checks.
+- Verification:
+  - `npx vitest run test/resilience/hook-degrades.test.ts`
+  - `npx tsx src/cli.ts eval resilience`
+  - `npx tsc --noEmit`
+  - `npx biome check src/adapters/claude-code/hooks.ts test/resilience/hook-degrades.test.ts src/eval/suites/resilience-failsoft.ts README.md docs/STATUS.md DEMO.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

@@ -177,6 +177,13 @@ export async function runResilienceFailsoftEval(): Promise<ResilienceFailsoftRep
     `secretLeaked=${toolArgsRedaction.secretLeaked} redacted=${toolArgsRedaction.redacted}`,
   );
 
+  const toolResultRedaction = await evaluateHookToolResultRedaction();
+  check(
+    "secret-bearing tool results are redacted before injection context",
+    toolResultRedaction.ok,
+    `secretLeaked=${toolResultRedaction.secretLeaked} redacted=${toolResultRedaction.redacted}`,
+  );
+
   const provider = await evaluateProviderFailsoft();
   check(
     "provider resolution fail-soft: missing key and missing adapter return nullProvider",
@@ -476,6 +483,39 @@ async function evaluateHookToolArgsRedaction(): Promise<{
       });
       const secretLeaked = seenToolArgs.includes(secret);
       const redacted = seenToolArgs.includes("[REDACTED:");
+      return { ok: !secretLeaked && redacted, secretLeaked, redacted };
+    } finally {
+      rt.close();
+    }
+  });
+}
+
+async function evaluateHookToolResultRedaction(): Promise<{
+  ok: boolean;
+  secretLeaked: boolean;
+  redacted: boolean;
+}> {
+  return withTempDirAsync(async (dir) => {
+    const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+    const rt = new Runtime({ workspaceDir: dir, userId: "resilience-eval" });
+    let seenToolResult = "";
+    const originalInjectionContext = rt.injectionContext.bind(rt);
+    rt.injectionContext = async (event, sessionId, extra) => {
+      seenToolResult = JSON.stringify(extra?.tool_result ?? {});
+      return originalInjectionContext(event, sessionId, extra);
+    };
+    try {
+      await handleHook(rt, "PostToolUse", {
+        session_id: "s-tool-result",
+        cwd: dir,
+        tool_response: {
+          success: false,
+          stderr: `request failed for token ${secret}`,
+          stdout: `stdout leaked ${secret}`,
+        },
+      });
+      const secretLeaked = seenToolResult.includes(secret);
+      const redacted = seenToolResult.includes("[REDACTED:");
       return { ok: !secretLeaked && redacted, secretLeaked, redacted };
     } finally {
       rt.close();

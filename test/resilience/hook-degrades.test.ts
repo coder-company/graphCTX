@@ -236,4 +236,28 @@ describe("I9 resilience — agent still runs when graphCTX is broken", () => {
     expect(seenToolArgs).not.toContain(secret);
     expect(seenToolArgs).toContain("[REDACTED:");
   });
+
+  it("secret-bearing tool results are redacted before injection context", async () => {
+    const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+    const rt = new Runtime({ workspaceDir: dir, userId: "u" });
+    let seenToolResult = "";
+    const originalInjectionContext = rt.injectionContext.bind(rt);
+    rt.injectionContext = async (event, sessionId, extra) => {
+      seenToolResult = JSON.stringify(extra.tool_result ?? {});
+      return originalInjectionContext(event, sessionId, extra);
+    };
+    await handleHook(rt, "PostToolUse", {
+      session_id: "s-tool-result",
+      cwd: dir,
+      tool_response: {
+        success: false,
+        stderr: `failed with ${secret}`,
+        stdout: `stdout leaked ${secret}`,
+      },
+    });
+    rt.close();
+
+    expect(seenToolResult).not.toContain(secret);
+    expect(seenToolResult).toContain("[REDACTED:");
+  });
 });
