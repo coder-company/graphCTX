@@ -577,3 +577,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 77 - symlink-safe workspace config reads
+
+- Shared symlink path-component detection between config and store safety guards.
+- Hardened workspace config loading so symlinked `.graphctx/config.json` paths are
+  refused before an outside config can redirect DB or episode storage.
+- Added hook resilience unit coverage and an `eval resilience` gate case proving
+  symlinked workspace config cannot redirect hook storage outside the repo.
+- Updated STATUS/README/DEMO counters.
+- Verification:
+  - `npx vitest run test/resilience/hook-degrades.test.ts`
+  - `npx tsx src/cli.ts eval resilience`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

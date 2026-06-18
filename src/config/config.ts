@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { ConfigError } from "../core/errors.js";
+import { symlinkedPathComponent } from "../core/path-safety.js";
 import { configDir, dataDir, defaultConfig } from "./defaults.js";
 import { type Config, configSchema } from "./schema.js";
 
@@ -56,7 +57,10 @@ export function loadConfig(opts: LoadOptions = {}): LoadedConfig {
   const workspaceDir = resolve(opts.workspaceDir ?? process.cwd());
   let merged: Config = defaultConfig();
   merged = deepMerge(merged, readJsonIfExists(join(configDir(), "config.json")));
-  merged = deepMerge(merged, readJsonIfExists(join(workspaceDir, ".graphctx", "config.json")));
+  merged = deepMerge(
+    merged,
+    readWorkspaceJsonIfSafe(join(workspaceDir, ".graphctx", "config.json"), workspaceDir),
+  );
   merged = deepMerge(merged, envOverrides());
   if (opts.overrides) merged = deepMerge(merged, opts.overrides);
 
@@ -74,6 +78,17 @@ export function loadConfig(opts: LoadOptions = {}): LoadedConfig {
   const episodes = expandPath(cfg.storage.episodes, workspaceDir);
 
   return { config: cfg, workspaceDir, paths: { userDb, workspaceDb, episodes } };
+}
+
+function readWorkspaceJsonIfSafe(path: string, workspaceDir: string): unknown {
+  const symlink = symlinkedPathComponent(path, workspaceDir);
+  if (symlink) {
+    throw new ConfigError(
+      `refusing to read symlinked workspace config path component: ${symlink}`,
+      "replace the symlink with a regular .graphctx directory",
+    );
+  }
+  return readJsonIfExists(path);
 }
 
 function expandPath(p: string, workspaceDir: string): string {

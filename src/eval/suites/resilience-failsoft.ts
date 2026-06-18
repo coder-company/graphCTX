@@ -104,6 +104,14 @@ export async function runResilienceFailsoftEval(): Promise<ResilienceFailsoftRep
     `status=${symlinkedStore.status} wroteDb=${symlinkedStore.wroteDb} wroteEpisodes=${symlinkedStore.wroteEpisodes}`,
   );
 
+  const symlinkedConfig = evaluateSymlinkedWorkspaceConfig();
+  if (symlinkedConfig.status !== 0) cliFailures += 1;
+  check(
+    "symlinked workspace config cannot redirect hook storage outside the repo",
+    symlinkedConfig.ok,
+    `status=${symlinkedConfig.status} wroteDb=${symlinkedConfig.wroteDb} wroteEpisodes=${symlinkedConfig.wroteEpisodes}`,
+  );
+
   const config = evaluateBadConfigCases();
   if (!config.invalidJson.ok || !config.schemaInvalid.ok) cliFailures += 1;
   check(
@@ -277,6 +285,45 @@ function evaluateSymlinkedStore(): {
       };
     } finally {
       rmSync(outside, { recursive: true, force: true });
+    }
+  });
+}
+
+function evaluateSymlinkedWorkspaceConfig(): {
+  ok: boolean;
+  status: number;
+  wroteDb: boolean;
+  wroteEpisodes: boolean;
+} {
+  return withTempDir((dir) => {
+    const outsideConfig = mkdtempSync(join(tmpdir(), "graphctx-resilience-config-"));
+    const outsideStore = mkdtempSync(join(tmpdir(), "graphctx-resilience-store-"));
+    try {
+      writeFileSync(
+        join(outsideConfig, "config.json"),
+        JSON.stringify({
+          storage: {
+            workspace_db: join(outsideStore, "workspace.db"),
+            episodes: join(outsideStore, "episodes.jsonl"),
+          },
+        }),
+      );
+      symlinkSync(outsideConfig, join(dir, ".graphctx"), "dir");
+      const res = cli(
+        ["hook", "UserPromptSubmit", "-C", dir],
+        JSON.stringify({ session_id: "s", cwd: dir, prompt: "hello" }),
+      );
+      const wroteDb = existsSync(join(outsideStore, "workspace.db"));
+      const wroteEpisodes = existsSync(join(outsideStore, "episodes.jsonl"));
+      return {
+        ok: res.status === 0 && res.stdout.trim() === "" && !wroteDb && !wroteEpisodes,
+        status: res.status,
+        wroteDb,
+        wroteEpisodes,
+      };
+    } finally {
+      rmSync(outsideConfig, { recursive: true, force: true });
+      rmSync(outsideStore, { recursive: true, force: true });
     }
   });
 }

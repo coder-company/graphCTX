@@ -63,6 +63,31 @@ describe("I9 resilience — agent still runs when graphCTX is broken", () => {
     }
   }, 40000);
 
+  it("symlinked workspace config cannot redirect hook storage outside the repo", () => {
+    const outsideConfig = mkdtempSync(join(tmpdir(), "gctx-res-config-"));
+    const outsideStore = mkdtempSync(join(tmpdir(), "gctx-res-store-"));
+    try {
+      writeFileSync(
+        join(outsideConfig, "config.json"),
+        JSON.stringify({
+          storage: {
+            workspace_db: join(outsideStore, "workspace.db"),
+            episodes: join(outsideStore, "episodes.jsonl"),
+          },
+        }),
+      );
+      symlinkSync(outsideConfig, join(dir, ".graphctx"), "dir");
+      const res = runHook("UserPromptSubmit", { session_id: "s", cwd: dir, prompt: "hello" });
+      expect(res.status).toBe(0);
+      expect(res.stdout.trim()).toBe("");
+      expect(existsSync(join(outsideStore, "workspace.db"))).toBe(false);
+      expect(existsSync(join(outsideStore, "episodes.jsonl"))).toBe(false);
+    } finally {
+      rmSync(outsideConfig, { recursive: true, force: true });
+      rmSync(outsideStore, { recursive: true, force: true });
+    }
+  }, 40000);
+
   it("invalid config JSON → exit 0, no output", () => {
     mkdirSync(join(dir, ".graphctx"), { recursive: true });
     writeFileSync(join(dir, ".graphctx", "config.json"), "{ this is not valid json ,,, }");
