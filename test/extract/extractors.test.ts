@@ -223,6 +223,22 @@ describe("deterministic extractors", () => {
     expect(strict?.git?.path_globs).toEqual(["tsconfig.json"]);
   });
 
+  it("tsconfig extraction ignores config symlinked outside the workspace", () => {
+    const outside = mkdtempSync(join(tmpdir(), "gctx-ex-tsconfig-outside-"));
+    try {
+      writeFileSync(
+        join(outside, "tsconfig.json"),
+        JSON.stringify({ compilerOptions: { strict: true } }),
+      );
+      symlinkSync(join(outside, "tsconfig.json"), join(dir, "tsconfig.json"), "file");
+
+      const { res } = extract();
+      expect(res.inserted.find((f) => f.predicate === "typescript_strict_mode")).toBeUndefined();
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it("tooling config → high-trust lint and format constraints", () => {
     writeFileSync(
       join(dir, "biome.json"),

@@ -421,3 +421,15 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx vitest run test/extract/extractors.test.ts`
   - `npx tsc --noEmit`
   - `npx biome check src test`
+
+### Iteration 65 - workspace-confined tsconfig extraction
+
+- Hardened `tsconfig.json` extraction so TypeScript constraints require config
+  evidence that resolves inside the workspace.
+- Added a regression for an external symlinked `tsconfig.json` that must not
+  create a `typescript_strict_mode` fact.
+- Updated README/STATUS counters to 217 Vitest tests.
+- Verification:
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`

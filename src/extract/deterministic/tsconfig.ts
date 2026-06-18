@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { FactKind, NewFact } from "../../core/types.js";
+import { existingWorkspacePath } from "../../security/workspace-path.js";
 import { parseJsoncObject } from "./jsonc.js";
 import { type ExtractContext, type Extractor, structuredFact } from "./types.js";
 
@@ -86,7 +87,7 @@ export const tsconfigExtractor: Extractor = {
   id: CONFIG_FILE,
   extract(ctx: ExtractContext): NewFact[] {
     const path = join(ctx.workspaceDir, CONFIG_FILE);
-    if (!existsSync(path)) return [];
+    if (!existingWorkspacePath(ctx.workspaceDir, CONFIG_FILE)) return [];
 
     let parsed: TsConfig;
     try {
