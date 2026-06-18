@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { NewFact } from "../../core/types.js";
+import { existingWorkspacePath } from "../../security/workspace-path.js";
 import { type ExtractContext, type Extractor, structuredFact } from "./types.js";
 
 // Parses .editorconfig for the root [*] section indentation rules.
@@ -8,7 +9,7 @@ export const editorconfigExtractor: Extractor = {
   id: ".editorconfig",
   extract(ctx: ExtractContext): NewFact[] {
     const p = join(ctx.workspaceDir, ".editorconfig");
-    if (!existsSync(p)) return [];
+    if (!existingWorkspacePath(ctx.workspaceDir, ".editorconfig")) return [];
     const text = readFileSync(p, "utf8");
     const rootSection = parseSection(text, "*");
     const facts: NewFact[] = [];

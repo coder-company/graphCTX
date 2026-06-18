@@ -409,3 +409,15 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx vitest run test/extract/extractors.test.ts`
   - `npx tsc --noEmit`
   - `npx biome check src test`
+
+### Iteration 64 - workspace-confined editorconfig extraction
+
+- Hardened `.editorconfig` extraction so formatting constraints require config
+  evidence that resolves inside the workspace.
+- Added a regression for an external symlinked `.editorconfig` that must not
+  create an `indent_style` fact.
+- Updated README/STATUS counters to 216 Vitest tests.
+- Verification:
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`

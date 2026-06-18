@@ -181,6 +181,19 @@ describe("deterministic extractors", () => {
     expect(String(ind?.object)).toContain("tab");
   });
 
+  it("editorconfig extraction ignores config symlinked outside the workspace", () => {
+    const outside = mkdtempSync(join(tmpdir(), "gctx-ex-editorconfig-outside-"));
+    try {
+      writeFileSync(join(outside, ".editorconfig"), "[*]\nindent_style = tab\n");
+      symlinkSync(join(outside, ".editorconfig"), join(dir, ".editorconfig"), "file");
+
+      const { res } = extract();
+      expect(res.inserted.find((f) => f.predicate === "indent_style")).toBeUndefined();
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it("tsconfig → high-trust TypeScript compiler constraints from JSONC", () => {
     writeFileSync(
       join(dir, "tsconfig.json"),
