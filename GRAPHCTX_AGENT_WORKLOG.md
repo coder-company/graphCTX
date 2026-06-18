@@ -1803,6 +1803,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 148 - pyproject package-manager extraction
+
+- Added Python package-manager extraction from `pyproject.toml` tool sections
+  when no lockfile is present: `[tool.uv]` -> `uv`, `[tool.poetry]` ->
+  `poetry`.
+- Added regression coverage for pyproject-only Poetry projects.
+- Updated live docs counters to 276 tests.
+- Verification:
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsc --noEmit`
+  - `npx biome check src/extract/deterministic/python.ts test/extract/extractors.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `git diff --check`
+
 ### Iteration 141 - width-aware TUI layout
 
 - Made dashboard recent-memory columns adapt to terminal width instead of using

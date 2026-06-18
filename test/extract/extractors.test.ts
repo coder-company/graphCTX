@@ -227,6 +227,23 @@ describe("deterministic extractors", () => {
     }
   });
 
+  it("python package manager can be detected from pyproject tool sections", () => {
+    writeFileSync(
+      join(dir, "pyproject.toml"),
+      ["[project]", 'name = "example"', "", "[tool.poetry]", "package-mode = false"].join("\n"),
+    );
+
+    const { res } = extract();
+
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "python",
+        predicate: "package_manager",
+        object: "poetry",
+      }),
+    );
+  });
+
   it("runtime pin files → high-trust version constraints", () => {
     writeFileSync(join(dir, ".nvmrc"), "20.11.1\n");
     writeFileSync(join(dir, ".tool-versions"), "nodejs 20.11.1\npnpm 10.12.0\n");

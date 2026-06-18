@@ -39,7 +39,38 @@ function pythonManagerFacts(ctx: ExtractContext): NewFact[] {
       }),
     ];
   }
+  const pyproject = readWorkspaceFile(ctx, "pyproject.toml");
+  if (pyproject && hasSection(pyproject, "tool.uv")) {
+    return [pythonManagerFact(ctx, "uv", "uv run", "pyproject.toml [tool.uv]", ["pyproject.toml"])];
+  }
+  if (pyproject && hasSection(pyproject, "tool.poetry")) {
+    return [
+      pythonManagerFact(ctx, "poetry", "poetry run", "pyproject.toml [tool.poetry]", [
+        "pyproject.toml",
+      ]),
+    ];
+  }
   return [];
+}
+
+function pythonManagerFact(
+  ctx: ExtractContext,
+  manager: string,
+  runner: string,
+  rawQuote: string,
+  paths: string[],
+): NewFact {
+  return structuredFact({
+    subject: "python",
+    predicate: "package_manager",
+    object: manager,
+    fact_kind: "semantic",
+    temporal_kind: "static",
+    scope: ctx.scope,
+    tags: ["python", "dependency", "command", "config_file"],
+    rawQuote: `${rawQuote} -> Python package manager ${manager} (commands usually run via "${runner}")`,
+    git: anchor(ctx, paths),
+  });
 }
 
 function pythonVersionFacts(ctx: ExtractContext): NewFact[] {
