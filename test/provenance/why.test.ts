@@ -128,14 +128,20 @@ describe("why() provenance reader", () => {
 
   it("redacts secrets from formatted and structured provenance output", () => {
     const secret = "sk-FAKEFAKEFAKEFAKEFAKE0123abcd";
+    const ev = episodes.append({
+      session_id: "s1",
+      event_type: "user_correction",
+      payload: { token: secret },
+    });
     const fact = facts.insert(
       f({
         object: secret,
         source: {
           asserted_by: "user",
-          event_ids: [],
+          event_ids: [ev.event_id],
           raw_quote: `token is ${secret}`,
         },
+        tags: [secret],
       }),
     );
     const r = why(fact.fact_id, deps())!;
@@ -146,6 +152,8 @@ describe("why() provenance reader", () => {
     expect(JSON.stringify(structured)).not.toContain(secret);
     expect(formatted).toContain("[REDACTED:openai]");
     expect(structured.fact.object).toBe("[REDACTED:openai]");
+    expect(structured.fact.tags[0]).toBe("[REDACTED:openai]");
+    expect(JSON.stringify(structured.evidence[0]?.payload)).not.toContain(secret);
     expect(structured.raw_quote).toContain("[REDACTED:openai]");
   });
 });

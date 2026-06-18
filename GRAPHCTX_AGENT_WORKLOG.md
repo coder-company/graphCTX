@@ -935,3 +935,19 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 97 - structured why redaction coverage
+
+- Extended `redactWhyReport` to redact fact tags and evidence payloads, not only
+  fact objects and raw quotes.
+- Strengthened the provenance redaction regression so MCP/structured `why`
+  output cannot leak secret-shaped tags or evidence payload values.
+- Verification:
+  - `npx vitest run test/provenance/why.test.ts test/security/secrets.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/provenance/why.ts test/provenance/why.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval provenance`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

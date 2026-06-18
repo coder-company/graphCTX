@@ -123,9 +123,14 @@ export function redactWhyReport(r: WhyReport): WhyReport {
   return {
     ...r,
     raw_quote: r.raw_quote ? redactSecrets(r.raw_quote) : undefined,
+    evidence: r.evidence.map((e) => ({
+      ...e,
+      payload: redactSecretValue(e.payload),
+    })),
     fact: {
       ...r.fact,
       object: redactSecretValue(r.fact.object),
+      tags: r.fact.tags.map((tag) => redactSecrets(tag)),
       source: {
         ...r.fact.source,
         raw_quote: r.fact.source.raw_quote ? redactSecrets(r.fact.source.raw_quote) : undefined,
