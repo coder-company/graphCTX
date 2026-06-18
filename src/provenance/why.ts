@@ -74,6 +74,11 @@ export function formatWhy(r: WhyReport): string {
   lines.push(
     `  observed:      ${redacted.fact.time.t_observed}  recorded=${redacted.fact.time.t_recorded}`,
   );
+  if (redacted.fact.time.t_expired || redacted.fact.time.invalidated_by) {
+    lines.push(
+      `  expired:       ${redacted.fact.time.t_expired ?? "-"}  invalidated_by=${short(redacted.fact.time.invalidated_by)}`,
+    );
+  }
   lines.push(
     `  trust:         ${redacted.fact.trust_tier}  sensitivity=${redacted.fact.sensitivity}`,
   );

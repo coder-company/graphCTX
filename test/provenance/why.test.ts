@@ -100,6 +100,17 @@ describe("why() provenance reader", () => {
     expect(r.fact.time.t_recorded).not.toBe(r.fact.time.t_observed);
   });
 
+  it("formats expiry and invalidation timing for historical facts", () => {
+    const fact = facts.insert(f({}));
+    const invalidator = facts.insert(f({ predicate: "superseding_command", object: "pnpm test" }));
+    facts.expire(fact.fact_id, invalidator.fact_id);
+
+    const formatted = formatWhy(why(fact.fact_id, deps())!);
+
+    expect(formatted).toContain("expired:");
+    expect(formatted).toContain(`invalidated_by=${invalidator.fact_id.slice(0, 8)}`);
+  });
+
   it("includes the promotion audit trail (which gate fired)", () => {
     const fact = facts.insert(f({}));
     promotions.record({

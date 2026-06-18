@@ -918,3 +918,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 96 - temporal closeout in why output
+
+- Added expired/invalidated-by timing to formatted `why` output so historical
+  facts explain the transaction-time closeout that keeps them out of injection.
+- Added a provenance regression proving expired facts surface their temporal
+  closeout details while remaining queryable through `why`.
+- Updated STATUS/README counters to 245 Vitest tests.
+- Verification:
+  - `npx vitest run test/provenance/why.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/provenance/why.ts test/provenance/why.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval provenance`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
