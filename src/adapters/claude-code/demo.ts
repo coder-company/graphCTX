@@ -85,35 +85,12 @@ export async function setupDemo(demoDir: string): Promise<DemoResult> {
   await rt.extract();
 
   // Seed the unfindable fact (exists only in the store).
-  let head: string | undefined;
-  let branch: string | undefined;
-  let repoId: string | undefined;
-  try {
-    if (await rt.git.isRepo()) {
-      head = await rt.git.head();
-      branch = await rt.git.branch();
-      repoId = await rt.git.repoId();
-    }
-  } catch {
-    // degrade without anchors
-  }
-  rt.facts.insert({
+  await rt.rememberFact({
+    text: DEPLOY_CMD,
     subject: "repo",
     predicate: "deploy_command",
-    object: DEPLOY_CMD,
-    fact_kind: "procedural",
-    temporal_kind: "static",
-    scope: { user_id: rt.userId, workspace_id: rt.workspaceId },
-    trust_tier: "high",
-    status: "active",
-    promotion_state: "workspace_active",
-    source: {
-      asserted_by: "user",
-      event_ids: [],
-      raw_quote: `user said: deploy via ${DEPLOY_CMD}`,
-    },
-    git: { repo_id: repoId, branch, valid_from_commit: head, introduced_by_commit: head },
-    tags: ["command", "deploy"],
+    kind: "procedural",
+    tags: ["command", "deploy", "repo", "user_explicit"],
   });
 
   installClaudeHooks({ workspaceDir: demoDir, binPath: bin });

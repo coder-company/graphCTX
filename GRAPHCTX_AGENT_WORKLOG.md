@@ -1490,3 +1490,17 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/runtime.ts src/cli.ts src/tui/app.ts test/inject/open-loops.test.ts test/tui/data.test.ts`
   - `npx vitest list`
   - `git diff --check`
+
+### Iteration 131 - demo seed through Runtime remember
+
+- Replaced the Claude demo's direct `FactsRepo.insert()` seed with
+  `Runtime.rememberFact()` so the unfindable demo memory uses the same safe,
+  git-anchored, invalidating write path as CLI/MCP/TUI remembers.
+- Kept the demo memory-only/offline behavior intact.
+- Verification:
+  - `npx vitest run test/eval/cli-docs-demo.test.ts`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsc --noEmit`
+  - `npx biome check src/adapters/claude-code/demo.ts`
+  - `git diff --check`
