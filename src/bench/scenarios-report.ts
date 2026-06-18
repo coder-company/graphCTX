@@ -63,9 +63,9 @@ export function formatScenarios(r: ScenarioReport): string {
       ],
       [
         [
-          "superseded facts",
-          `${pct(r.local.temporal.currentHits, r.local.temporal.total)}`,
-          `${pct(r.local.temporal.staleSuppressed, r.local.temporal.total)}`,
+          "temporal updates",
+          `${pct(r.local.temporal.currentHits, r.local.temporal.total)} (${r.local.temporal.currentHits}/${r.local.temporal.total})`,
+          `${pct(r.local.temporal.staleSuppressed, r.local.temporal.total)} (${r.local.temporal.staleSuppressed}/${r.local.temporal.total})`,
           `${r.local.temporal.retrievalMs.p95}`,
         ],
       ],

@@ -1803,6 +1803,19 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx biome check src/retrieve/retriever.ts test/retrieve/retriever.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
   - `git diff --check`
 
+### Iteration 155 - temporal benchmark report counts
+
+- Made the deep benchmark temporal section report explicit hit counts alongside
+  percentages: current-hit and stale-blocked now render as `100% (6/6)`.
+- Renamed the row from the narrower `superseded facts` label to `temporal
+  updates`, since the probe set now includes workspace facts and user
+  preferences.
+- Verification:
+  - `npx tsx src/cli.ts compare --deep -C . | sed -n '1,60p'`
+  - `npx biome check src/bench/scenarios-report.ts GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsc --noEmit`
+  - `git diff --check`
+
 ### Iteration 154 - chunk-safe TUI key decoding
 
 - Fixed raw TUI key reading so a terminal input chunk containing multiple escape
