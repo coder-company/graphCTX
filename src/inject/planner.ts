@@ -3,7 +3,13 @@ import type { Fact } from "../core/types.js";
 import type { Git } from "../git/git.js";
 import { EMPTY_CAPSULE, renderCapsule } from "../render/capsule.js";
 import { renderCard } from "../render/cards.js";
-import { resolveConflicts } from "../resolve/conflicts.js";
+import {
+  conflictDisplayObject,
+  conflictIdForKey,
+  conflictKey,
+  conflictLabelForKey,
+  resolveConflicts,
+} from "../resolve/conflicts.js";
 import { Retriever } from "../retrieve/retriever.js";
 import type { VectorIndex } from "../retrieve/vectors.js";
 import { safeForSend } from "../security/send-edge.js";
@@ -190,22 +196,18 @@ function safeForLifecycle(fact: Fact, event: InjectionContext["event"]): boolean
 function detectConflicts(scored: ScoredFact[]): ConflictNote[] {
   const groups = new Map<string, ScoredFact[]>();
   for (const s of scored) {
-    const key = `${s.fact.subject}::${s.fact.predicate}`;
+    const key = conflictKey(s.fact);
     const arr = groups.get(key) ?? [];
     arr.push(s);
     groups.set(key, arr);
   }
   const notes: ConflictNote[] = [];
   for (const [key, arr] of groups) {
-    const distinct = new Set(
-      arr.map((s) =>
-        typeof s.fact.object === "string" ? s.fact.object : JSON.stringify(s.fact.object),
-      ),
-    );
+    const distinct = new Set(arr.map((s) => conflictDisplayObject(s.fact)));
     if (distinct.size > 1) {
       notes.push({
-        conflict_id: key.slice(-8),
-        summary: `Conflicting values for ${key.replace("::", " ")}: ${[...distinct].join(" vs ")}. Higher-trust/structured evidence wins.`,
+        conflict_id: conflictIdForKey(key),
+        summary: `Conflicting values for ${conflictLabelForKey(key)}: ${[...distinct].map((value) => JSON.stringify(value)).join(" vs ")}. Higher-trust/structured evidence wins.`,
       });
     }
   }

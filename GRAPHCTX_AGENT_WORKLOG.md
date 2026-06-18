@@ -1018,3 +1018,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 102 - conflict note secret redaction
+
+- Centralized conflict-note IDs, labels, and displayed objects behind the
+  conflict Module so resolver and injection fallback summaries no longer derive
+  output from raw subject/predicate keys.
+- Added a regression for secret-shaped conflict subjects, predicates, and
+  objects.
+- Updated live test counters from 245 to 246.
+- Verification:
+  - `npx vitest run test/resolve/precedence.test.ts test/inject/planner.test.ts test/security/secrets.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/resolve/conflicts.ts src/inject/planner.ts test/resolve/precedence.test.ts docs/STATUS.md README.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `npx tsx src/cli.ts eval conflict`
+  - `git diff --check`

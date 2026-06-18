@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import type { ConflictNote, Fact, ScoredFact } from "../core/types.js";
 import { asClaim } from "../security/sanitize.js";
-import { redactSecretValue } from "../security/secrets.js";
+import { redactSecretValue, redactSecrets } from "../security/secrets.js";
 import { byPrecedence, precedenceRank } from "./precedence.js";
 
 export interface ResolveResult {
@@ -17,7 +18,7 @@ export interface ResolveResult {
 export function resolveConflicts(scored: ScoredFact[], currentSessionId?: string): ResolveResult {
   const groups = new Map<string, ScoredFact[]>();
   for (const s of scored) {
-    const key = `${s.fact.subject}::${s.fact.predicate}`;
+    const key = conflictKey(s.fact);
     const arr = groups.get(key) ?? [];
     arr.push(s);
     groups.set(key, arr);
@@ -53,12 +54,28 @@ export function resolveConflicts(scored: ScoredFact[], currentSessionId?: string
 
     const loser = orderedFacts[1]!;
     conflicts.push({
-      conflict_id: key.slice(-8),
-      summary: `Conflicting ${key.replace("::", " ")}: ${quotedObj(winnerFact)} wins over ${quotedObj(loser)} (${winReason(winnerFact, loser, currentSessionId)}).`,
+      conflict_id: conflictIdForKey(key),
+      summary: `Conflicting ${conflictLabelForKey(key)}: ${quotedObj(winnerFact)} wins over ${quotedObj(loser)} (${winReason(winnerFact, loser, currentSessionId)}).`,
     });
   }
 
   return { resolved, conflicts };
+}
+
+export function conflictKey(f: Fact): string {
+  return `${f.subject}::${f.predicate}`;
+}
+
+export function conflictIdForKey(key: string): string {
+  return createHash("sha256").update(key).digest("hex").slice(0, 8);
+}
+
+export function conflictLabelForKey(key: string): string {
+  return redactSecrets(key.replace("::", " "));
+}
+
+export function conflictDisplayObject(f: Fact): string {
+  return displayObj(f);
 }
 
 function winReason(winner: Fact, loser: Fact, sessionId?: string): string {
