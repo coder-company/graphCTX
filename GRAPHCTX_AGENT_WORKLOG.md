@@ -883,3 +883,20 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 94 - evidence-backed command card verification text
+
+- Stopped rendering `Verified @ HEAD` for test-command facts that do not carry a
+  commit or explicit verification timestamp.
+- Preserved commit-backed verification text when a fact has a git/source commit
+  anchor, keeping capsule provenance precise instead of overclaiming.
+- Added render-card regressions for both unanchored and commit-anchored command
+  facts.
+- Updated STATUS/README counters to 243 Vitest tests.
+- Verification:
+  - `npx vitest run test/render/cards.test.ts test/inject/planner.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/render/cards.ts test/render/cards.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

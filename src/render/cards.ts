@@ -51,7 +51,7 @@ function cardBody(fact: Fact): string {
   }
   switch (fact.predicate) {
     case "test_command":
-      return `Run tests with: ${obj}. Verified @ ${verifiedAt(fact)}.`;
+      return `Run tests with: ${obj}.${verificationSuffix(fact)}`;
     case "build_command":
       return `Build with: ${obj}.`;
     case "dev_command":
@@ -73,9 +73,11 @@ function cardBody(fact: Fact): string {
   }
 }
 
-function verifiedAt(fact: Fact): string {
+function verificationSuffix(fact: Fact): string {
   const sha = fact.git?.valid_from_commit ?? fact.source.commit;
-  return sha ? sha.slice(0, 7) : "HEAD";
+  if (sha) return ` Verified @ ${sha.slice(0, 7)}.`;
+  if (fact.last_verified_at) return ` Verified ${fact.last_verified_at}.`;
+  return "";
 }
 
 function stringify(o: unknown): string {
