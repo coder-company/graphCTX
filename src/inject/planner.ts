@@ -71,8 +71,13 @@ export class InjectionPlanner {
     // as a claim; high-trust-looking command payloads must be impact-blocked.
     const safe = verified.filter((s) => safeForSend(s.fact));
 
+    // PreToolUse is an immediate guardrail surface before shell/edit actions.
+    // It should carry only trusted operational memory; low-trust claims are
+    // acceptable as historical context elsewhere, but not as live tool advice.
+    const lifecycleSafe = safe.filter((s) => safeForLifecycle(s.fact, ctx.event));
+
     // anti-repetition (cross-channel idempotency within a session)
-    const deduped = this.ledger.removeRecentlyInjected(safe, ctx.scope.session_id);
+    const deduped = this.ledger.removeRecentlyInjected(lifecycleSafe, ctx.scope.session_id);
 
     // Resolve precedence before budget/redundancy. Otherwise a lower-precedence
     // card with a selection bonus (for example an old user profile) can consume
@@ -173,6 +178,11 @@ function promptTextOf(payload: unknown): string | undefined {
     if (typeof v === "string" && v.length > 0) return v;
   }
   return undefined;
+}
+
+function safeForLifecycle(fact: Fact, event: InjectionContext["event"]): boolean {
+  if (event === "PreToolUse" && fact.trust_tier === "low") return false;
+  return true;
 }
 
 // Minimal conflict detection (M0): contradictory objects for the same

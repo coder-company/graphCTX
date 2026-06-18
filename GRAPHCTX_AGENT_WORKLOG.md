@@ -863,3 +863,23 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 93 - PreToolUse trusted guardrails only
+
+- Added lifecycle-specific injection filtering so `PreToolUse` capsules exclude
+  low-trust claims, even though low-trust prose can still render as historical
+  claim context on non-tool lifecycle events.
+- Prevented forced-active low-trust procedural claims from appearing immediately
+  before Bash/Edit actions, keeping live guardrails limited to trusted memory.
+- Added an injection planner regression for an attacker-shaped low-trust Bash
+  command that must not render in a PreToolUse capsule.
+- Updated STATUS/README counters to 241 Vitest tests.
+- Verification:
+  - `npx vitest run test/inject/planner.test.ts test/security/promotion-injection.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/inject/planner.ts test/inject/planner.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval resilience`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
