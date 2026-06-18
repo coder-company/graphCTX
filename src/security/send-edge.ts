@@ -18,5 +18,5 @@ export function safeForSend(fact: Fact): boolean {
 
 function factText(fact: Fact): string {
   const obj = typeof fact.object === "string" ? fact.object : JSON.stringify(fact.object);
-  return `${fact.subject} ${fact.predicate} ${obj} ${fact.source.raw_quote ?? ""}`;
+  return `${fact.subject} ${fact.predicate} ${obj} ${fact.source.raw_quote ?? ""} ${fact.tags.join(" ")}`;
 }

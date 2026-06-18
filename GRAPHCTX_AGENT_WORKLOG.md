@@ -900,3 +900,21 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 95 - send-edge secret tag scanning
+
+- Included fact tags in the final send-edge secret scan, closing a defense-in-
+  depth gap for forced/internal facts that bypass normal write-time sensitivity
+  restamping.
+- Added a regression proving secret-shaped tags block a fact before recall or
+  injection surfaces even when the object itself is safe.
+- Updated STATUS/README counters to 244 Vitest tests.
+- Verification:
+  - `npx vitest run test/security/secrets.test.ts test/retrieve/retriever.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/security/send-edge.ts test/security/secrets.test.ts README.md docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval security`
+  - `npx tsx src/cli.ts eval retrieval`
+  - `npx tsx src/cli.ts eval cli-docs-demo`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`
