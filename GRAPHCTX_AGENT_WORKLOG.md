@@ -1102,3 +1102,18 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval temporal`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 107 - why invalidating commit closeout
+
+- Rendered `git_anchors.invalidated_by_commit` in formatted `why` output when
+  a historical fact has a commit-level closeout anchor.
+- Strengthened the provenance closeout regression to expire a git-anchored fact
+  at a commit and assert both `until` and `invalidated_commit` are visible.
+- Verification:
+  - `npx vitest run test/provenance/why.test.ts test/store/facts-repo.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src/provenance/why.ts test/provenance/why.test.ts docs/STATUS.md GRAPHCTX_AGENT_WORKLOG.md`
+  - `npx tsx src/cli.ts eval provenance`
+  - `npx tsx src/cli.ts eval temporal`
+  - `npx tsx src/cli.ts eval quality`
+  - `git diff --check`

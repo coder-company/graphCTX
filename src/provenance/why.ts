@@ -87,7 +87,7 @@ export function formatWhy(r: WhyReport): string {
   if (redacted.git_anchor) {
     const g = redacted.git_anchor;
     lines.push(
-      `  git anchor:    branch=${g.branch ?? "-"} from=${short(g.valid_from_commit)} introduced=${short(g.introduced_by_commit)}${g.valid_until_commit ? ` until=${short(g.valid_until_commit)}` : ""}`,
+      `  git anchor:    branch=${g.branch ?? "-"} from=${short(g.valid_from_commit)} introduced=${short(g.introduced_by_commit)}${g.valid_until_commit ? ` until=${short(g.valid_until_commit)}` : ""}${g.invalidated_by_commit ? ` invalidated_commit=${short(g.invalidated_by_commit)}` : ""}`,
     );
   }
   lines.push(

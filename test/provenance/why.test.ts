@@ -101,14 +101,16 @@ describe("why() provenance reader", () => {
   });
 
   it("formats expiry and invalidation timing for historical facts", () => {
-    const fact = facts.insert(f({}));
+    const fact = facts.insert(f({ git: { branch: "main", valid_from_commit: "c1" } }));
     const invalidator = facts.insert(f({ predicate: "superseding_command", object: "pnpm test" }));
-    facts.expire(fact.fact_id, invalidator.fact_id);
+    facts.expire(fact.fact_id, invalidator.fact_id, "c2");
 
     const formatted = formatWhy(why(fact.fact_id, deps())!);
 
     expect(formatted).toContain("expired:");
     expect(formatted).toContain(`invalidated_by=${invalidator.fact_id.slice(0, 8)}`);
+    expect(formatted).toContain("until=c2");
+    expect(formatted).toContain("invalidated_commit=c2");
   });
 
   it("includes the promotion audit trail (which gate fired)", () => {
