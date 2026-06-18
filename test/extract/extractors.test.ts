@@ -287,6 +287,23 @@ describe("deterministic extractors", () => {
     ]);
   });
 
+  it("tooling config extraction ignores config symlinked outside the workspace", () => {
+    const outside = mkdtempSync(join(tmpdir(), "gctx-ex-tooling-outside-"));
+    try {
+      writeFileSync(
+        join(outside, "biome.json"),
+        JSON.stringify({ formatter: { lineWidth: 120 }, linter: { enabled: true } }),
+      );
+      symlinkSync(join(outside, "biome.json"), join(dir, "biome.json"), "file");
+
+      const { res } = extract();
+      expect(res.inserted.find((f) => f.predicate === "lint_tool")).toBeUndefined();
+      expect(res.inserted.find((f) => f.predicate === "formatter_line_width")).toBeUndefined();
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it("docker config → high-trust container and compose facts", () => {
     writeFileSync(
       join(dir, "Dockerfile"),

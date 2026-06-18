@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { FactKind, NewFact } from "../../core/types.js";
+import { existingWorkspacePath } from "../../security/workspace-path.js";
 import { parseJsoncObject } from "./jsonc.js";
 import { type ExtractContext, type Extractor, structuredFact } from "./types.js";
 
@@ -256,7 +257,7 @@ function toolFact(
 }
 
 function firstExisting(ctx: ExtractContext, files: string[]): string | undefined {
-  return files.find((file) => existsSync(join(ctx.workspaceDir, file)));
+  return files.find((file) => existingWorkspacePath(ctx.workspaceDir, file));
 }
 
 function objectAt(source: Record<string, unknown>, ...path: string[]): Record<string, unknown> {

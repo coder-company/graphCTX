@@ -433,3 +433,15 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx vitest run test/extract/extractors.test.ts`
   - `npx tsc --noEmit`
   - `npx biome check src test`
+
+### Iteration 66 - workspace-confined tooling config extraction
+
+- Hardened Biome/ESLint/Prettier config discovery so lint and format facts
+  require config evidence that resolves inside the workspace.
+- Added a regression for an external symlinked `biome.json` that must not create
+  lint or formatter facts.
+- Updated README/STATUS counters to 218 Vitest tests.
+- Verification:
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`
