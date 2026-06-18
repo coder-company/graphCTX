@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { FactKind, NewFact } from "../../core/types.js";
+import { existingWorkspacePath } from "../../security/workspace-path.js";
 import { type ExtractContext, type Extractor, structuredFact } from "./types.js";
 
 const DOCKERFILES = ["Dockerfile", "Dockerfile.dev", "docker/Dockerfile"];
@@ -11,11 +12,11 @@ export const dockerExtractor: Extractor = {
   extract(ctx: ExtractContext): NewFact[] {
     const facts: NewFact[] = [];
     for (const file of DOCKERFILES) {
-      if (!existsSync(join(ctx.workspaceDir, file))) continue;
+      if (!existingWorkspacePath(ctx.workspaceDir, file)) continue;
       facts.push(...extractDockerfile(ctx, file));
     }
     for (const file of COMPOSE_FILES) {
-      if (!existsSync(join(ctx.workspaceDir, file))) continue;
+      if (!existingWorkspacePath(ctx.workspaceDir, file)) continue;
       facts.push(...extractCompose(ctx, file));
     }
     return facts;

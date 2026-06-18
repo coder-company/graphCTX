@@ -458,3 +458,15 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsc --noEmit`
   - `npx biome check --write src/extract/deterministic/test-config.ts`
   - `npx biome check src test`
+
+### Iteration 68 - workspace-confined Docker and Compose extraction
+
+- Hardened Dockerfile and Compose discovery so container facts require config
+  evidence that resolves inside the workspace.
+- Added a regression for external symlinked `Dockerfile` and
+  `docker-compose.yml` files that must not create container or compose facts.
+- Updated README/STATUS counters to 220 Vitest tests.
+- Verification:
+  - `npx vitest run test/extract/extractors.test.ts`
+  - `npx tsc --noEmit`
+  - `npx biome check src test`

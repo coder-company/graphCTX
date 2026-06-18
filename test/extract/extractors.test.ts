@@ -350,6 +350,22 @@ describe("deterministic extractors", () => {
     ]);
   });
 
+  it("docker extraction ignores Docker and Compose files symlinked outside the workspace", () => {
+    const outside = mkdtempSync(join(tmpdir(), "gctx-ex-docker-outside-"));
+    try {
+      writeFileSync(join(outside, "Dockerfile"), "FROM node:22-alpine\n");
+      writeFileSync(join(outside, "docker-compose.yml"), "services:\n  web:\n    image: nginx\n");
+      symlinkSync(join(outside, "Dockerfile"), join(dir, "Dockerfile"), "file");
+      symlinkSync(join(outside, "docker-compose.yml"), join(dir, "docker-compose.yml"), "file");
+
+      const { res } = extract();
+      expect(res.inserted.find((f) => f.predicate === "container_base_image")).toBeUndefined();
+      expect(res.inserted.find((f) => f.predicate === "compose_service")).toBeUndefined();
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it("test config → high-trust runner and coverage facts", () => {
     writeFileSync(
       join(dir, "vitest.config.ts"),
