@@ -1,6 +1,7 @@
 import { normalizeClaudeEvent } from "../../capture/normalizers.js";
 import type { Capsule, Event } from "../../core/types.js";
 import type { Runtime } from "../../runtime.js";
+import { sanitizeRetrievalText } from "../../security/retrieval-context.js";
 import { containsSecret, redactSecretValue, redactSecrets } from "../../security/secrets.js";
 
 // Claude Code hook payload (subset we use). Field names follow Claude Code's
@@ -99,9 +100,9 @@ export async function handleHook(
   // the agent. (The CLI wraps this too, as defense in depth.)
   try {
     const ctx = await rt.injectionContext(event, sessionId, {
-      user_prompt: payload.prompt ? sanitizeHookText(payload.prompt) : undefined,
+      user_prompt: sanitizeRetrievalText(payload.prompt),
       transcript_tail: payload.transcript_tail
-        ? sanitizeHookText(payload.transcript_tail)
+        ? sanitizeRetrievalText(payload.transcript_tail)
         : await readTranscriptTail(payload.transcript_path),
       current_files: payload.current_files,
       mentioned_symbols: payload.mentioned_symbols,
@@ -175,12 +176,8 @@ async function readTranscriptTail(path?: string): Promise<string | undefined> {
   try {
     const { readFileSync } = await import("node:fs");
     const text = readFileSync(path, "utf8");
-    return sanitizeHookText(text.slice(-4000));
+    return sanitizeRetrievalText(text.slice(-4000));
   } catch {
     return undefined;
   }
-}
-
-function sanitizeHookText(text: string): string {
-  return truncate(redactSecrets(text), 4000) ?? "";
 }

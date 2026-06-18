@@ -267,6 +267,24 @@ export function runCoreMemoryLifecycleEval(): CoreMemoryLifecycleReport {
     `rememberStatus=${secretMetadataRecall.remembered.status} remember=${JSON.stringify(secretMetadataRecall.remembered.stderr.trim())} recall=${JSON.stringify(secretMetadataRecall.recall.stdout.trim())}`,
   );
 
+  const secretQueryRecall = withRepo((dir) => {
+    const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+    const remembered = cli(["remember", "redacted query marker", "-C", dir]);
+    const recall = cli(["recall", `find memory for ${secret}`, "-C", dir]);
+    return { secret, remembered, recall };
+  });
+  if (secretQueryRecall.remembered.status !== 0 || secretQueryRecall.recall.status !== 0) {
+    cliFailures += 1;
+  }
+  check(
+    "secret-bearing recall queries are redacted before output surfaces",
+    secretQueryRecall.remembered.status === 0 &&
+      secretQueryRecall.recall.status === 0 &&
+      !secretQueryRecall.recall.stdout.includes(secretQueryRecall.secret) &&
+      !secretQueryRecall.recall.stderr.includes(secretQueryRecall.secret),
+    `recall=${JSON.stringify(secretQueryRecall.recall.stdout.trim())}`,
+  );
+
   const secretLoop = withRepo((dir) => {
     const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
     const loop = cli(["loop", `finish deploy with token ${secret}`, "-C", dir]);

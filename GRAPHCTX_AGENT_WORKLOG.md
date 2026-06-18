@@ -695,3 +695,22 @@ autoresearch audit remains in `autoresearch-results/results.tsv`.
   - `npx tsx src/cli.ts eval cli-docs-demo`
   - `npx tsx src/cli.ts eval quality`
   - `git diff --check`
+
+### Iteration 84 - shared retrieval-context redaction
+
+- Added a shared retrieval-context sanitizer so CLI recall, MCP recall/inject,
+  and Claude hook prompt/transcript surfaces all cross the same redaction and
+  hard-cap interface before retrieval planning.
+- Switched `graphctx recall` to sanitize secret-shaped query text before
+  `InjectionContext`, closing the remaining pull-path prompt leak.
+- Added unit coverage for retrieval-context redaction/capping and a core memory
+  CLI regression for secret-shaped recall queries, raising the memory gate to
+  15/15 checks.
+- Updated STATUS/README counters to 231 Vitest tests.
+- Verification:
+  - `npx vitest run test/security/secrets.test.ts test/resilience/hook-degrades.test.ts`
+  - `npx tsx src/cli.ts eval memory`
+  - `npx tsx src/cli.ts eval mcp`
+  - `npx tsc --noEmit`
+  - `npx biome check src/cli.ts src/mcp/tools.ts src/adapters/claude-code/hooks.ts src/security/retrieval-context.ts test/security/secrets.test.ts src/eval/suites/core-memory-lifecycle.ts`
+  - `git diff --check`

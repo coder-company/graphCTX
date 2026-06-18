@@ -26,6 +26,7 @@ import {
   assertSafeMemoryWrite,
   formatMemoryWriteError,
 } from "./security/intake.js";
+import { sanitizeRetrievalText } from "./security/retrieval-context.js";
 import { redactSecrets } from "./security/secrets.js";
 import { safeForSend } from "./security/send-edge.js";
 import { bootstrapVec0 } from "./store/vec0-bootstrap.js";
@@ -151,7 +152,7 @@ program
     const budget = parsePositiveIntegerOption(opts.budget, "--budget");
     const rt = new Runtime({ workspaceDir: opts.cwd });
     const ctx = await rt.injectionContext("UserPromptSubmit", opts.session ?? "recall", {
-      user_prompt: query,
+      user_prompt: sanitizeRetrievalText(query),
       budget_tokens: budget,
     });
     const { Retriever } = await import("./retrieve/retriever.js");

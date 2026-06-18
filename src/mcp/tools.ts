@@ -5,7 +5,7 @@ import { redactWhyReport } from "../provenance/why.js";
 import { resolveConflicts } from "../resolve/conflicts.js";
 import type { Runtime } from "../runtime.js";
 import { assertSafeExplicitMemoryWrite } from "../security/intake.js";
-import { redactSecrets } from "../security/secrets.js";
+import { sanitizeRetrievalText } from "../security/retrieval-context.js";
 
 // The EXACTLY 8 MCP tools (SPEC §18, I8). One handler each; each validates input
 // with zod and returns structured output. The MCP server enforces the count.
@@ -137,7 +137,7 @@ export const MCP_TOOLS: McpTool[] = [
       const a = recallInput.parse(args);
       assertSafeSessionReference(a.session_id);
       const ctx = await rt.injectionContext("UserPromptSubmit", a.session_id ?? "mcp-session", {
-        user_prompt: redactMcpPrompt(a.query),
+        user_prompt: sanitizeRetrievalText(a.query),
         budget_tokens: a.budget_tokens,
       });
       const capsule = await rt.planner().plan(ctx, { bypassGate: true });
@@ -157,7 +157,7 @@ export const MCP_TOOLS: McpTool[] = [
       const a = injectInput.parse(args);
       assertSafeSessionReference(a.session_id);
       const ctx = await rt.injectionContext(a.event, a.session_id, {
-        user_prompt: a.user_prompt ? redactMcpPrompt(a.user_prompt) : undefined,
+        user_prompt: sanitizeRetrievalText(a.user_prompt),
       });
       const capsule = await rt.planner().plan(ctx);
       return { markdown: capsule.markdown, cards: capsule.cards, tokens: capsule.token_count };
@@ -239,10 +239,6 @@ export const MCP_TOOLS: McpTool[] = [
 
 function assertSafeSessionReference(sessionId: string | undefined): void {
   assertSafeExplicitMemoryWrite({ text: "session reference", session_id: sessionId });
-}
-
-function redactMcpPrompt(text: string): string {
-  return redactSecrets(text).slice(0, 4000);
 }
 
 function refreshAgentsCapsule(rt: Runtime): void {

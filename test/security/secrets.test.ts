@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Fact } from "../../src/core/types.js";
 import { assertSafeExplicitMemoryWrite } from "../../src/security/intake.js";
+import {
+  RETRIEVAL_CONTEXT_TEXT_LIMIT,
+  sanitizeRetrievalText,
+} from "../../src/security/retrieval-context.js";
 import { isDangerousDirective } from "../../src/security/sanitize.js";
 import {
   containsSecret,
@@ -79,6 +83,27 @@ describe("explicit memory intake safety", () => {
         kind: "decision",
       }),
     ).toThrow("refusing to store secret-bearing memory");
+  });
+});
+
+describe("retrieval context sanitization", () => {
+  it("redacts secret-shaped prompt text before retrieval", () => {
+    const secret = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE";
+    const sanitized = sanitizeRetrievalText(`find memory for ${secret}`);
+
+    expect(sanitized).not.toContain(secret);
+    expect(sanitized).toContain("[REDACTED:github_token]");
+  });
+
+  it("hard-caps retrieval text after redaction", () => {
+    const secret = "Authorization: Bearer plainlowentropytoken123";
+    const sanitized = sanitizeRetrievalText(
+      `${secret} ${"x".repeat(RETRIEVAL_CONTEXT_TEXT_LIMIT + 100)}`,
+    );
+
+    expect(sanitized).toHaveLength(RETRIEVAL_CONTEXT_TEXT_LIMIT);
+    expect(sanitized).not.toContain("plainlowentropytoken123");
+    expect(sanitized).toContain("[REDACTED:authorization_header]");
   });
 });
 
