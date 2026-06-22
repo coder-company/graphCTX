@@ -215,9 +215,16 @@ describe("deterministic extractors", () => {
       writeFileSync(join(outside, "uv.lock"), "version = 1\n");
       writeFileSync(join(outside, ".python-version"), "3.13.0\n");
       writeFileSync(join(outside, "pyproject.toml"), '[project]\nrequires-python = ">=3.13"\n');
+      writeFileSync(join(outside, "tox.ini"), "[testenv]\ncommands = pytest\n");
+      writeFileSync(
+        join(outside, "noxfile.py"),
+        "import nox\n\n@nox.session\ndef tests(session): pass\n",
+      );
       symlinkSync(join(outside, "uv.lock"), join(dir, "uv.lock"), "file");
       symlinkSync(join(outside, ".python-version"), join(dir, ".python-version"), "file");
       symlinkSync(join(outside, "pyproject.toml"), join(dir, "pyproject.toml"), "file");
+      symlinkSync(join(outside, "tox.ini"), join(dir, "tox.ini"), "file");
+      symlinkSync(join(outside, "noxfile.py"), join(dir, "noxfile.py"), "file");
 
       const { res } = extract();
       expect(res.inserted.find((f) => f.subject === "python")).toBeUndefined();
@@ -273,6 +280,38 @@ describe("deterministic extractors", () => {
         subject: "python",
         predicate: "typecheck_command",
         object: "pyright",
+      }),
+    );
+  });
+
+  it("python test harnesses can be detected from tox and nox config", () => {
+    writeFileSync(
+      join(dir, "tox.ini"),
+      ["[tox]", "env_list = py312", "", "[testenv]", "commands = pytest -q"].join("\n"),
+    );
+    writeFileSync(
+      join(dir, "noxfile.py"),
+      ["import nox", "", "@nox.session", "def tests(session):", "    session.run('pytest')"].join(
+        "\n",
+      ),
+    );
+
+    const { res } = extract();
+
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "python",
+        predicate: "test_command",
+        object: "tox",
+        git: expect.objectContaining({ path_globs: ["tox.ini"] }),
+      }),
+    );
+    expect(res.inserted).toContainEqual(
+      expect.objectContaining({
+        subject: "python",
+        predicate: "test_command",
+        object: "nox",
+        git: expect.objectContaining({ path_globs: ["noxfile.py"] }),
       }),
     );
   });

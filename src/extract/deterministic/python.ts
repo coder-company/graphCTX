@@ -13,6 +13,7 @@ export const pythonExtractor: Extractor = {
 
     const pyproject = readWorkspaceFile(ctx, "pyproject.toml");
     if (pyproject) facts.push(...pyprojectFacts(ctx, pyproject));
+    facts.push(...pythonHarnessFacts(ctx));
     return facts;
   },
 };
@@ -137,18 +138,30 @@ function pyprojectFacts(ctx: ExtractContext, text: string): NewFact[] {
     hasSection(text, "tool.pyright") || dependencySectionsMention(text, ["pyright"]);
 
   if (hasPytest) {
-    facts.push(pythonCommandFact(ctx, "test_command", "pytest", "pyproject.toml pytest config"));
+    facts.push(
+      pythonCommandFact(ctx, "test_command", "pytest", "pyproject.toml pytest config", [
+        "pyproject.toml",
+      ]),
+    );
   }
   if (hasRuff) {
     facts.push(
-      pythonCommandFact(ctx, "lint_command", "ruff check .", "pyproject.toml ruff config"),
+      pythonCommandFact(ctx, "lint_command", "ruff check .", "pyproject.toml ruff config", [
+        "pyproject.toml",
+      ]),
     );
   }
   if (hasMypy) {
-    facts.push(pythonCommandFact(ctx, "typecheck_command", "mypy .", "pyproject.toml mypy config"));
+    facts.push(
+      pythonCommandFact(ctx, "typecheck_command", "mypy .", "pyproject.toml mypy config", [
+        "pyproject.toml",
+      ]),
+    );
   } else if (hasPyright) {
     facts.push(
-      pythonCommandFact(ctx, "typecheck_command", "pyright", "pyproject.toml pyright config"),
+      pythonCommandFact(ctx, "typecheck_command", "pyright", "pyproject.toml pyright config", [
+        "pyproject.toml",
+      ]),
     );
   }
 
@@ -176,6 +189,7 @@ function pythonCommandFact(
   predicate: "test_command" | "lint_command" | "typecheck_command",
   object: string,
   rawQuote: string,
+  paths: string[],
 ): NewFact {
   return structuredFact({
     subject: "python",
@@ -186,8 +200,28 @@ function pythonCommandFact(
     scope: ctx.scope,
     tags: ["python", "command", "config_file"],
     rawQuote,
-    git: anchor(ctx, ["pyproject.toml"]),
+    git: anchor(ctx, paths),
   });
+}
+
+function pythonHarnessFacts(ctx: ExtractContext): NewFact[] {
+  const facts: NewFact[] = [];
+  const tox = readWorkspaceFile(ctx, "tox.ini");
+  if (tox && /^\s*\[testenv(?::[^\]]+)?\]\s*$/m.test(tox)) {
+    facts.push(
+      pythonCommandFact(ctx, "test_command", "tox", "tox.ini testenv config", ["tox.ini"]),
+    );
+  }
+
+  const nox = readWorkspaceFile(ctx, "noxfile.py");
+  if (nox && /@nox\.session\b/.test(nox)) {
+    facts.push(
+      pythonCommandFact(ctx, "test_command", "nox", "noxfile.py @nox.session config", [
+        "noxfile.py",
+      ]),
+    );
+  }
+  return facts;
 }
 
 function projectScripts(text: string): Array<{ name: string; target: string }> {
