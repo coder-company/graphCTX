@@ -1,0 +1,365 @@
+---
+title: graphCTX vs the field
+description: Competitor analysis for graphCTX. Where the field is, where we already win, where we should adapt, and concrete shippable bets.
+updated: 2026-06-22
+audience: founders, product, eng leads
+---
+
+import { Note, Warning, Tip } from "./docs/_mdx.tsx"; // optional; safe to ignore if no MDX renderer
+
+# graphCTX vs the field
+
+> **TL;DR.** The agent-memory space has bifurcated into two camps: **hosted
+> memory services** (Mem0, Zep, Supermemory, Letta cloud) and **local
+> codebase-context engines** (Aider repo-map, Sourcegraph Cody, Continue,
+> Greptile). graphCTX is the only entrant that sits at the seam: **local-first,
+> commit-valid, lifecycle-push memory for coding agents** with an MCP fallback.
+> Our moat is *push at lifecycle gates* and *commit-valid provenance*. Our
+> gaps are *cross-tool sync*, *eval/benchmark public proof*, and *a hosted
+> tier for teams who do not want to self-run*.
+
+---
+
+## 1. Landscape map
+
+### 1.1 Two clusters, one seam
+
+| Cluster                          | Examples                                                  | What they sell                                                                                  | Where they fail for coding agents                                                              |
+| -------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **Hosted agent memory**          | Mem0, Zep / Graphiti, Supermemory, Letta cloud, Cognee SaaS | Generic "user memory" API or temporal knowledge graph, cloud-hosted                              | Not commit-aware, not branch-aware, force a network round-trip, opaque provenance              |
+| **Local codebase context**       | Aider repo-map, Sourcegraph Cody, Continue, Greptile      | Static codebase index (graph / embeddings) injected on demand                                    | No durable per-fact memory, no lifecycle push, no "remember this convention" durable store     |
+| **Local agent memory (closest)** | Letta OSS, OpenMemory MCP, Cognee OSS, Pieces             | Self-hostable persistent memory, MCP-friendly                                                    | Generic, not codebase-aware, no commit anchoring, no Claude Code hook push                     |
+| **Skill / rule pattern**         | Cline/Cursor "Memory Bank", `.cursor/rules`               | Markdown rule files the model is told to read                                                    | Manual, no eval harness, drifts from reality on every commit                                   |
+
+graphCTX is the only product wired to **lifecycle hooks (Claude Code)** *and*
+**commit-anchored facts** *and* **a local SQLite store** *and* **MCP fallback**
+in one binary. Each individual capability exists in a competitor; the
+combination does not.
+
+### 1.2 One-line positioning for each main competitor
+
+- **Mem0** — "Universal memory layer for AI agents." Vector-first, framework-agnostic SDK, hosted + OSS. 35k+ GitHub stars; the default mental model in this space.
+- **Zep / Graphiti** — "Enterprise agent memory via temporal knowledge graph." Sub-200ms retrieval, SOC 2, S&P case study. Strong on temporal invalidation.
+- **Letta (MemGPT)** — "Stateful agents that remember everything." Tiered memory (core / archival / recall), YC-backed, $10M seed. The OG of the academic side.
+- **Cognee** — "Open-source agent memory platform." Self-hostable knowledge graph, ingests unstructured data, 14k+ stars.
+- **Supermemory** — "Memory layer for AI agents." Hybrid hosted + local, generous free tier ($5/mo usage credit), MCP-ready.
+- **OpenMemory MCP** — Mem0's local MCP server. Privacy-first, project-aware, retrofitted into Cursor / Windsurf / VS Code.
+- **Sourcegraph Cody** — Codebase context at enterprise scale. Multi-repo (~10), 1M token window, $19–$59/user/mo. No durable memory layer.
+- **Continue.dev** — IDE assistant with `@codebase` context. Embeddings + AST + keyword. Strong indexer, no fact store.
+- **Aider** — Tree-sitter + PageRank repo map. Best-in-class **automatic** codebase context selection, no durable memory.
+- **Greptile** — AI code review with full-repo context. PR-time, not edit-time.
+- **Cline / Cursor "Memory Bank"** — Community pattern: markdown files the model is rule-prompted to consult. No backend, no anchoring.
+
+---
+
+## 2. Feature gap matrix
+
+Legend: ✅ first-class, 🟡 partial / opt-in, ❌ missing.
+
+| Capability                                              | graphCTX | Mem0 | Zep / Graphiti | Letta OSS | Cognee | Supermemory | OpenMemory | Sourcegraph Cody | Continue | Aider |
+| ------------------------------------------------------- | :------: | :--: | :------------: | :-------: | :----: | :---------: | :--------: | :--------------: | :------: | :---: |
+| Runs fully offline (no required network)                | ✅       | 🟡   | ❌             | ✅        | ✅     | 🟡          | ✅         | 🟡               | ✅       | ✅    |
+| Single self-contained binary install                    | ✅       | ❌   | ❌             | ❌        | ❌     | ❌          | ❌         | ❌               | ❌       | 🟡    |
+| SQLite + optional vector index (no extra service)       | ✅       | ❌   | ❌             | 🟡        | ❌     | 🟡          | 🟡         | ❌               | 🟡       | n/a   |
+| **Lifecycle push** (SessionStart / PostCompact hooks)   | ✅       | ❌   | ❌             | ❌        | ❌     | ❌          | ❌         | ❌               | ❌       | ❌    |
+| **Commit-valid filtering** (anchored to git SHA)        | ✅       | ❌   | ❌             | ❌        | ❌     | ❌          | ❌         | 🟡 (index sync) | 🟡       | ✅    |
+| **Anti-repetition ledger** (never re-inject same fact)  | ✅       | ❌   | ❌             | ❌        | ❌     | ❌          | ❌         | ❌               | ❌       | ❌    |
+| **Send-edge security checks** (never leak secrets)      | ✅       | 🟡   | 🟡             | 🟡        | 🟡     | 🟡          | 🟡         | ✅               | 🟡       | n/a   |
+| Provenance graph (`why`)                                | ✅       | ❌   | 🟡             | 🟡        | ✅     | 🟡          | ❌         | n/a              | n/a      | n/a   |
+| Open-loop carry-across-compaction                       | ✅       | ❌   | ❌             | 🟡        | ❌     | ❌          | ❌         | ❌               | ❌       | ❌    |
+| MCP stdio server                                        | ✅       | 🟡   | 🟡             | 🟡        | 🟡     | ✅          | ✅         | 🟡               | 🟡       | ❌    |
+| Multi-client adapters (Claude / Cursor / OpenCode)      | ✅       | 🟡   | 🟡             | 🟡        | 🟡     | ✅          | ✅         | 🟡               | 🟡       | ❌    |
+| Repo-aware automatic context (tree-sitter graph)        | 🟡       | ❌   | ❌             | ❌        | 🟡     | ❌          | ❌         | ✅               | ✅       | ✅    |
+| Multi-repo / cross-project memory                       | ❌       | ✅   | ✅             | ✅        | ✅     | ✅          | ✅         | ✅               | 🟡       | ❌    |
+| Cross-tool memory sync (Claude ↔ Cursor ↔ Codex)        | 🟡       | ✅   | ✅             | ✅        | ✅     | ✅          | ✅         | ❌               | ❌       | ❌    |
+| Public benchmark numbers (DMR / LoCoMo / your own)      | 🟡       | ✅   | ✅             | ✅        | 🟡     | ✅          | 🟡         | ✅               | 🟡       | ✅    |
+| Hosted / team tier                                      | ❌       | ✅   | ✅             | ✅        | ✅     | ✅          | 🟡         | ✅               | ✅       | ❌    |
+| Web dashboard / TUI                                     | 🟡 TUI   | ✅   | ✅             | ✅        | ✅     | ✅          | 🟡         | ✅               | 🟡       | ❌    |
+
+**Reading this matrix:** every ✅ in graphCTX's row that is rare in the rest of
+the table is a marketing wedge. Every ❌ in our row is a roadmap candidate.
+
+---
+
+## 3. Positioning and messaging
+
+### 3.1 How competitors pitch themselves
+
+- **Mem0:** "Universal memory layer." Volume play; framework-agnostic; "works with everything." Aimed at app builders, not coding agents specifically.
+- **Zep:** "Enterprise-grade memory via context graphs." Compliance-led (SOC 2), perf-led (sub-200ms), case-study-led (S&P). B2B sales motion.
+- **Letta:** "Machines that learn." Research / academic credibility; long-context narrative.
+- **Cognee:** "Open-source memory engine." OSS-first, ingest-any-data, knowledge-graph aesthetic.
+- **Supermemory:** "The memory API for the AI era." Developer-DX play with cheap usage-based pricing.
+- **Sourcegraph Cody:** "Context layer for your entire engineering org." Enterprise control plane.
+- **Aider:** Quiet, technical: "tree-sitter + PageRank repo map." Engineers' engineer.
+
+### 3.2 Where graphCTX's messaging is already differentiated
+
+> *"Local-first memory for coding agents. Lifecycle-hook push for commit-valid,
+> scope-aware context in Claude Code, plus refreshed static grounding and MCP
+> recall for Cursor, OpenCode, and generic clients."*
+
+This is precise but **too internal**. Translate it into the three messages
+competitors cannot honestly claim:
+
+1. **"We push, they pull."** Every other memory product asks the model to
+   remember to ask. graphCTX pushes the right facts in at the lifecycle gates
+   the model cannot ignore.
+2. **"Commit-valid by construction."** Other memory layers happily inject
+   facts that were true two branches ago. graphCTX anchors every fact to a
+   git SHA and silently suppresses stale ones.
+3. **"One binary. No cloud. No account."** Mem0 / Zep / Supermemory all start
+   with sign-up flows. We start with `curl | sh`.
+
+### 3.3 Suggested taglines
+
+- *"The memory layer that pushes, not pulls."*
+- *"Commit-valid memory for coding agents. Local first."*
+- *"Your agent already forgot. graphCTX remembers, on commit."*
+
+---
+
+## 4. Pricing and GTM
+
+### 4.1 What competitors charge
+
+| Product          | Free tier                             | Paid entry                | Top tier            | Notes                                              |
+| ---------------- | ------------------------------------- | ------------------------- | ------------------- | -------------------------------------------------- |
+| Mem0             | 10k memories                          | Starter $19/mo            | Pro $249/mo, Ent custom | Volume-based; OSS available                    |
+| Zep              | OSS Graphiti                          | Cloud (request)           | Enterprise          | Compliance is the product                          |
+| Letta            | OSS                                   | Cloud (waitlist)          | Enterprise          | $10M seed runway                                   |
+| Cognee           | OSS                                   | Cloud Starter             | Enterprise          | Land-with-OSS, expand-with-cloud                   |
+| Supermemory      | $5/mo usage credit free               | Pay-as-you-go             | Enterprise          | Usage-based; very developer-friendly               |
+| Sourcegraph Cody | OSS Cody (limited), Free tier         | Pro $9/mo                 | Enterprise $19–$59/mo | Enterprise-only at the top end                  |
+| Continue.dev     | OSS                                   | Hub paid (BYOK + features) | Team / Enterprise   | Marketplace play                                   |
+| Aider            | OSS                                   | n/a                       | n/a                 | Donations only                                     |
+| Greptile         | Free trial                            | $30/dev/mo                | Enterprise          | Per-seat, PR-time only                             |
+| OpenMemory MCP   | OSS, free                             | n/a (Mem0 upsell)         | n/a                 | Mem0's loss-leader                                 |
+
+### 4.2 What this implies for graphCTX
+
+- The **OSS-first + paid hosted tier** pattern is now table stakes in this
+  market. Cognee, Letta, Mem0, Zep, Supermemory all converged on it.
+- **$19/seat/mo** is the gravity well for individual developer tooling
+  (Sourcegraph Pro, Mem0 Starter, similar). Anything higher needs a clear
+  team-level story.
+- **Usage-based** (Supermemory's $5 credit free, Mem0's per-memory tiers) wins
+  on developer-first signups. Worth considering for our Cloud tier.
+- Free OSS, paid hosted multi-repo sync, enterprise SSO / audit is the safe
+  ladder.
+
+### 4.3 Concrete pricing proposal for graphCTX
+
+| Plan          | Price                          | Includes                                                                                                   |
+| ------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| **OSS / Local** | $0                            | Everything in the current binary. Forever free, MIT.                                                       |
+| **Pro Cloud**   | $9/mo per dev (or $5 credit free, usage above) | Cross-device sync of your local stores, web dashboard, team-share opt-in, cloud backup of `.graphctx/`. |
+| **Team**        | $19/dev/mo                    | Shared workspace stores, role-based promote/forget, SSO, audit log of `remember/forget/why` calls.         |
+| **Enterprise**  | Custom                        | Self-hosted control plane, BYO storage, SOC 2 path, customer-managed signing keys for commit anchors.      |
+
+GTM motion: lead with the one-liner `curl | sh`, capture telemetry-free OSS
+installs, monetize the *team* friction (cross-device sync, cross-tool sync,
+audit), not the *user* friction.
+
+---
+
+## 5. Technical / architectural differentiators
+
+### 5.1 What graphCTX has that almost nobody else does
+
+- **Lifecycle push via Claude Code hooks.** No other product wires 7
+  lifecycle events to a deterministic injector. This is genuinely novel.
+- **Commit-valid filtering.** Facts carry the SHA they were anchored to;
+  retrieval filters out facts whose anchor is no longer in the current branch.
+- **Anti-repetition ledger.** Prevents the "model sees the same fact 4x"
+  failure mode every retrieval system has.
+- **Send-edge security checks.** Outbound capsules are scanned for secrets
+  before they leave the store; default-deny.
+- **Deterministic offline eval suite (19 gates).** Most competitors publish
+  benchmark scores but do not publish the harness. We can ship ours.
+- **Bench gates on hot-path latency** (`bench` keeps hook p95 < 150ms). Few
+  competitors publish per-hook latency at all.
+
+### 5.2 What competitors have that we don't
+
+- **Aider's PageRank repo map.** Best-in-class *automatic* context selection
+  via tree-sitter symbol graph + PageRank over def/use edges. We have
+  extraction but no graph-walk ranker yet.
+- **Zep's Graphiti temporal model.** Explicit "fact valid from T to T'" with
+  bi-temporal indexing. We have commit-valid (a temporal axis) but not the
+  bi-temporal "what did we believe at T" axis.
+- **Mem0's framework adapters.** Drop-in for LangChain, LlamaIndex, CrewAI,
+  AutoGen out of the box. We adapt to *clients* (Claude, Cursor), not
+  *frameworks*.
+- **Letta's tiered memory (core / archival / recall).** Explicit promotion
+  layers. We have promotion but not the named tiers as a user-facing model.
+- **Sourcegraph's multi-repo context window.** 10-repo, 1M-token windows. We
+  are single-repo.
+- **Hosted dashboard.** Every cloud competitor has one.
+- **Public benchmark numbers on DMR / LoCoMo.** We have internal eval gates
+  but no published comparison.
+
+---
+
+## 6. Adaptation ideas: what to steal, build, or kill
+
+Sorted by impact-per-week-of-work. Each item maps to a competitor signal.
+
+### 6.1 Ship in the next 2 weeks
+
+1. **PageRank-style repo map ranker, copied from Aider.**
+   *Why:* Aider's repo map is the gold standard for *deterministic* code
+   context. Layering it under our retrieval would give us automatic relevance
+   without an LLM call.
+   *How:* Reuse tree-sitter (already a transitive dep via extractors), build
+   a def/use edge graph, run a damped PageRank seeded by files touched in the
+   current session. Inject top-N symbol summaries into the capsule planner.
+   *Wedge:* No memory product has this; no codebase tool has lifecycle push.
+   We are the first with both.
+
+2. **Public benchmark page (DMR + LoCoMo + our internal arms).**
+   *Why:* Zep, Mem0, Letta all publish numbers. We have a 19-gate harness and
+   a five-arm ablation already. Publishing a comparison chart would close the
+   single biggest credibility gap.
+   *How:* Run `eval run --arms A,B,C,N,S` against a checkpointed corpus, add
+   DMR/LoCoMo runners, render the chart in `docs/benchmarks.mdx` and link
+   from the README badge row.
+
+3. **`AGENT_USAGE.md` → first-party "skill" packages.**
+   *Why:* Cline/Cursor "Memory Bank" rule files prove that a skill-shaped
+   wrapper drives adoption. We already wrote the skill template; ship it as
+   `npx graphctx skill <client>` and as installable packages
+   (`.claude/skills/graphctx/`, `.opencode/skills/graphctx/`,
+   `~/.codex/skills/graphctx/`).
+   *Wedge:* Beats the "manual markdown rule" pattern by being installable and
+   versioned.
+
+### 6.2 Ship in the next month
+
+4. **Bi-temporal facts (steal from Graphiti).**
+   *Why:* "What did the codebase look like *and* what did we believe at SHA
+   X" lets agents reason about historical decisions. Today we only track
+   commit-valid; we don't track *belief time*.
+   *How:* Add `believed_at` column alongside `anchored_at`; let `why` show
+   both axes.
+
+5. **Multi-repo + cross-device sync ("Pro Cloud" foundation).**
+   *Why:* Single-repo is fine for OSS; teams will not pay $0. Cross-device
+   sync of the SQLite store via an end-to-end-encrypted cloud blob is the
+   cheapest path to a paid tier and unlocks the cross-tool sync narrative
+   (Claude on laptop ↔ Cursor on desktop sees same memory).
+   *How:* CRDT or last-writer-wins + content-addressed snapshots; server is
+   dumb storage. Don't reinvent: pick `litestream` + signed manifests.
+
+6. **MCP "remote server" mode.**
+   *Why:* OpenMemory / Supermemory both run as long-lived background MCPs
+   that any tool can attach. Today our MCP is per-`serve` stdio. A daemon
+   mode would let Claude Desktop, Cursor, Codex, and a CI agent all hit the
+   same store concurrently without each spawning a process.
+
+### 6.3 Quarter-scale bets
+
+7. **Framework adapters (LangChain, LlamaIndex, OpenAI Agents SDK, LangGraph).**
+   *Why:* Right now we adapt to *clients*. To unlock the non-IDE agent
+   builders we need *framework* adapters. Pattern lifted from Mem0.
+
+8. **Web dashboard.**
+   *Why:* Every cloud competitor ships one. Even if local-first, a
+   `graphctx tui` is not enough for team buyers. Minimal scope: facts
+   browser, provenance viewer, conflict resolver, anti-repetition ledger
+   inspector.
+
+9. **"Memory marketplace" / template packs.**
+   *Why:* Continue.dev's Hub validated this. Curated starter packs ("Next.js
+   conventions", "Rust async patterns", "FastAPI deploy recipes") that
+   pre-seed the store turn first-run from empty into delightful.
+
+10. **Bring your own LLM extractor with cost ceilings.**
+    *Why:* Cognee and Zep both run LLM extraction over ingested data. Today
+    ours is opt-in and minimal. Productizing it (with a hard $ ceiling and
+    deterministic fallback) is a clear upsell for the Pro tier.
+
+### 6.4 Don't build (yet)
+
+- **Hosted UI for personal users.** Adds support burden, distracts from CLI.
+- **Multi-modal memory (images, PDFs).** Cognee owns this; not core for code agents.
+- **Code review surface.** Greptile owns it; different motion (PR-time, not edit-time).
+
+---
+
+## 7. Where each competitor is genuinely better, and what to do about it
+
+| Competitor       | Their genuine advantage                                  | Our response                                                                                                |
+| ---------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Mem0             | Framework adapters, brand, OpenMemory                    | Ship framework adapters (§6.3 #7); reuse the term "memory layer" in messaging; lean into "lifecycle push"   |
+| Zep / Graphiti   | Temporal model, enterprise compliance                    | Bi-temporal facts (§6.2 #4); add audit-log story for Team tier                                              |
+| Letta            | Tiered memory mental model, research story               | Rename promotion layers to "core / archival / recall" *only if* it lands better in user tests               |
+| Cognee           | OSS knowledge graph, ingest-anything                     | Stay focused on code; do not chase generic ingest                                                           |
+| Supermemory      | Usage-based pricing, free $5 credit                      | Mirror the free credit for Pro Cloud (§4.3)                                                                 |
+| Sourcegraph Cody | Multi-repo context, enterprise muscle                    | Multi-repo (§6.2 #5) without the enterprise sales drag; OSS + Team beats their Pro tier on price            |
+| Aider            | PageRank repo map                                        | Copy it (§6.1 #1); credit them; we still win because they have no memory store                              |
+| Continue         | IDE integration, @codebase polish                        | Ship a Continue context provider that wraps `graphctx recall`                                               |
+| Greptile         | PR-time review with full context                         | Stay out of code review; offer Greptile-style readers a "memory of past reviews" integration if asked       |
+| Cline Memory Bank| Zero-install, just markdown                              | `AGENT_USAGE.md` skill packages (§6.1 #3) make us "as easy as Memory Bank" with a real backend              |
+
+---
+
+## 8. Concrete next 90 days
+
+### Sprint 1 (Weeks 1–2)
+- [ ] PageRank repo-map ranker behind `graphctx extract --rank pagerank`.
+- [ ] `graphctx skill <client>` command that drops the skill file (Claude / Cursor / OpenCode / Codex).
+- [ ] Public benchmark page in `docs/benchmarks.mdx` with our 5-arm ablation chart.
+
+### Sprint 2 (Weeks 3–4)
+- [ ] Bi-temporal columns + `why --at <iso>` flag.
+- [ ] MCP daemon mode (`graphctx serve --mcp --daemon --socket ~/.graphctx/mcp.sock`).
+- [ ] LangChain + OpenAI Agents SDK adapter packages.
+
+### Sprint 3 (Weeks 5–8)
+- [ ] Pro Cloud alpha: end-to-end-encrypted snapshot sync.
+- [ ] Marketing site refresh around "push, not pull" + "commit-valid".
+- [ ] DMR + LoCoMo numbers published.
+
+### Sprint 4 (Weeks 9–12)
+- [ ] Multi-repo workspace store (read-only mount of other repos).
+- [ ] Web dashboard MVP: facts browser, provenance viewer.
+- [ ] Memory template packs (Next.js, Rust async, FastAPI, T3).
+
+---
+
+## 9. Honest risks
+
+- **Hosted-memory players (Mem0, Zep, Supermemory) move down-market into the
+  "local + free" lane.** OpenMemory MCP is already this. Our defense is
+  *commit-valid* + *lifecycle push* + *codebase-aware*. None of those are
+  easy retrofits.
+- **Aider / Cody build the missing memory layer themselves.** Likely.
+  Defense: be the upstream they integrate, not the competitor they replace.
+  Ship MCP daemon + framework adapters so we are the obvious *substrate*.
+- **MCP becomes a commodity; the moat is the data.** True. Cross-tool sync
+  and the team-shared workspace store are where the lock-in compounds.
+- **OSS contributors get distracted by Cognee's ingest-anything narrative.**
+  Resist scope creep. We are a *coding-agent memory*, not a generic AI
+  memory.
+
+---
+
+## 10. Sources used
+
+- Mem0 site, GitHub, pricing page, "State of AI Agent Memory 2026" report.
+- Zep site, Graphiti GitHub, arXiv 2501.13956, atlan Zep-vs-Mem0 comparison.
+- Letta GitHub + site, Ry Walker research note, vectorize Mem0-vs-Letta.
+- Cognee GitHub, site, Memgraph integration writeup, pricing page.
+- Supermemory site, GitHub, pricing page, toolradar review.
+- OpenMemory MCP: Mem0 blog announcement, GitHub, MCPBro entry.
+- Sourcegraph Cody docs, weavai 2026 review, costbench pricing.
+- Continue.dev docs (codebase awareness, context providers, indexing).
+- Aider docs (repomap, tree-sitter blog post), simranchawla architecture writeup.
+- Greptile site + docs, morphllm benchmark comparison.
+- Cline / Cursor Memory Bank: forum and Reddit threads.
+- Pieces.app site and long-term memory blog.
+- LangMem conceptual guide.
+
+(Internal graphCTX context: `README.md`, `AGENT_USAGE.md`, `docs/SPEC.md`,
+`docs/PRD.md`, `src/adapters/*`, `src/mcp/tools.ts`.)
