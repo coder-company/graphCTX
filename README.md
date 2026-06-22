@@ -52,11 +52,34 @@ required web service and no required network call for normal operation.
   promotion, adapters, MCP, storage, telemetry, provenance, resilience, docs,
   demo, and code quality.
 
-## Quickstart
+## Install
+
+One-liner. Downloads a single self-contained binary for your platform (Linux
+or macOS, x64 or arm64). No Node, no Bun, no account, no API key. The binary
+bundles SQLite and the vector index, and no data leaves your machine.
+
+```bash
+curl -fsSL https://graph.coder.company/install | sh
+```
+
+Environment overrides:
+
+- `GRAPHCTX_INSTALL_DIR` &mdash; install location (default: `$HOME/.local/bin`).
+- `GRAPHCTX_RELEASE` &mdash; pin to a specific release tag.
+
+Verify:
+
+```bash
+graphctx --version
+```
+
+### From source (development)
 
 Requires **Node.js 20+**.
 
 ```bash
+git clone https://github.com/coder-company/graphCTX.git
+cd graphCTX
 npm install
 npx tsx src/cli.ts --help
 ```
