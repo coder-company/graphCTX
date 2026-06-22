@@ -14,6 +14,12 @@ describe("CLI/docs/demo parity eval", () => {
     expect(r.networkCalls).toBe(0);
     expect(r.pipeFailures).toBe(0);
     expect(r.argValidationFailures).toBe(0);
+    if (!r.pass) {
+      // CI-only diagnostic: dump the per-check breakdown so we can see which
+      // assertion regressed without re-running the suite by hand.
+      // biome-ignore lint/suspicious/noConsole: needed for CI triage
+      console.error("cli-docs-demo eval detail:\n" + r.detail.join("\n"));
+    }
     expect(r.pass).toBe(true);
   }, 60000);
 });
