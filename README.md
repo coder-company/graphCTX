@@ -21,6 +21,11 @@ generic clients.
 
 ---
 
+> **Using this from an AI agent?** Start with [AGENT_USAGE.md](AGENT_USAGE.md).
+> It covers install, MCP server setup for every major client (Claude Code,
+> Cursor, OpenCode, Codex, Claude Desktop, Zed, Continue, etc.), how to add
+> graphCTX as a skill, and the 8 MCP tools with examples.
+
 ## Why graphCTX
 
 Coding agents forget. Compaction strips context, branches mutate truth, and
@@ -219,6 +224,19 @@ graphctx eval run --arms A,B,C,N,S
 Arm C (lifecycle push) must beat arm B (pull-only recall), while the N/S
 controls prove graphCTX can deliver a memory-only fact and suppress stale
 facts.
+
+## For AI agents
+
+If you are an AI agent (Claude Code, Cursor, OpenCode, Codex, Claude Desktop,
+Zed, Continue, a custom MCP client, etc.) read [AGENT_USAGE.md](AGENT_USAGE.md).
+It is the single source of truth for:
+
+- how to install graphCTX
+- how to add the MCP server (per-client snippets)
+- how to wire lifecycle hooks
+- how to register graphCTX as a skill
+- the 8 MCP tools and when to call each
+- troubleshooting
 
 ## Contributing
 
