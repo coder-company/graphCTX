@@ -501,9 +501,16 @@ function evaluateInstallRoundTrip(): {
 function evaluateInstallAutoAndUnknown(): { auto: CliResult; unknown: CliResult } {
   return withTempDir("graphctx-cli-auto-", (dir) => {
     initGitRepo(dir);
-    const auto = shell(
-      `${shQuote(tsxBin)} ${shQuote(cliPath)} install auto -C ${shQuote(dir)} | head -1`,
-    );
+    // Capture the full install output and take the first line in-process.
+    // The previous `| head -1` pipeline raced tsx startup on slow CI
+    // runners and intermittently captured an empty stdout when head closed
+    // the pipe before the first stdout.write flushed.
+    const full = cli(["install", "auto", "-C", dir]);
+    const auto: CliResult = {
+      status: full.status,
+      stdout: full.stdout.split("\n")[0] ?? "",
+      stderr: full.stderr,
+    };
     const unknown = cli(["install", "frobnicate", "-C", dir]);
     return { auto, unknown };
   });
