@@ -13,7 +13,7 @@ concurrency:
 jobs:
   test:
     name: test
-    runs-on: [self-hosted, Linux, X64, vps, coder-company, vanguard-coder-company]
+    runs-on: [self-hosted, palantir-actions]
     steps:
       - uses: actions/checkout@v4
 
