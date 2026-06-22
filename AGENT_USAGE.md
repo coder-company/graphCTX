@@ -186,6 +186,93 @@ You should see exactly 8 tools listed.
 
 ---
 
+## Daemon mode (one server, many clients)
+
+If multiple agents in the same repo will hit graphCTX at the same time
+(Claude Desktop + Cursor + a CI worker), start one daemon and point all of
+them at the same Unix socket. There is no TCP listener; the path is
+filesystem-local only.
+
+```bash
+# start once per machine / repo
+graphctx serve --mcp --socket /tmp/graphctx.sock -C .
+
+# in another terminal, smoke test it
+printf '{"jsonrpc":"2.0","id":1,"method":"tools/list"}\n' | nc -U /tmp/graphctx.sock
+```
+
+The socket speaks the same line-delimited JSON-RPC the stdio mode does, so
+any MCP client that supports a "command" or "socket" transport can attach.
+
+---
+
+## Framework recipes
+
+### LangChain / LangGraph
+
+LangChain's MCP adapter spawns the stdio command for you:
+
+```python
+from langchain_mcp_adapters.client import MultiServerMCPClient
+
+client = MultiServerMCPClient({
+    "graphctx": {
+        "command": "graphctx",
+        "args": ["serve", "--mcp"],
+        "transport": "stdio",
+    }
+})
+tools = await client.get_tools()    # the 8 graphCTX tools, wrapped as LC tools
+```
+
+Use them like any other LangChain tool inside a `create_react_agent` or
+LangGraph node. There is no extra config; graphCTX speaks plain JSON-RPC.
+
+### OpenAI Agents SDK
+
+The Agents SDK has first-class MCP support:
+
+```python
+from agents import Agent
+from agents.mcp.server import MCPServerStdio
+
+graphctx_mcp = MCPServerStdio(
+    name="graphctx",
+    params={"command": "graphctx", "args": ["serve", "--mcp"]},
+)
+
+async with graphctx_mcp:
+    agent = Agent(
+        name="coder",
+        instructions="Use graphctx.recall before answering, and graphctx.remember when the user states a durable fact.",
+        mcp_servers=[graphctx_mcp],
+    )
+    # then Runner.run(agent, ...)
+```
+
+Point multiple agents at the same daemon by switching to a socket transport
+(any MCP client that supports `unix://` works).
+
+### Bare `child_process` MCP client (Node / TypeScript)
+
+```ts
+import { spawn } from "node:child_process";
+import { createInterface } from "node:readline";
+
+const proc = spawn("graphctx", ["serve", "--mcp"], { stdio: ["pipe", "pipe", "inherit"] });
+const rl = createInterface({ input: proc.stdout });
+proc.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) + "\n");
+for await (const line of rl) {
+  const msg = JSON.parse(line);
+  if (msg.id === 1) console.log(msg.result.tools.map(t => t.name));
+}
+```
+
+The shape of every tool call is `tools/call` with `{name, arguments}` per the
+MCP spec; see the table below for argument names.
+
+---
+
 ## The 8 MCP tools (what the agent actually calls)
 
 | Tool                | Purpose                                                         |

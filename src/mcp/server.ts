@@ -1,3 +1,5 @@
+import { existsSync, unlinkSync } from "node:fs";
+import { createServer } from "node:net";
 import { createInterface } from "node:readline";
 import { buildRider } from "../adapters/channel.js";
 import type { Capsule } from "../core/types.js";
@@ -133,6 +135,79 @@ export class McpServer {
       const res = await this.handle(req);
       if (res !== null) this.emit(JSON.stringify(res));
     }
+  }
+
+  // Daemon mode: serve line-delimited JSON-RPC over a local Unix domain
+  // socket. Each connecting client is a fresh JSON-RPC session that shares
+  // the same Runtime/DB with all the others, so Claude Desktop, Cursor, Codex
+  // and a CI agent can all attach to one process without spawning a new
+  // server per client. Bind path is local-filesystem only — there is no TCP
+  // listener and there is no network exposure.
+  async serveSocket(socketPath: string): Promise<void> {
+    if (existsSync(socketPath)) {
+      try {
+        unlinkSync(socketPath);
+      } catch {
+        // a stale socket the kernel still owns will surface on listen() below
+      }
+    }
+    const server = createServer((conn) => {
+      const send = (line: string) => conn.write(`${line}\n`);
+      const rl = createInterface({ input: conn, terminal: false });
+      conn.on("error", () => {
+        // a client hanging up mid-write must never crash the daemon
+        try {
+          conn.destroy();
+        } catch {
+          /* noop */
+        }
+      });
+      (async () => {
+        for await (const line of rl) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          let req: JsonRpcRequest;
+          try {
+            req = JSON.parse(trimmed);
+          } catch {
+            send(JSON.stringify(this.err(null, -32700, "parse error")));
+            continue;
+          }
+          const res = await this.handle(req);
+          if (res !== null) send(JSON.stringify(res));
+        }
+      })().catch(() => {
+        try {
+          conn.destroy();
+        } catch {
+          /* noop */
+        }
+      });
+    });
+    await new Promise<void>((ok, reject) => {
+      server.once("error", reject);
+      server.listen(socketPath, () => {
+        server.off("error", reject);
+        ok();
+      });
+    });
+    process.stderr.write(`graphctx mcp daemon listening on ${socketPath}\n`);
+    await new Promise<void>((resolve) => {
+      const stop = () => {
+        try {
+          server.close(() => resolve());
+        } catch {
+          resolve();
+        }
+        try {
+          if (existsSync(socketPath)) unlinkSync(socketPath);
+        } catch {
+          /* noop */
+        }
+      };
+      process.once("SIGINT", stop);
+      process.once("SIGTERM", stop);
+    });
   }
 
   close(): void {

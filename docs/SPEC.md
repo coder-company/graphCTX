@@ -781,6 +781,7 @@ graphctx serve --mcp [-C <dir>]        # run MCP server (stdio, exactly 8 tools)
 graphctx why <fact_id|last8> [-C <dir>]
 graphctx doctor [-C <dir>]             # health: db, git, hooks, fact count, verdict
 graphctx demo [--dir <dir>]            # one-command offline reproducible demo
+graphctx skill <claude|cursor|opencode|codex|generic|all> [--bin <path>] [--force]
 graphctx tui [-C <dir>] [--tab dashboard|control|monitor]
 graphctx compare [--live] [--deep] [--json] [-C <dir>]
 graphctx bench [--scale|--footprint] [--sizes list] [--budget-ms N]

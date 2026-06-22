@@ -9,6 +9,7 @@ import { generatedMarkersExtractor } from "./deterministic/generated-markers.js"
 import { lockfileExtractor } from "./deterministic/lockfile.js";
 import { packageScriptsExtractor } from "./deterministic/package-scripts.js";
 import { pythonExtractor } from "./deterministic/python.js";
+import { repoPagerankExtractor } from "./deterministic/repo-pagerank.js";
 import { runtimeVersionExtractor } from "./deterministic/runtime-version.js";
 import { testConfigExtractor } from "./deterministic/test-config.js";
 import { toolingConfigExtractor } from "./deterministic/tooling-config.js";
@@ -28,6 +29,10 @@ export const DETERMINISTIC_EXTRACTORS: Extractor[] = [
   ciExtractor,
   generatedMarkersExtractor,
   agentFilesExtractor,
+  // Opt-in via GRAPHCTX_EXTRACT_PAGERANK=1 or `extract --rank pagerank`.
+  // Stays in the list (and runs as a no-op) when the flag is off so adding
+  // it later does not change the public extractor count surface.
+  repoPagerankExtractor,
 ];
 
 export interface ExtractResult {

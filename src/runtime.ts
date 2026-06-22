@@ -414,14 +414,20 @@ export class Runtime {
     }
   }
 
-  // Provenance reader (M1 §5): full evidence chain for a fact.
-  why(factId: string): WhyReport | null {
-    return why(factId, {
-      facts: this.facts,
-      episodes: this.episodes,
-      edges: this.edges,
-      promotions: this.promotions,
-    });
+  // Provenance reader (M1 §5): full evidence chain for a fact. Pass `asOf` to
+  // restrict the chain to evidence/promotions/edges recorded at or before that
+  // ISO timestamp (bi-temporal "what did we believe at T" query).
+  why(factId: string, opts: { asOf?: string } = {}): WhyReport | null {
+    return why(
+      factId,
+      {
+        facts: this.facts,
+        episodes: this.episodes,
+        edges: this.edges,
+        promotions: this.promotions,
+      },
+      opts,
+    );
   }
 
   private procedureSuccesses(factId: string): number {

@@ -12,6 +12,7 @@ export const EXPECTED_COMMANDS = [
   "why",
   "doctor",
   "demo",
+  "skill",
   "tui",
   "compare",
   "bench",

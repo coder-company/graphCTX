@@ -26,24 +26,57 @@ export interface WhyDeps {
   promotions: PromotionsRepo;
 }
 
-export function why(factId: string, deps: WhyDeps): WhyReport | null {
+export interface WhyOptions {
+  // Bi-temporal "as-of" query (steal-from-Graphiti): only consider evidence,
+  // promotions, and edges whose `created_at` ≤ `asOf`. The fact itself must
+  // already exist at that wall-clock; otherwise we return null. Inputs are
+  // ISO-8601 timestamps. Out-of-range inputs degrade to "now" (I9 fail-soft).
+  asOf?: string;
+}
+
+export function why(factId: string, deps: WhyDeps, opts: WhyOptions = {}): WhyReport | null {
   const fact = deps.facts.get(factId);
   if (!fact) return null;
+
+  const asOfMs = normalizeAsOf(opts.asOf);
+  if (asOfMs !== undefined) {
+    const recordedMs = Date.parse(fact.time.t_recorded ?? "");
+    if (Number.isFinite(recordedMs) && recordedMs > asOfMs) return null;
+  }
 
   const evidence: Episode[] = [];
   const missing: string[] = [];
   for (const id of fact.source.event_ids) {
     const ep = deps.episodes.byId(id);
-    if (ep) evidence.push(ep);
-    else missing.push(id);
+    if (!ep) {
+      missing.push(id);
+      continue;
+    }
+    if (asOfMs !== undefined && createdAfter(ep.created_at, asOfMs)) continue;
+    evidence.push(ep);
   }
 
-  const promotions = deps.promotions.forFact(factId);
-  const edges = deps.edges.touching(factId);
+  const allPromotions = deps.promotions.forFact(factId);
+  const promotions =
+    asOfMs === undefined
+      ? allPromotions
+      : allPromotions.filter((p) => !createdAfter(p.created_at, asOfMs));
+
+  const allEdges = deps.edges.touching(factId);
+  const edges =
+    asOfMs === undefined ? allEdges : allEdges.filter((e) => !createdAfter(e.created_at, asOfMs));
 
   // A chain is complete when every cited evidence id resolves (or none was
-  // cited — deterministic facts legitimately carry no event ids).
-  const complete = missing.length === 0;
+  // cited — deterministic facts legitimately carry no event ids). At an
+  // as-of timestamp, evidence newer than the cursor is filtered out, so the
+  // chain is only complete if no cited id was either missing OR future.
+  const filteredEvidenceIds = new Set(evidence.map((e) => e.event_id));
+  const futureEvidence =
+    asOfMs === undefined
+      ? 0
+      : fact.source.event_ids.filter((id) => !filteredEvidenceIds.has(id) && !missing.includes(id))
+          .length;
+  const complete = missing.length === 0 && futureEvidence === 0;
 
   return {
     fact,
@@ -56,6 +89,18 @@ export function why(factId: string, deps: WhyDeps): WhyReport | null {
     edges,
     complete,
   };
+}
+
+function normalizeAsOf(raw?: string): number | undefined {
+  if (!raw) return undefined;
+  const ms = Date.parse(raw);
+  return Number.isFinite(ms) ? ms : undefined;
+}
+
+function createdAfter(iso: string | undefined, asOfMs: number): boolean {
+  if (!iso) return false;
+  const t = Date.parse(iso);
+  return Number.isFinite(t) && t > asOfMs;
 }
 
 export function formatWhy(r: WhyReport): string {

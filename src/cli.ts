@@ -245,7 +245,17 @@ program
   .command("extract")
   .description("run deterministic extractors against the workspace")
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
+  .option(
+    "--rank <strategy>",
+    "additional repo-map ranker (currently only: pagerank). Implies env GRAPHCTX_EXTRACT_PAGERANK=1.",
+  )
   .action(async (opts) => {
+    if (opts.rank) {
+      if (opts.rank !== "pagerank") {
+        fail(`--rank must be 'pagerank' (got ${opts.rank})`);
+      }
+      process.env.GRAPHCTX_EXTRACT_PAGERANK = "1";
+    }
     const rt = new Runtime({ workspaceDir: opts.cwd });
     const res = await rt.extract();
     refreshAgentsCapsule(rt);
@@ -259,11 +269,15 @@ program
 program
   .command("serve")
   .option("--mcp", "run as MCP server (stdio JSON-RPC)")
+  .option(
+    "--socket <path>",
+    "(daemon mode) bind to a local Unix socket; one server, many concurrent clients",
+  )
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
-  .description("run the graphCTX MCP server (stdio, 8 tools)")
+  .description("run the graphCTX MCP server (stdio by default, 8 tools)")
   .action(async (opts) => {
     if (!opts.mcp) {
-      process.stdout.write("usage: graphctx serve --mcp\n");
+      process.stdout.write("usage: graphctx serve --mcp [--socket <path>]\n");
       return;
     }
     const { McpServer } = await import("./mcp/server.js");
@@ -281,7 +295,11 @@ program
     process.once("SIGINT", onSignal);
     process.once("SIGTERM", onSignal);
     try {
-      await server.serve();
+      if (opts.socket) {
+        await server.serveSocket(resolve(opts.socket));
+      } else {
+        await server.serve();
+      }
     } finally {
       process.off("SIGINT", onSignal);
       process.off("SIGTERM", onSignal);
@@ -294,16 +312,26 @@ program
   .description("show the full provenance chain for a fact (events, anchor, gate, edges)")
   .argument("<fact_id>", "fact id (full or last-8 suffix)")
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
+  .option(
+    "--at <iso>",
+    "bi-temporal as-of cursor (ISO-8601); only show evidence recorded at or before this time",
+  )
   .action(async (factArg, opts) => {
     const { formatWhy } = await import("./provenance/why.js");
+    const asOf = parseAsOfOption(opts.at);
     const rt = new Runtime({ workspaceDir: opts.cwd });
     // Accept a last-8 suffix as a convenience (matches the [mem:id] tag).
     const id = rt.resolveFactId(factArg);
-    const report = id ? rt.why(id) : null;
+    const report = id ? rt.why(id, { asOf }) : null;
     if (!report) {
-      process.stdout.write(`no fact found for "${redactSecrets(factArg)}"\n`);
+      if (asOf && id) {
+        process.stdout.write(`fact ${id.slice(-8)} did not exist at ${asOf} (try without --at)\n`);
+      } else {
+        process.stdout.write(`no fact found for "${redactSecrets(factArg)}"\n`);
+      }
       process.exitCode = 1;
     } else {
+      if (asOf) process.stdout.write(`(as of ${asOf})\n`);
       process.stdout.write(formatWhy(report));
     }
     rt.close();
@@ -372,6 +400,36 @@ program
         "",
       ].join("\n"),
     );
+  });
+
+program
+  .command("skill")
+  .argument("<client>", "client: claude | cursor | opencode | codex | generic (or all)")
+  .description("install a graphCTX agent-skill file for a coding-agent host")
+  .option("-C, --cwd <dir>", "workspace directory", process.cwd())
+  .option("--bin <path>", "command used to invoke graphctx inside the skill template")
+  .option("--force", "overwrite an existing skill file", false)
+  .action(async (client, opts) => {
+    const { SKILL_CLIENTS, installSkill, isSkillClient } = await import(
+      "./adapters/skill/index.js"
+    );
+    const targets =
+      client === "all"
+        ? [...SKILL_CLIENTS]
+        : isSkillClient(client)
+          ? [client]
+          : (fail(
+              `unknown skill client "${client}" (supported: ${SKILL_CLIENTS.join(", ")}, all)`,
+            ) as never);
+    for (const c of targets) {
+      const t = installSkill({
+        workspaceDir: resolve(opts.cwd),
+        client: c,
+        binPath: resolveInstallBin(opts.bin),
+        force: Boolean(opts.force),
+      });
+      process.stdout.write(`${t.existed ? "Refreshed" : "Installed"} ${c} skill → ${t.path}\n`);
+    }
   });
 
 program
@@ -781,6 +839,13 @@ function parsePositiveNumberOption(raw: string, flag: string): number {
 function parseFactKindOption(raw: string): FactKind {
   if ((FACT_KINDS as readonly string[]).includes(raw)) return raw as FactKind;
   fail(`--kind must be one of: ${FACT_KINDS.join(", ")}`);
+}
+
+function parseAsOfOption(raw?: string): string | undefined {
+  if (raw === undefined) return undefined;
+  const ms = Date.parse(raw);
+  if (!Number.isFinite(ms)) fail(`--at must be a valid ISO-8601 timestamp (got ${raw})`);
+  return new Date(ms).toISOString();
 }
 
 const TUI_TABS = ["dashboard", "control", "monitor"] as const;

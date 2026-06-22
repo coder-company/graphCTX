@@ -6,7 +6,7 @@ describe("code quality eval", () => {
   it("protects lint debt, command reachability, README drift, and eval-suite coverage", () => {
     const r = runCodeQualityEval();
     expect(r.fullBiomeExit).toBe(0);
-    expect(r.commandCount).toBe(17);
+    expect(r.commandCount).toBe(18);
     expect(r.evalSuiteCount).toBe(EVAL_GATE_SUITES.length);
     expect(r.evalSuiteCount).toBeGreaterThanOrEqual(19);
     expect(r.coveredEvalSuites).toBe(r.evalSuiteCount);

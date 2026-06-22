@@ -154,6 +154,7 @@ graphctx serve     --mcp
 graphctx why       <fact_id_or_last8>
 graphctx doctor
 graphctx demo
+graphctx skill   <claude|cursor|opencode|codex|generic|all>
 graphctx tui
 ```
 
@@ -201,7 +202,7 @@ npx tsx src/cli.ts bench
 
 Expected current state:
 
-- `npx vitest run`: 285 tests pass.
+- `npx vitest run`: 286 tests pass.
 - `npm run pack:smoke`: packed tarball installs, runs the demo, and serves
   MCP from a clean temp app.
 - `npx tsx src/cli.ts eval all`: 19 gate suites pass.
