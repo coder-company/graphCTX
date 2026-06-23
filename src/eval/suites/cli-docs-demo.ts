@@ -237,7 +237,7 @@ export async function runCliDocsDemoEval(): Promise<CliDocsDemoReport> {
       !/EPIPE|write EPIPE|Unhandled|stack|Trace/.test(auto.auto.stderr) &&
       auto.unknown.status === 1 &&
       auto.unknown.stderr.includes('unknown client "frobnicate"') &&
-      auto.unknown.stderr.includes("supported: claude, cursor, opencode, generic, auto"),
+      auto.unknown.stderr.includes("supported: claude, cursor, opencode, codex, generic, auto"),
     `auto=${JSON.stringify(auto.auto.stdout.trim())} unknownExit=${auto.unknown.status}`,
   );
 

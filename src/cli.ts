@@ -6,6 +6,7 @@ import { Command } from "commander";
 import { writeAgentsCapsule } from "./adapters/boot-capsule.js";
 import { handleHook } from "./adapters/claude-code/hooks.js";
 import { hasClaudeGraphctxHooks, uninstallClaudeHooks } from "./adapters/claude-code/install.js";
+import { hasCodexGraphctxInstall } from "./adapters/codex/index.js";
 import { hasCursorGraphctxInstall } from "./adapters/cursor/index.js";
 import { hasGenericGraphctxInstall } from "./adapters/generic/index.js";
 import { hasOpenCodeGraphctxInstall } from "./adapters/opencode/index.js";
@@ -58,7 +59,7 @@ program
 
 program
   .command("install")
-  .argument("<client>", "client: claude | cursor | opencode | generic | auto")
+  .argument("<client>", "client: claude | cursor | opencode | codex | generic | auto")
   .description("wire a client to graphctx (hooks for claude; rules+MCP for others)")
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
   .option("--global", "install to user-level config", false)
@@ -76,6 +77,7 @@ program
       resolved === "claude" ||
       resolved === "cursor" ||
       resolved === "opencode" ||
+      resolved === "codex" ||
       resolved === "generic"
     ) {
       const { makeAdapter } = await import("./adapters/registry.js");
@@ -96,12 +98,15 @@ program
     }
 
     rt.close();
-    fail(`unknown client "${client}" (supported: claude, cursor, opencode, generic, auto)`);
+    fail(`unknown client "${client}" (supported: claude, cursor, opencode, codex, generic, auto)`);
   });
 
 program
   .command("uninstall")
-  .argument("<client>", "client to remove config for (claude | cursor | opencode | generic)")
+  .argument(
+    "<client>",
+    "client to remove config for (claude | cursor | opencode | codex | generic)",
+  )
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
   .option("--global", "remove from user-level config", false)
   .action(async (client, opts) => {
@@ -110,14 +115,19 @@ program
       process.stdout.write("Removed graphctx Claude Code hooks.\n");
       return;
     }
-    if (client === "cursor" || client === "opencode" || client === "generic") {
+    if (
+      client === "cursor" ||
+      client === "opencode" ||
+      client === "codex" ||
+      client === "generic"
+    ) {
       const { makeAdapter } = await import("./adapters/registry.js");
       const adapter = makeAdapter(client, resolve(opts.cwd));
       await adapter.uninstall();
       process.stdout.write(`Removed graphctx ${client} adapter config.\n`);
       return;
     }
-    fail(`unknown client "${client}" (supported: claude, cursor, opencode, generic)`);
+    fail(`unknown client "${client}" (supported: claude, cursor, opencode, codex, generic)`);
   });
 
 program
@@ -348,7 +358,7 @@ program
     const readiness = adapterReadiness(rt.workspaceDir);
     const verdict = doctorVerdict(readiness, factCount);
     process.stdout.write(
-      `graphctx doctor\n  workspace: ${rt.workspaceDir}\n  db: ${rt.loaded.paths.workspaceDb} (ok)\n  git repo: ${isRepo ? "yes" : "no (anchors degrade gracefully)"}\n  facts stored: ${factCount}\n  claude hooks: ${readiness.claude ? "installed" : "not installed"}\n  cursor MCP: ${readiness.cursor ? "installed" : "not installed"}\n  opencode MCP: ${readiness.opencode ? "installed" : "not installed"}\n  generic grounding: ${readiness.generic ? "installed" : "not installed"}\n\n  ${verdict}\n`,
+      `graphctx doctor\n  workspace: ${rt.workspaceDir}\n  db: ${rt.loaded.paths.workspaceDb} (ok)\n  git repo: ${isRepo ? "yes" : "no (anchors degrade gracefully)"}\n  facts stored: ${factCount}\n  claude hooks: ${readiness.claude ? "installed" : "not installed"}\n  cursor MCP: ${readiness.cursor ? "installed" : "not installed"}\n  opencode MCP: ${readiness.opencode ? "installed" : "not installed"}\n  codex MCP: ${readiness.codex ? "installed" : "not installed"}\n  generic grounding: ${readiness.generic ? "installed" : "not installed"}\n\n  ${verdict}\n`,
     );
     rt.close();
   });
@@ -358,6 +368,7 @@ program
   .description("one-command, offline demo setup (push beats pull, live)")
   .option("--dir <dir>", "scratch demo directory", join(tmpdir(), "graphctx-demo"))
   .action(async (opts) => {
+    if (!requireDevCheckout("demo")) return;
     const { setupDemo, DEMO_DEPLOY_CMD } = await import("./adapters/claude-code/demo.js");
     const r = await setupDemo(opts.dir);
     const ask =
@@ -452,6 +463,7 @@ program
   .option("--json", "emit machine-readable JSON (with --deep)", false)
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
   .action(async (opts) => {
+    if (!requireDevCheckout("compare")) return;
     if (opts.deep) {
       const { runScenarios } = await import("./bench/scenarios.js");
       if (!opts.json)
@@ -482,6 +494,7 @@ program
   .option("--budget-ms <n>", "p95 budget for --scale in milliseconds", "150")
   .option("-C, --cwd <dir>", "base directory", process.cwd())
   .action(async (opts) => {
+    if (!requireDevCheckout("bench")) return;
     if (opts.footprint) {
       const { measureFootprint, formatFootprintReport } = await import("./bench/scale.js");
       process.stdout.write("running startup/footprint benchmark…\n");
@@ -533,6 +546,7 @@ program
   .option("-C, --cwd <dir>", "workspace directory", process.cwd())
   .option("--live", "run opt-in live provider checks (requires GRAPHCTX_LLM_LIVE=1)", false)
   .action(async (sub, opts) => {
+    if (!requireDevCheckout("eval")) return;
     const runPromote = async () => {
       const { runPromotionEval, formatPromotionReport } = await import("./eval/promotion-eval.js");
       const report = await runPromotionEval();
@@ -766,15 +780,38 @@ function installNextStep(client: string): string {
       return "Cursor rule + MCP config installed; Cursor gets refreshed AGENTS.md grounding plus MCP recall.";
     case "opencode":
       return "OpenCode MCP config installed; OpenCode gets refreshed AGENTS.md grounding plus MCP recall.";
+    case "codex":
+      return "Codex MCP config written to ~/.codex/config.toml; restart any open Codex session to pick up the graphctx server.";
     default:
       return "Generic AGENTS.md grounding installed. Configure your client to run `graphctx serve --mcp` for recall.";
   }
+}
+
+// Detects whether graphctx is running from a development checkout (Node + tsx
+// or `node dist/cli.js`) versus the shipped, self-contained Bun-compiled
+// binary. Dev-only commands (demo / bench / eval / compare) need the source
+// tree's fixtures and node_modules and MUST NOT be exposed in the binary.
+function isDevelopmentCheckout(): boolean {
+  // Bun sets process.versions.bun; the compiled single-file binary is a Bun
+  // build, so this is the cleanest signal. Setting GRAPHCTX_DEV=1 forces dev
+  // mode for tests/CI that run the binary against the source tree.
+  if (process.env.GRAPHCTX_DEV === "1") return true;
+  return !((process.versions as Record<string, string | undefined>).bun ?? "");
+}
+
+function requireDevCheckout(commandName: string): boolean {
+  if (isDevelopmentCheckout()) return true;
+  process.stderr.write(
+    `error: \`graphctx ${commandName}\` is a development-only command and is not available in the shipped binary.\n       Clone https://github.com/coder-company/graphCTX and run it via \`npx tsx src/cli.ts\`.\n`,
+  );
+  process.exit(2);
 }
 
 interface AdapterReadiness {
   claude: boolean;
   cursor: boolean;
   opencode: boolean;
+  codex: boolean;
   generic: boolean;
 }
 
@@ -783,6 +820,7 @@ function adapterReadiness(workspaceDir: string): AdapterReadiness {
     claude: hasClaudeGraphctxHooks({ workspaceDir }),
     cursor: hasCursorGraphctxInstall(workspaceDir),
     opencode: hasOpenCodeGraphctxInstall(workspaceDir),
+    codex: hasCodexGraphctxInstall(),
     generic: hasGenericGraphctxInstall(workspaceDir),
   };
 }
@@ -792,7 +830,7 @@ function doctorVerdict(readiness: AdapterReadiness, factCount: number): string {
   if (readiness.claude) {
     return "READY ✅ — Claude Code hooks installed and memory populated; lifecycle push is live.";
   }
-  if (readiness.cursor || readiness.opencode) {
+  if (readiness.cursor || readiness.opencode || readiness.codex) {
     return "READY ✅ — MCP recall and refreshed static grounding are installed; Claude-only lifecycle push is not active.";
   }
   if (readiness.generic) {

@@ -202,7 +202,7 @@ npx tsx src/cli.ts bench
 
 Expected current state:
 
-- `npx vitest run`: 286 tests pass.
+- `npx vitest run`: 292 tests pass.
 - `npm run pack:smoke`: packed tarball installs, runs the demo, and serves
   MCP from a clean temp app.
 - `npx tsx src/cli.ts eval all`: 19 gate suites pass.
